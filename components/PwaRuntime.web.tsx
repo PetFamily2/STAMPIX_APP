@@ -1,5 +1,6 @@
 import { useConvexConnectionState } from 'convex/react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import WebPermissionOnboarding from '@/components/web-permissions/WebPermissionOnboarding.web';
 import {
   pendingWriteCount,
   subscribePendingWrites,
@@ -12,8 +13,9 @@ function uncertainty() {
       if (
         key?.startsWith('stampaix:web-scanner-recovery:') &&
         JSON.parse(sessionStorage.getItem(key) ?? '{}').uncertain
-      )
+      ) {
         return true;
+      }
     }
     return false;
   } catch {
@@ -40,15 +42,16 @@ export default function PwaRuntime() {
       !isSecureContext ||
       location.protocol !== 'https:' ||
       !('serviceWorker' in navigator)
-    )
+    ) {
       return;
+    }
     let disposed = false;
     const network = () => setOffline(navigator.onLine === false);
     const scanner = (event: Event) => {
       busy.current = (event as CustomEvent).detail === true;
     };
     const message = (event: MessageEvent) => {
-      if (event.data?.type === 'CHECK_UPDATE_SAFE')
+      if (event.data?.type === 'CHECK_UPDATE_SAFE') {
         event.source?.postMessage({
           type: 'UPDATE_SAFETY',
           nonce: event.data.nonce,
@@ -58,6 +61,7 @@ export default function PwaRuntime() {
             !httpBusy.current &&
             !uncertainty(),
         });
+      }
     };
     const hadController = !!navigator.serviceWorker.controller;
     const changed = () => {
@@ -67,8 +71,9 @@ export default function PwaRuntime() {
         !serverBusy.current &&
         !httpBusy.current &&
         !uncertainty()
-      )
+      ) {
         location.reload();
+      }
     };
     window.addEventListener('online', network);
     window.addEventListener('offline', network);
@@ -79,8 +84,12 @@ export default function PwaRuntime() {
     void navigator.serviceWorker
       .register('/service-worker.js', { scope: '/', updateViaCache: 'none' })
       .then((registration) => {
-        if (disposed) return;
-        if (registration.waiting) setWaiting(registration.waiting);
+        if (disposed) {
+          return;
+        }
+        if (registration.waiting) {
+          setWaiting(registration.waiting);
+        }
         registration.addEventListener('updatefound', () => {
           const worker = registration.installing;
           worker?.addEventListener('statechange', () => {
@@ -88,8 +97,9 @@ export default function PwaRuntime() {
               !disposed &&
               worker.state === 'installed' &&
               navigator.serviceWorker.controller
-            )
+            ) {
               setWaiting(registration.waiting);
+            }
           });
         });
       })
@@ -105,36 +115,41 @@ export default function PwaRuntime() {
       navigator.serviceWorker.removeEventListener('controllerchange', changed);
     };
   }, []);
-  if (!offline && !waiting) return null;
   return (
-    <aside
-      dir="rtl"
-      aria-live="polite"
-      style={{
-        background: '#eff6ff',
-        padding: 12,
-        color: '#172033',
-        textAlign: 'right',
-      }}
-    >
-      {offline ? <p>אין חיבור לרשת. פעולות סריקה חסומות.</p> : null}
-      {waiting ? (
-        <button
-          type="button"
-          style={{ minHeight: 44, padding: '8px 12px' }}
-          onClick={() => {
-            if (
-              !busy.current &&
-              !serverBusy.current &&
-              !httpBusy.current &&
-              !uncertainty()
-            )
-              waiting.postMessage({ type: 'REQUEST_SAFE_ACTIVATION' });
+    <>
+      <WebPermissionOnboarding />
+      {offline || waiting ? (
+        <aside
+          dir="rtl"
+          aria-live="polite"
+          style={{
+            background: '#eff6ff',
+            padding: 12,
+            color: '#172033',
+            textAlign: 'right',
           }}
         >
-          גרסה חדשה זמינה — עדכון כשאין פעולה ממתינה
-        </button>
+          {offline ? <p>אין חיבור לרשת. פעולות סריקה חסומות.</p> : null}
+          {waiting ? (
+            <button
+              type="button"
+              style={{ minHeight: 44, padding: '8px 12px' }}
+              onClick={() => {
+                if (
+                  !busy.current &&
+                  !serverBusy.current &&
+                  !httpBusy.current &&
+                  !uncertainty()
+                ) {
+                  waiting.postMessage({ type: 'REQUEST_SAFE_ACTIVATION' });
+                }
+              }}
+            >
+              גרסה חדשה זמינה — עדכון כשאין פעולה ממתינה
+            </button>
+          ) : null}
+        </aside>
       ) : null}
-    </aside>
+    </>
   );
 }

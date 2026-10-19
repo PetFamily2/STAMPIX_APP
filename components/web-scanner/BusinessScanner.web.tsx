@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { BUSINESS_WEB_TOKENS as TOKENS } from '../../lib/design/businessWebTokens';
 import { createWebReceiptAdapter } from '../../lib/scanner/webReceiptAdapter';
+import { startPreviouslyGrantedCamera } from '../../lib/web-scanner/cameraPermission';
 import {
   type CommandState,
   initialCommand,
@@ -12,6 +14,10 @@ import {
 } from '../../lib/web-scanner/controller';
 import { createFrameCapture } from '../../lib/web-scanner/decoder';
 import { createHttpTransport } from '../../lib/web-scanner/httpTransport';
+import {
+  cameraDisplayName,
+  cameraStatusMessage,
+} from '../../lib/web-scanner/presentation';
 import { createRawWorkerDecoder } from '../../lib/web-scanner/rawWorker';
 import { recoveryIdentity } from '../../lib/web-scanner/recovery';
 import { initialScannerState } from '../../lib/web-scanner/state';
@@ -71,6 +77,9 @@ export default function BusinessScanner(props: {
   useEffect(() => {
     const element = video.current;
     if (!element || !props.enabled) return;
+    setBlocked('מכינים את הסורק');
+    setState(initialCommand);
+    setCameraState(initialScannerState);
     let disposed = false;
     let releaseLock: (() => void) | undefined;
     let detachCamera: (() => void) | undefined;
@@ -189,6 +198,16 @@ export default function BusinessScanner(props: {
             window.addEventListener('offline', onNetwork);
             window.addEventListener('pagehide', onPageHide);
             window.addEventListener('pageshow', onPageShow);
+            // Only after scope, recovery and exclusive-lock checks. Never prompts on mount.
+            void startPreviouslyGrantedCamera({
+              permissions: navigator.permissions,
+              allowed: () =>
+                valid() &&
+                current.current.canStartScan !== false &&
+                document.visibilityState === 'visible' &&
+                engine.state.phase === 'IDLE',
+              start: () => capture.start(),
+            });
             await new Promise<void>((resolve) => {
               releaseLock = resolve;
               if (disposed) resolve();
@@ -276,6 +295,18 @@ export default function BusinessScanner(props: {
   ]);
   const ready = state.phase === 'READY_FOR_ACTION';
   const success = state.phase === 'SUCCESS';
+  const cameraActive = cameraState.status === 'scanning';
+  const requestingCamera = cameraState.status === 'requesting';
+  const cameraError = [
+    'denied',
+    'no-camera',
+    'error',
+    'insecure',
+    'unsupported',
+  ].includes(cameraState.status);
+  const statusMessage = ['IDLE', 'CAMERA_READY'].includes(state.phase)
+    ? cameraStatusMessage(cameraState.status)
+    : labels[state.phase];
   const busy = [
     'QR_LOCKED',
     'RESOLVING',
@@ -291,19 +322,45 @@ export default function BusinessScanner(props: {
       dir="rtl"
     >
       <style>{SCANNER_CHROME}</style>
-      <video ref={video} playsInline={true} muted={true} aria-label="מצלמה" />
+      <div className="sx-camera" data-camera-active={cameraActive}>
+        <video
+          ref={video}
+          playsInline={true}
+          muted={true}
+          aria-label="מצלמת סריקת קוד לקוח"
+        />
+        {cameraActive ? (
+          <div className="sx-target" aria-hidden="true" />
+        ) : (
+          <div className="sx-camera-placeholder" aria-hidden="true">
+            <strong>
+              {requestingCamera
+                ? 'מפעילים את המצלמה…'
+                : ready || success
+                  ? 'הקוד נקרא'
+                  : 'סריקת קוד לקוח'}
+            </strong>
+            <span>
+              {requestingCamera
+                ? 'אשרו גישה למצלמה בחלון הדפדפן'
+                : ready || success
+                  ? 'פרטי הפעולה מופיעים בהמשך'
+                  : 'הרשאה שמורה מאפשרת הפעלה אוטומטית. אחרת לחצו על הפעלת מצלמה.'}
+            </span>
+          </div>
+        )}
+      </div>
       <section className="sx-copy">
-        <h1>סריקה</h1>
+        <h2>מצב הסריקה</h2>
         {blocked ? <p role="alert">{blocked}</p> : null}
-        <p aria-live="polite">{labels[state.phase]}</p>
+        <p aria-live="polite">{statusMessage}</p>
+        <p className="sx-permission-hint">
+          הרשאת המצלמה נשמרת בדפדפן לכתובת האתר הזו. בחרו הרשאה מתמשכת אם הדפדפן
+          מציע זאת. המצלמה נעצרת ביציאה מהסורק וברקע.
+        </p>
         {state.code ? <p>{state.code}</p> : null}
-        {['denied', 'no-camera', 'error', 'insecure', 'unsupported'].includes(
-          cameraState.status
-        ) ? (
-          <p>
-            המצלמה אינה זמינה ({cameraState.status}). בדקו הרשאה וחיבור HTTPS
-            ונסו מחדש.
-          </p>
+        {cameraError && !['IDLE', 'CAMERA_READY'].includes(state.phase) ? (
+          <p role="alert">{cameraStatusMessage(cameraState.status)}</p>
         ) : null}
         {props.canStartScan === false ? (
           <p>הכרטיסייה אינה זמינה לסריקה חדשה. אפשר לברר תוצאה קודמת.</p>
@@ -316,20 +373,27 @@ export default function BusinessScanner(props: {
           </p>
         ) : null}
         <div className="sx-actions">
-          <button
-            className="secondary"
-            type="button"
-            disabled={
-              props.canStartScan === false ||
-              !!blocked ||
-              busy ||
-              ready ||
-              success
-            }
-            onClick={() => void camera.current?.start()}
-          >
-            הפעלת מצלמה
-          </button>
+          {!cameraActive && !ready && !success ? (
+            <button
+              className="primary"
+              type="button"
+              disabled={
+                props.canStartScan === false ||
+                !!blocked ||
+                requestingCamera ||
+                busy ||
+                ready ||
+                success
+              }
+              onClick={() => void camera.current?.start()}
+            >
+              {requestingCamera
+                ? 'מפעילים מצלמה…'
+                : cameraError
+                  ? 'ניסיון הפעלה מחדש'
+                  : 'הפעלת מצלמה'}
+            </button>
+          ) : null}
           {ready ? (
             <button
               className="primary"
@@ -397,18 +461,20 @@ export default function BusinessScanner(props: {
               ניסיון מפורש באותה פעולה ובאותו מזהה
             </button>
           ) : null}
-          <button
-            type="button"
-            disabled={busy || !!blocked}
-            onClick={() => {
-              if (commands.current?.reset()) {
-                camera.current?.reset();
-                setRevision((r) => r + 1);
-              }
-            }}
-          >
-            איפוס וסריקה חדשה
-          </button>
+          {state.phase !== 'IDLE' || cameraActive ? (
+            <button
+              type="button"
+              disabled={busy || !!blocked || requestingCamera}
+              onClick={() => {
+                if (commands.current?.reset()) {
+                  camera.current?.reset();
+                  setRevision((r) => r + 1);
+                }
+              }}
+            >
+              סריקת לקוח נוסף
+            </button>
+          ) : null}
         </div>
         {cameraState.cameras.length > 1 &&
         props.canStartScan !== false &&
@@ -416,16 +482,17 @@ export default function BusinessScanner(props: {
         !ready &&
         !success ? (
           <label>
-            בחירת מצלמה{' '}
+            מצלמה{' '}
             <select
+              disabled={!!blocked || requestingCamera}
               value={cameraState.selectedCamera}
               onChange={(event) =>
                 void camera.current?.start(event.target.value)
               }
             >
-              {cameraState.cameras.map((c) => (
+              {cameraState.cameras.map((c, index) => (
                 <option value={c.id} key={c.id}>
-                  {c.label}
+                  {cameraDisplayName(c.label, index)}
                 </option>
               ))}
             </select>
@@ -437,19 +504,25 @@ export default function BusinessScanner(props: {
 }
 
 const SCANNER_CHROME = `
-.sx-scan{width:100%;display:flex;flex-direction:column;gap:16px;box-sizing:border-box;padding:16px;font-family:Heebo,Arial,sans-serif;color:#101936}
-.sx-scan h1{margin:0;font-size:22px;line-height:28px;font-weight:600;text-align:right}
-.sx-scan p{margin:0;text-align:right;color:#475569}
-.sx-scan video{width:100%;min-height:280px;aspect-ratio:4/3;background:#0B1220;border-radius:20px;object-fit:cover}
+.sx-scan{width:100%;display:flex;flex-direction:column;gap:16px;box-sizing:border-box;padding:16px 0;font-family:Heebo,Arial,sans-serif;color:${TOKENS.colors.textPrimary}}
+.sx-scan h2{margin:0;font-size:18px;line-height:26px;font-weight:600;text-align:right}
+.sx-scan p{margin:0;text-align:right;color:${TOKENS.colors.textSecondary};line-height:1.6;overflow-wrap:anywhere}
+.sx-camera{position:relative;overflow:hidden;border-radius:${TOKENS.radii.lg}px;background:${TOKENS.colors.subtleSurface};width:100%;aspect-ratio:4/3;max-height:360px}
+.sx-camera video{width:100%;height:100%;object-fit:cover}
+.sx-camera[data-camera-active=false] video{visibility:hidden}
+.sx-camera-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;box-sizing:border-box;color:${TOKENS.colors.textSecondary}}
+.sx-camera-placeholder strong{color:${TOKENS.colors.textPrimary};font-size:18px}
+.sx-target{position:absolute;inset:18%;border:2px dashed ${TOKENS.colors.elevatedSurface};border-radius:${TOKENS.radii.md}px;pointer-events:none}
 .sx-copy{display:flex;flex-direction:column;gap:12px}
 .sx-actions{display:flex;flex-direction:column;gap:8px}
-.sx-scan button{height:48px;border-radius:12px;border:1.5px solid #1230A8;background:#fff;color:#1230A8;font:600 16px/1 Heebo,Arial,sans-serif;cursor:pointer}
-.sx-scan button.primary{background:#1230A8;color:#fff}
+.sx-scan button{min-height:${TOKENS.control.height}px;padding:12px;border-radius:${TOKENS.radii.md}px;border:1px solid ${TOKENS.colors.borderStrong};background:${TOKENS.colors.elevatedSurface};color:${TOKENS.colors.primary};font:600 16px/1.4 Heebo,Arial,sans-serif;cursor:pointer}
+.sx-scan button.primary{background:${TOKENS.colors.primary};border-color:${TOKENS.colors.primary};color:${TOKENS.colors.elevatedSurface}}
 .sx-scan button:disabled{opacity:.45;cursor:default}
-.sx-scan select{height:48px;border-radius:12px;border:1px solid #D5DBE6;font:400 16px Heebo,Arial,sans-serif}
+.sx-scan label{display:flex;flex-direction:column;gap:8px}
+.sx-scan select{width:100%;min-width:0;min-height:${TOKENS.control.height}px;padding:8px 12px;background:${TOKENS.colors.elevatedSurface};color:${TOKENS.colors.textPrimary};border-radius:${TOKENS.radii.md}px;border:1px solid ${TOKENS.colors.borderStrong};font:400 16px Heebo,Arial,sans-serif}
 @media (min-width:1024px){
-  .sx-scan{display:grid;grid-template-columns:minmax(280px,1fr) 340px;align-items:start;padding:28px}
-  .sx-scan video{grid-column:1;grid-row:1;min-height:460px}
+  .sx-scan{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,340px);align-items:start;padding:24px 0}
+  .sx-camera{grid-column:1;grid-row:1}
   .sx-copy{grid-column:2;grid-row:1}
 }
 `;

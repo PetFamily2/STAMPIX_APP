@@ -80,6 +80,16 @@ button:focus-visible, a:focus-visible, input:focus-visible,
 }
 
 /* Keyboard focus treatment isolated to the Business Web shell. */
+#business-customer-search:focus-within {
+  outline: 2px solid #1230a8;
+  outline-offset: 2px;
+}
+
+/* The rounded search container owns the visible ring, including its icon. */
+#business-customer-search input:focus-visible {
+  outline: none;
+}
+
 #business-web-shell [role='button']:focus-visible,
 #business-web-shell [role='menuitem']:focus-visible,
 #business-web-shell [role='tab']:focus-visible {

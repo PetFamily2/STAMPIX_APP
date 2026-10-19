@@ -2,18 +2,25 @@ import { useQuery } from 'convex/react';
 import { useLocalSearchParams } from 'expo-router';
 import { Search, Users } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
+import { BusinessWebCustomerDetails } from '@/components/business-web/BusinessWebCustomerDetails';
 import { AppText as Text } from '@/components/ui/AppText';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { webCustomerStateLabel } from '@/lib/customers/webCustomerGuidance';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
 import {
   customerMatchesWebRouteFilter,
   parseWebCustomerRouteFilter,
   webCustomerRouteFilterLabel,
 } from '@/lib/recommendations/webCustomerFilter';
-import { flexDirection, rtlBaseText, selfStart } from '@/lib/rtl';
+import {
+  flexDirection,
+  alignItems as rtlAlign,
+  rtlBaseText,
+  selfStart,
+} from '@/lib/rtl';
 
 type CustomerRow = {
   customerId: string;
@@ -25,14 +32,6 @@ type CustomerRow = {
   primaryProgramName: string;
   rewardThreshold: number;
   loyaltyProgress: number;
-};
-
-const STATE_LABELS: Record<string, string> = {
-  NEW: 'חדש',
-  ACTIVE: 'פעיל',
-  NEEDS_NURTURE: 'דורש חימום',
-  NEEDS_WINBACK: 'דורש חזרה',
-  CLOSE_TO_REWARD: 'קרוב להטבה',
 };
 
 function lastVisitLabel(days: number) {
@@ -52,6 +51,9 @@ export function BusinessWebCustomers({
   const { filter } = useLocalSearchParams<{ filter?: string | string[] }>();
   const routeFilter = parseWebCustomerRouteFilter(filter);
   const [search, setSearch] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(
+    null
+  );
   const customers = (data ?? []) as CustomerRow[];
 
   const filtered = useMemo(() => {
@@ -90,20 +92,30 @@ export function BusinessWebCustomers({
       <View style={styles.summaryRow}>
         <View style={styles.summaryCard}>
           <Text style={styles.summaryLabel}>סה״כ לקוחות</Text>
-          <Text style={styles.summaryValue}>{customers.length}</Text>
+          <Text style={styles.summaryValue}>
+            {data === undefined ? '—' : customers.length}
+          </Text>
         </View>
         <View style={styles.summaryCard}>
           <Text style={styles.summaryLabel}>לקוחות פעילים</Text>
-          <Text style={styles.summaryValue}>{activeCount}</Text>
+          <Text style={styles.summaryValue}>
+            {data === undefined ? '—' : activeCount}
+          </Text>
         </View>
         <View style={styles.summaryCard}>
           <Text style={styles.summaryLabel}>דורשים תשומת לב</Text>
-          <Text style={styles.summaryValue}>{attentionCount}</Text>
+          <Text style={styles.summaryValue}>
+            {data === undefined ? '—' : attentionCount}
+          </Text>
         </View>
       </View>
+      <Text style={styles.customerMeta}>
+        הסיכום לפי סיווג הלקוחות כעת. נתוני פעילות ב־30 הימים האחרונים מופיעים
+        בניתוחים.
+      </Text>
 
       <View style={styles.panel}>
-        <View style={styles.searchWrap}>
+        <View nativeID="business-customer-search" style={styles.searchWrap}>
           <Search color={TOKENS.colors.textMuted} size={18} />
           <TextInput
             accessibilityLabel="חיפוש לקוחות"
@@ -127,7 +139,9 @@ export function BusinessWebCustomers({
           <View style={styles.emptyState}>
             <Users color={TOKENS.colors.primary} size={24} />
             <Text style={styles.emptyTitle}>
-              {customers.length === 0 ? 'עדיין אין לקוחות במועדון' : 'לא נמצאו לקוחות'}
+              {customers.length === 0
+                ? 'עדיין אין לקוחות במועדון'
+                : 'לא נמצאו לקוחות'}
             </Text>
             <Text style={styles.emptyText}>
               {customers.length === 0
@@ -142,15 +156,29 @@ export function BusinessWebCustomers({
             {filtered.map((customer) => {
               const progress =
                 customer.rewardThreshold > 0
-                  ? Math.min(
-                      100,
-                      Math.round(
-                        (customer.loyaltyProgress / customer.rewardThreshold) * 100
+                  ? Math.max(
+                      0,
+                      Math.min(
+                        100,
+                        Math.round(
+                          (customer.loyaltyProgress /
+                            customer.rewardThreshold) *
+                            100
+                        )
                       )
                     )
                   : 0;
               return (
-                <View key={customer.customerId} style={styles.customerRow}>
+                <Pressable
+                  key={customer.customerId}
+                  accessibilityRole="button"
+                  accessibilityLabel={`פתיחת כרטיס לקוח: ${customer.name || 'לקוח'}, ${webCustomerStateLabel(customer.customerState)}`}
+                  onPress={() => setSelectedCustomerId(customer.customerId)}
+                  style={({ pressed }) => [
+                    styles.customerRow,
+                    pressed ? styles.customerRowPressed : null,
+                  ]}
+                >
                   <View style={styles.avatar}>
                     <Text style={styles.avatarText}>
                       {(customer.name || 'ל').charAt(0)}
@@ -163,23 +191,47 @@ export function BusinessWebCustomers({
                       </Text>
                       <View style={styles.stateBadge}>
                         <Text style={styles.stateText}>
-                          {STATE_LABELS[customer.customerState ?? ''] ?? 'פעיל'}
+                          {webCustomerStateLabel(customer.customerState)}
                         </Text>
                       </View>
                     </View>
                     <Text style={styles.customerMeta}>
-                      {customer.primaryProgramName || 'מועדון לקוחות'} · {customer.visitCount} ביקורים · {lastVisitLabel(customer.lastVisitDaysAgo)}
+                      {customer.primaryProgramName || 'מועדון לקוחות'} ·{' '}
+                      {customer.visitCount} ביקורים ·{' '}
+                      {lastVisitLabel(customer.lastVisitDaysAgo)}
                     </Text>
-                    <View style={styles.progressTrack}>
-                      <View style={[styles.progressFill, { width: `${progress}%` }]} />
+                    <Text style={styles.customerMeta}>
+                      התקדמות להטבה: {customer.loyaltyProgress} מתוך{' '}
+                      {customer.rewardThreshold} חותמות
+                    </Text>
+                    <View
+                      accessibilityRole="progressbar"
+                      accessibilityLabel="התקדמות להטבה"
+                      accessibilityValue={{ min: 0, max: 100, now: progress }}
+                      style={styles.progressTrack}
+                    >
+                      <View
+                        style={[styles.progressFill, { width: `${progress}%` }]}
+                      />
                     </View>
+                    <Text style={styles.openCustomer}>
+                      כרטיסיות, פעילות ומה מומלץ לעשות ←
+                    </Text>
                   </View>
-                </View>
+                </Pressable>
               );
             })}
           </View>
         )}
       </View>
+      {selectedCustomerId ? (
+        <BusinessWebCustomerDetails
+          key={`${String(activeBusinessId)}-${selectedCustomerId}`}
+          businessId={activeBusinessId}
+          customerUserId={selectedCustomerId as Id<'users'>}
+          onClose={() => setSelectedCustomerId(null)}
+        />
+      ) : null}
     </View>
   );
 }
@@ -187,29 +239,154 @@ export function BusinessWebCustomers({
 const styles = StyleSheet.create({
   page: { width: '100%', maxWidth: 980, alignSelf: 'center', gap: 16 },
   header: { gap: 4 },
-  pageTitle: { ...TOKENS.typography.pageTitle, color: TOKENS.colors.textPrimary, textAlign: 'right', writingDirection: 'rtl' },
-  pageSubtitle: { ...TOKENS.typography.body, color: TOKENS.colors.textMuted, textAlign: 'right', writingDirection: 'rtl' },
-  summaryRow: { flexDirection: flexDirection.row, flexWrap: 'wrap', gap: 0, borderTopWidth: 1, borderBottomWidth: 1, borderColor: TOKENS.colors.border, paddingVertical: 10 },
-  summaryCard: { flexGrow: 1, flexBasis: 150, minWidth: 150, paddingHorizontal: 14, paddingVertical: 2, gap: 1 },
-  summaryLabel: { ...TOKENS.typography.metadata, color: TOKENS.colors.textMuted, ...rtlBaseText },
-  summaryValue: { fontSize: 21, lineHeight: 27, fontWeight: '600', color: TOKENS.colors.textPrimary, ...rtlBaseText },
+  pageTitle: {
+    ...TOKENS.typography.pageTitle,
+    color: TOKENS.colors.textPrimary,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  pageSubtitle: {
+    ...TOKENS.typography.body,
+    color: TOKENS.colors.textMuted,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  summaryRow: {
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    gap: TOKENS.space.sm,
+  },
+  summaryCard: {
+    flexGrow: 1,
+    flexBasis: 88,
+    minWidth: 0,
+    padding: TOKENS.space.md,
+    gap: TOKENS.space.xs,
+    backgroundColor: TOKENS.colors.elevatedSurface,
+    borderRadius: TOKENS.radii.md,
+    borderWidth: 1,
+    borderColor: TOKENS.colors.border,
+  },
+  summaryLabel: {
+    ...TOKENS.typography.metadata,
+    color: TOKENS.colors.textMuted,
+    ...rtlBaseText,
+  },
+  summaryValue: {
+    fontSize: 21,
+    lineHeight: 27,
+    fontWeight: '600',
+    color: TOKENS.colors.textPrimary,
+    ...rtlBaseText,
+  },
   panel: { gap: 10 },
-  filterLabel: { ...TOKENS.typography.metadata, color: TOKENS.colors.primary, ...rtlBaseText },
-  searchWrap: { width: '100%', maxWidth: 360, alignSelf: selfStart, flexDirection: flexDirection.row, alignItems: 'center', gap: 8, borderWidth: 1, borderColor: TOKENS.colors.borderStrong, borderRadius: TOKENS.radii.sm, minHeight: 36, paddingHorizontal: 10 },
-  searchInput: { flex: 1, fontSize: 13, color: TOKENS.colors.textPrimary, textAlign: 'right', writingDirection: 'rtl', outlineStyle: 'none' } as any,
+  filterLabel: {
+    ...TOKENS.typography.metadata,
+    color: TOKENS.colors.primary,
+    ...rtlBaseText,
+  },
+  searchWrap: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: selfStart,
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: TOKENS.colors.borderStrong,
+    borderRadius: TOKENS.radii.md,
+    minHeight: TOKENS.control.height,
+    paddingHorizontal: TOKENS.space.md,
+    backgroundColor: TOKENS.colors.elevatedSurface,
+  },
+  searchInput: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: TOKENS.control.height,
+    fontSize: 16,
+    color: TOKENS.colors.textPrimary,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
   list: { gap: 0, borderTopWidth: 1, borderTopColor: TOKENS.colors.border },
-  customerRow: { flexDirection: flexDirection.row, alignItems: 'center', gap: 10, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: TOKENS.colors.border },
-  avatar: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: TOKENS.colors.primarySubtle },
+  customerRow: {
+    flexDirection: flexDirection.row,
+    alignItems: rtlAlign.end,
+    gap: TOKENS.space.md,
+    paddingVertical: TOKENS.space.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: TOKENS.colors.border,
+  },
+  avatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: TOKENS.colors.primarySubtle,
+  },
+  customerRowPressed: { backgroundColor: TOKENS.colors.primarySubtle },
+  openCustomer: {
+    ...rtlBaseText,
+    ...TOKENS.typography.secondaryBody,
+    color: TOKENS.colors.primary,
+    marginTop: TOKENS.space.xs,
+  },
   avatarText: { fontSize: 12, fontWeight: '700', color: TOKENS.colors.primary },
   customerMain: { flex: 1, minWidth: 0, gap: 3 },
-  customerTitleRow: { flexDirection: flexDirection.row, justifyContent: 'space-between', alignItems: 'center', gap: 12 },
-  customerName: { ...TOKENS.typography.cardTitle, color: TOKENS.colors.textPrimary, textAlign: 'right' },
-  customerMeta: { ...TOKENS.typography.metadata, color: TOKENS.colors.textMuted, textAlign: 'right', writingDirection: 'rtl' },
-  stateBadge: { borderRadius: TOKENS.radii.pill, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: TOKENS.colors.primarySubtle },
+  customerTitleRow: {
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: TOKENS.space.sm,
+  },
+  customerName: {
+    ...TOKENS.typography.cardTitle,
+    flexShrink: 1,
+    color: TOKENS.colors.textPrimary,
+    textAlign: 'right',
+    writingDirection: 'auto',
+  },
+  customerMeta: {
+    ...TOKENS.typography.metadata,
+    color: TOKENS.colors.textMuted,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  stateBadge: {
+    borderRadius: TOKENS.radii.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    backgroundColor: TOKENS.colors.primarySubtle,
+  },
   stateText: { fontSize: 12, fontWeight: '600', color: TOKENS.colors.primary },
-  progressTrack: { height: 3, borderRadius: 999, overflow: 'hidden', backgroundColor: TOKENS.colors.border },
-  progressFill: { height: '100%', borderRadius: 999, backgroundColor: TOKENS.colors.primary },
-  emptyState: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 28 },
-  emptyTitle: { ...TOKENS.typography.cardTitle, color: TOKENS.colors.textPrimary, textAlign: 'center' },
-  emptyText: { ...TOKENS.typography.secondaryBody, color: TOKENS.colors.textMuted, textAlign: 'center' },
+  progressTrack: {
+    flexDirection: flexDirection.row,
+    height: 4,
+    borderRadius: TOKENS.radii.pill,
+    overflow: 'hidden',
+    backgroundColor: TOKENS.colors.border,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: TOKENS.colors.primary,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 28,
+  },
+  emptyTitle: {
+    ...TOKENS.typography.cardTitle,
+    color: TOKENS.colors.textPrimary,
+    textAlign: 'center',
+  },
+  emptyText: {
+    ...TOKENS.typography.secondaryBody,
+    color: TOKENS.colors.textMuted,
+    textAlign: 'center',
+  },
 });

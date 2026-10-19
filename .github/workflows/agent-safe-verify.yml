@@ -1,4 +1,4 @@
-name: Agent safe verification
+name: Agent safe Web and PWA verification
 
 # Verification-only CI for explicitly approved agent task branches.
 # This workflow intentionally has no deployment job, environment, or secrets.
@@ -58,16 +58,14 @@ jobs:
       - name: Type check
         run: bun run type-check
 
-      - name: Verify RTL and Native configuration contracts
-        run: |
-          bun run verify:rtl-build-source
-          bun run verify:rtl-native-config
+      - name: Verify Web RTL source contracts
+        run: bun run verify:rtl-build-source
 
       - name: Verify scanner, camera, billing, and shared-backend boundaries
         run: node scripts/verify-web-phase3-boundaries.mjs
 
-      - name: Export Web, iOS, and Android JavaScript
-        run: bunx expo export --platform all --output-dir ${{ runner.temp }}/agent-safe-export --max-workers 2
+      - name: Export Web and PWA JavaScript only
+        run: bunx expo export --platform web --output-dir ${{ runner.temp }}/agent-safe-export --max-workers 2
 
       - name: Export local Web scanner assets
         run: bun scripts/export-web-scanner-business.mjs ${{ runner.temp }}/agent-safe-export
@@ -88,6 +86,8 @@ jobs:
             echo "## Agent safe verification"
             echo "- Revision: \`${{ github.event.pull_request.head.sha || github.sha }}\`"
             echo "- Verification only: yes"
+            echo "- Build scope: Web and PWA only"
+            echo "- Android or iOS build attempted: no"
             echo "- Deployment attempted: no"
             echo "- Convex mutation or sync attempted: no"
             echo "- Production credentials available: no"
