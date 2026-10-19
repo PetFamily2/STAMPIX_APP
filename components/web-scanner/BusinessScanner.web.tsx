@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '../../lib/design/businessWebTokens';
 import { createWebReceiptAdapter } from '../../lib/scanner/webReceiptAdapter';
+import { startPreviouslyGrantedCamera } from '../../lib/web-scanner/cameraPermission';
 import {
   type CommandState,
   initialCommand,
@@ -76,6 +77,9 @@ export default function BusinessScanner(props: {
   useEffect(() => {
     const element = video.current;
     if (!element || !props.enabled) return;
+    setBlocked('מכינים את הסורק');
+    setState(initialCommand);
+    setCameraState(initialScannerState);
     let disposed = false;
     let releaseLock: (() => void) | undefined;
     let detachCamera: (() => void) | undefined;
@@ -194,6 +198,16 @@ export default function BusinessScanner(props: {
             window.addEventListener('offline', onNetwork);
             window.addEventListener('pagehide', onPageHide);
             window.addEventListener('pageshow', onPageShow);
+            // Only after scope, recovery and exclusive-lock checks. Never prompts on mount.
+            void startPreviouslyGrantedCamera({
+              permissions: navigator.permissions,
+              allowed: () =>
+                valid() &&
+                current.current.canStartScan !== false &&
+                document.visibilityState === 'visible' &&
+                engine.state.phase === 'IDLE',
+              start: () => capture.start(),
+            });
             await new Promise<void>((resolve) => {
               releaseLock = resolve;
               if (disposed) resolve();
@@ -331,7 +345,7 @@ export default function BusinessScanner(props: {
                 ? 'אשרו גישה למצלמה בחלון הדפדפן'
                 : ready || success
                   ? 'פרטי הפעולה מופיעים בהמשך'
-                  : 'המצלמה תופעל רק לאחר לחיצה'}
+                  : 'הרשאה שמורה מאפשרת הפעלה אוטומטית. אחרת לחצו על הפעלת מצלמה.'}
             </span>
           </div>
         )}
@@ -340,6 +354,10 @@ export default function BusinessScanner(props: {
         <h2>מצב הסריקה</h2>
         {blocked ? <p role="alert">{blocked}</p> : null}
         <p aria-live="polite">{statusMessage}</p>
+        <p className="sx-permission-hint">
+          הרשאת המצלמה נשמרת בדפדפן לכתובת האתר הזו. בחרו הרשאה מתמשכת אם הדפדפן
+          מציע זאת. המצלמה נעצרת ביציאה מהסורק וברקע.
+        </p>
         {state.code ? <p>{state.code}</p> : null}
         {cameraError && !['IDLE', 'CAMERA_READY'].includes(state.phase) ? (
           <p role="alert">{cameraStatusMessage(cameraState.status)}</p>

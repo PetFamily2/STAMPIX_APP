@@ -1,4 +1,5 @@
 import { useQuery } from 'convex/react';
+import { type Href, useRouter } from 'expo-router';
 import { Component, type ReactNode, useState } from 'react';
 import { Linking, Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { BusinessWebDialog } from '@/components/business-web/BusinessWebDialog';
@@ -41,7 +42,12 @@ export function BusinessWebCustomerDetails(props: Props) {
   );
 }
 
-function CustomerDetailsContent({ businessId, customerUserId }: Props) {
+function CustomerDetailsContent({
+  businessId,
+  customerUserId,
+  onClose,
+}: Props) {
+  const router = useRouter();
   const card = useQuery(api.customerCards.getBusinessCustomerCard, {
     businessId,
     customerUserId,
@@ -97,6 +103,23 @@ function CustomerDetailsContent({ businessId, customerUserId }: Props) {
         <Text style={styles.body}>{guidance.explanation}</Text>
         <Text style={styles.title}>מה מומלץ לעשות?</Text>
         <Text style={styles.body}>{guidance.nextStep}</Text>
+        {card.summary.customerState === 'NEEDS_WINBACK' &&
+        business?.capabilities?.access_campaigns === true ? (
+          <PwaButton
+            label="הגדרת קמפיין החזרה"
+            onPress={() => {
+              onClose();
+              router.push({
+                pathname: '/business/campaign/[campaignId]',
+                params: {
+                  campaignId: 'new',
+                  template: 'winback',
+                  businessId: String(businessId),
+                },
+              } as Href);
+            }}
+          />
+        ) : null}
         {!card.customer.marketingOptIn ? (
           <Text style={styles.body}>
             לא רשומה הסכמה לדיוור שיווקי. לא מוצעת כאן פנייה שיווקית.

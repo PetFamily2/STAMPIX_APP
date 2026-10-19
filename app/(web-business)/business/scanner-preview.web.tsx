@@ -2,6 +2,7 @@ import { useAuthToken } from '@convex-dev/auth/react';
 import { useQuery } from 'convex/react';
 import { useEffect, useState } from 'react';
 import BusinessScanner from '@/components/web-scanner/BusinessScanner';
+import { ScannerProgramTiles } from '@/components/web-scanner/ScannerProgramTiles.web';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
@@ -105,52 +106,16 @@ export default function ScannerPreviewRoute() {
       <p style={{ margin: '0 0 20px', color: TOKENS.colors.textSecondary }}>
         בחרו כרטיסייה והציגו למצלמה את קוד הלקוח.
       </p>
-      <label
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 8,
-          color: TOKENS.colors.textPrimary,
-        }}
-      >
-        {process.env.EXPO_PUBLIC_MANUAL_QA_ENABLED === 'true'
-          ? 'כרטיס לבדיקה'
-          : 'כרטיסייה'}{' '}
-        <select
-          style={{
-            minHeight: TOKENS.control.height,
-            padding: '8px 12px',
-            width: '100%',
-            boxSizing: 'border-box',
-            font: 'inherit',
-            borderRadius: TOKENS.radii.md,
-            border: `1px solid ${TOKENS.colors.borderStrong}`,
-            background: TOKENS.colors.elevatedSurface,
-            color: TOKENS.colors.textPrimary,
-          }}
-          disabled={busy || !!priorProgram}
-          value={scannerProgramId ?? ''}
-          onChange={(event) =>
-            setSelection({ scopeKey, programId: event.target.value })
-          }
-        >
-          <option value="">בחרו כרטיסייה לסריקה</option>
-          {scannerProgramId &&
-          !programs?.some(
-            (p: any) => p.loyaltyProgramId === scannerProgramId
-          ) ? (
-            <option value={scannerProgramId}>בירור הפעולה הקודמת</option>
-          ) : null}
-          {programs?.map((p: any) => (
-            <option key={p.loyaltyProgramId} value={p.loyaltyProgramId}>
-              {p.title}
-            </option>
-          ))}
-        </select>
-      </label>
+      <ScannerProgramTiles
+        programs={programs ?? []}
+        selectedId={scannerProgramId}
+        disabled={busy || !!priorProgram}
+        recoveryId={priorProgram}
+        onSelect={(programId) => setSelection({ scopeKey, programId })}
+      />
       {scannerProgramId ? (
         <BusinessScanner
-          key={`${user._id}:${activeBusinessId}:${scannerProgramId}`}
+          key={`${user._id}:${activeBusinessId}`}
           actorId={user._id}
           businessId={activeBusinessId}
           programId={scannerProgramId}
@@ -191,7 +156,7 @@ export default function ScannerPreviewRoute() {
           <p style={{ margin: 0 }}>
             {programs?.length === 0
               ? 'כרטיסיות פעילות יופיעו כאן לאחר יצירתן במועדון.'
-              : 'לאחר הבחירה תוכלו להפעיל את המצלמה. כל חותמת או מימוש ידרשו אישור שלכם.'}
+              : 'לחצו על כרטיסייה. אם הרשאת המצלמה שמורה בדפדפן, הסריקה תיפתח אוטומטית. כל חותמת או מימוש ידרשו אישור שלכם.'}
           </p>
         </section>
       )}

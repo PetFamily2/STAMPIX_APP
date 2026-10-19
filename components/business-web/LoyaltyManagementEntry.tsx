@@ -41,7 +41,7 @@ export function LoyaltyManagementEntry({
   void progress;
 
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, lifecycle === 'active' ? styles.rowLive : null]}>
       <Pressable
         accessibilityLabel={`${title}. ${lifecycleLabel}. ${maxStamps} חותמות. ${memberCount} חברים.`}
         accessibilityRole="button"
@@ -81,7 +81,7 @@ export function LoyaltyManagementEntry({
               lifecycle === 'draft' ? styles.badgeDraft : null,
             ]}
           >
-            {lifecycleLabel}
+            {lifecycle === 'active' ? `✓ ${lifecycleLabel}` : lifecycleLabel}
           </Text>
         </View>
       </Pressable>
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
     backgroundColor: TOKENS.colors.elevatedSurface,
     borderColor: TOKENS.colors.border,
     borderRadius: TOKENS.radii.lg,
-    borderWidth: 1,
+    borderWidth: 2,
     flexDirection: flexDirection.row,
     gap: 10,
     minHeight: 108,
@@ -165,7 +165,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 16,
   },
-  badgeLive: { color: TOKENS.colors.success },
+  rowLive: {
+    borderColor: TOKENS.colors.success,
+    backgroundColor: TOKENS.colors.successSubtle,
+  },
+  badgeLive: {
+    color: TOKENS.colors.success,
+    backgroundColor: TOKENS.colors.successSubtle,
+    borderRadius: TOKENS.radii.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
   badgeDraft: { color: TOKENS.colors.warning },
   actions: { gap: 6, width: 92 },
 });
