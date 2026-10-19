@@ -26,7 +26,8 @@ export function ScannerProgramTiles({
       <style>{`
         .sx-programs{display:grid;grid-template-columns:repeat(auto-fill,minmax(136px,1fr));gap:8px;margin:12px 0;padding:0;border:0;min-width:0}
         .sx-programs legend{padding:0;margin-bottom:8px;color:${TOKENS.colors.textPrimary};font-weight:600}
-        .sx-programs button{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-height:108px;min-width:0;padding:12px;border:2px solid ${TOKENS.colors.success};border-radius:${TOKENS.radii.md}px;background:${TOKENS.colors.elevatedSurface};color:${TOKENS.colors.textPrimary};font:inherit;text-align:right;cursor:pointer;overflow-wrap:anywhere}
+        .sx-programs button{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-height:108px;min-width:0;padding:12px;border:2px solid ${TOKENS.colors.borderStrong};border-radius:${TOKENS.radii.md}px;background:${TOKENS.colors.elevatedSurface};color:${TOKENS.colors.textPrimary};font:inherit;text-align:right;cursor:pointer;overflow-wrap:anywhere}
+        .sx-programs button[data-active=true]{border-color:${TOKENS.colors.success}}
         .sx-programs button[aria-pressed=true]{border-color:${TOKENS.colors.primary};background:${TOKENS.colors.primarySubtle}}
         .sx-programs button:disabled{cursor:default;opacity:.65}
         .sx-programs small{color:${TOKENS.colors.success};font-weight:600}
@@ -43,6 +44,7 @@ export function ScannerProgramTiles({
           type="button"
           key={program.loyaltyProgramId}
           disabled={disabled}
+          data-active="true"
           aria-pressed={selectedId === program.loyaltyProgramId}
           onClick={() => onSelect(program.loyaltyProgramId)}
         >

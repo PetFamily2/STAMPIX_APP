@@ -110,7 +110,7 @@ export default function ScannerPreviewRoute() {
         programs={programs ?? []}
         selectedId={scannerProgramId}
         disabled={busy || !!priorProgram}
-        recoveryId={priorProgram}
+        recoveryId={priorProgram ?? scannerProgramId}
         onSelect={(programId) => setSelection({ scopeKey, programId })}
       />
       {scannerProgramId ? (
