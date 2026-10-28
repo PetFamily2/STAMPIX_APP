@@ -4,6 +4,21 @@
 **Working base:** `pwa/phase-3-scanner-commands-20261005`  
 **Status:** not launch-ready; automated evidence exists, human and device acceptance is incomplete.
 
+## Execution update — 2026-10-28 (supersedes historical baseline decisions)
+
+- Work branch: `agent/launch-completion-20261028`, HEAD `ffaaca2f5c5fe3067df3af8b884e53cd3bea48da`; Draft PR #13 remains open and unmerged. Its CI passed and the shared existing-DEV Preview is https://stampaix-business--znwu2cs4wv.expo.app/welcome .
+- Business owners must pay by card immediately. The first 14 days allow a full refund through customer service; there is no uncharged free trial. Server entitlement gates, onboarding, billing, legal and marketing must all be aligned before acceptance. The historical free Pro trial below is obsolete as a target, even where legacy code still implements it.
+- Monthly prices remain ₪149 / ₪299 / ₪499, with 250 / 3000 / 10000 customer limits. Previously approved annual prices remain unless separately changed.
+- All Web/PWA application routes use `business.stampaix.com`; marketing uses `stampaix.com`. Hosting is Cloudflare in the existing account, without a new paid hosting service. Convex remains the original data source, without reset or synthetic databases.
+- Work may preserve changes and update Draft PRs. A main merge, Production DNS change, database transition, real charge or Production deployment requires separate explicit approval.
+
+## Mandatory ownership and collision boundaries
+
+- Cursor owns GAME-01 and GAME-02: stickers, album, PaperSeal, cards, avatars, characters, achievements, challenges, streaks and leaderboards.
+- Cursor worktree: `C:/STAMPIX_FOLDER/STAMPIX_GAME_ALBUM`; branch `agent/game-album-001`; base `ffaaca2f5c5fe3067df3af8b884e53cd3bea48da`. The user reports local album, `listStickerAlbumBusinesses`, sticker history and PaperSeal work, not yet on GitHub. Artwork in the external `STAMPIX_ART_CONCEPTS` folder is not Work's edit scope.
+- Work owns other launch streams. Do not edit album/PaperSeal/stickerAlbum/paperSealVariant files or `listStickerAlbumBusinesses`. Avoid shared wallet/customer navigation files and `convex/memberships.ts`; isolate and report any necessary shared change before integration.
+- Do not merge or cherry-pick Cursor work without authorization and conflict review. Preserve all local work.
+
 ## Locked decisions
 
 - The existing Convex deployment remains the source of truth.
@@ -33,10 +48,10 @@ Nothing is TESTED at this baseline because no post-`231feb9` human/device eviden
 | Physical loyalty flow | IMPLEMENTED / unaccepted | QR scan across two devices covers stamp, redemption, undo, duplicate, expiry, weak network, and reconciliation |
 | National Discovery | PARTIAL | Works without GPS, list-first, Google Maps/Places, all businesses plus Convex partners, Place ID deduplication, partner filtering, and business details before join |
 | Five-step campaign wizard | PARTIAL | Draft-first five-step flow uses existing server permissions and real quotas; no send without explicit user action |
-| System Admin employees | MISSING | Invite, suspend, revoke, service/sales scopes, server authorization, audit trail, and responsive Admin UI exist without broad `isAdmin` grants |
-| Gamification album | MISSING | Server-verified stickers and album live inside Wallet, including safe achievement sharing |
-| Challenges and streaks | MISSING | Server-authoritative progress, anti-abuse rules, privacy review, and accessible reduced-motion UI |
-| Leaderboards | MISSING | Consent and privacy policy prevent PII disclosure; ranking and anti-fraud rules are server-enforced |
+| System Admin employees | IMPLEMENTED in ffaaca2 / unaccepted | Invite, suspend, revoke, service/sales scopes, server authorization, audit trail, and responsive Admin UI; ordinary-account acceptance remains |
+| Gamification album — Cursor | LOCAL DEVELOPMENT, reported by user | Server-verified album/stickers, safe sharing, published Cursor branch and authorized integration |
+| Challenges and streaks — Cursor | CURSOR OWNED / unaccepted | Server-authoritative progress, anti-abuse rules, privacy review, and accessible reduced-motion UI |
+| Leaderboards — Cursor | CURSOR OWNED / unaccepted | Consent and privacy policy prevent PII disclosure; ranking and anti-fraud rules are server-enforced |
 | Paid collectible packs | EXCLUDED by user on 2026-10-28 | No pack sales, checkout, or marketing promise in this launch |
 | PWA and Push | PARTIAL | Install/update/offline recovery and real Push pass on Android Chrome, Samsung Internet, and iPhone Safari |
 | SUMIT TEST | PARTIAL | All six products, callback, canonical receipt, failure, cancellation, invoice, reconciliation, and idempotency pass in TEST only |
@@ -46,7 +61,7 @@ Nothing is TESTED at this baseline because no post-`231feb9` human/device eviden
 | Workstream | Baseline | Done when |
 |---|---|---|
 | Staff/Admin visual consistency | PARTIAL | Accepted at 320, 390, 768, 1024, and 1440 widths including keyboard/focus states |
-| Trial contract | PARTIAL | Current 14-day Pro trial and every UI/legal/landing statement agree, or a separately approved selected-plan change is implemented end-to-end |
+| Paid onboarding and 14-day refund contract | CHANGE REQUIRED | Immediate verified card charge before business activation, full-refund request through service in the first 14 days, and matching server/UI/legal/marketing; no free trial |
 | Apple OAuth | PARTIAL | Provider and ordinary login acceptance pass, unless explicitly accepted as a non-blocker |
 | Landing/domain/SEO | PARTIAL | Separate repository, DNS, canonical metadata, AASA/assetlinks, legal identity, support, and deletion links are verified |
 | Security and operations | PARTIAL | Authorization, rate limits, CSP/headers, monitoring, incident response, backups, and rollback receive release evidence |
@@ -61,20 +76,19 @@ Nothing is TESTED at this baseline because no post-`231feb9` human/device eviden
 - Campaign creation saves a draft without sending and exposes the real plan quota.
 - System Admin workers receive narrow service/sales capabilities, not broad `isAdmin`.
 - Wallet achievements are derived from server evidence; leaderboards do not expose personal data without consent.
-- A paid pack is never sold without provider receipt, refund handling, tax treatment, and entitlement verification.
-- Current price and trial copy matches the active code: 14-day Pro trial and customer limits 250 / 3000 / 10000.
+- Paid collectible-pack sales are excluded from this launch; no pack sale or checkout promise is added.
+- Paid activation and copy match the approved contract: immediate card charge, 14 days with a full-refund option through customer service, and 250 / 3000 / 10000 customer limits. No zero-charge free trial is granted to a newly activated Web business.
 - SUMIT TEST is accepted before any separately approved Production enablement.
 - No secret appears in source, UI, logs, artifacts, screenshots, issues, or chat.
 
-## Suggested parallel lanes
+## Assigned lanes
 
 1. Existing-product human acceptance and physical scanner/PWA/Push.
 2. Discovery.
 3. Campaign wizard.
 4. Admin employees.
-5. Gamification album, challenges, streaks, and leaderboards.
-6. Paid-pack product/provider/legal design, then implementation.
-7. SUMIT TEST, landing/legal, security, monitoring, and release evidence.
+5. Cursor only: album, stickers, PaperSeal, cards, avatars, achievements, challenges, streaks and leaderboards.
+6. Work: immediate paid activation, 14-day service refund workflow, SUMIT TEST, Cloudflare hosting, landing/legal, security, monitoring, and release evidence.
 
 Each lane uses a separate issue, `agent/<task>` branch, Draft PR, and safe verification run.
 No lane may deploy merely because its CI is green.
