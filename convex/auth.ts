@@ -37,7 +37,7 @@ const WEB_OAUTH_PREVIEW_ORIGIN_PATTERN =
   /^https:\/\/stampaix-business--[a-z0-9]+\.expo\.app$/;
 // The Pages project was created in the owner's connected account before allowing it.
 const WEB_OAUTH_CLOUDFLARE_PREVIEW_ORIGIN_PATTERN =
-  /^https:\/\/(?:[a-z0-9-]+\.)?stampaix-web-preview\.pages\.dev$/;
+  /^https:\/\/(?:[a-z0-9-]+\.)?stampaix-web-(?:preview|qa)\.pages\.dev$/;
 const EMAIL_OTP_LENGTH = 6;
 const EMAIL_OTP_MAX_AGE_SECONDS = 3 * 60;
 

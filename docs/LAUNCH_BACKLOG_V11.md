@@ -92,3 +92,7 @@ Nothing is TESTED at this baseline because no post-`231feb9` human/device eviden
 
 Each lane uses a separate issue, `agent/<task>` branch, Draft PR, and safe verification run.
 No lane may deploy merely because its CI is green.
+
+## Subsequent execution evidence
+
+Paid activation implemented in 37f1e99; full CI and the shared DEV deployment passed (run 40738650459), Preview https://stampaix-business--jrq5tmix1j.expo.app/welcome . Marketing 47db1ba and Draft PR #3 passed CI run 40739785204. Real payment/onboarding acceptance remains open. Cloudflare Device Authorization succeeded in the owner-approved existing StampAix account; its isolated project is stampaix-web-qa (Production branch production-disabled). The earlier empty project belongs to the separate MCP account and is not the deployment target. Current billing terms must be readable in-app before consent; Production website copy is not assumed current.

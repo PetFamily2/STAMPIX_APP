@@ -12,13 +12,16 @@ import {
   ActivityIndicator,
   Linking,
   Pressable,
+  ScrollView,
   StyleSheet,
   useWindowDimensions,
   View,
 } from 'react-native';
-import { BusinessWebConfirmDialog } from '@/components/business-web/BusinessWebDialog';
+import {
+  BusinessWebConfirmDialog,
+  BusinessWebDialog,
+} from '@/components/business-web/BusinessWebDialog';
 import { AppText as Text } from '@/components/ui/AppText';
-import { TERMS_OF_SERVICE_URL } from '@/config/legalUrls';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
@@ -31,6 +34,7 @@ import {
 import { WEB_TAX_POLICY } from '@/lib/billing/webTaxPolicy';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
 import { WEB_LEGAL_VERSION } from '@/lib/legalWebContract';
+import { WEB_LEGAL_DOCUMENTS } from '@/lib/legalWebDocuments';
 import { alignItems, flexDirection, ltrIslandText, selfStart } from '@/lib/rtl';
 import { WEB_BUSINESS_OPERATOR } from '@/lib/webBusinessOperator';
 
@@ -131,6 +135,7 @@ export function BusinessWebBilling({
   const [pendingPlan, setPendingPlan] = useState<BusinessPlan | null>(null);
   const [actionError, setActionError] = useState('');
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
   const [cancelNotice, setCancelNotice] = useState('');
 
@@ -387,7 +392,7 @@ export function BusinessWebBilling({
           </Pressable>
           <Pressable
             accessibilityRole="link"
-            onPress={() => void Linking.openURL(TERMS_OF_SERVICE_URL)}
+            onPress={() => setShowTerms(true)}
           >
             <Text style={styles.planName}>קריאת תנאי המנוי וההחזר</Text>
           </Pressable>
@@ -493,6 +498,30 @@ export function BusinessWebBilling({
           );
         })}
       </View>
+
+      <BusinessWebDialog
+        visible={showTerms}
+        onDismiss={() => setShowTerms(false)}
+        title="תנאי המנוי וההחזר"
+        description={`גרסה ${WEB_LEGAL_VERSION}`}
+        maxWidth={760}
+      >
+        <ScrollView
+          style={{ maxHeight: 480 }}
+          contentContainerStyle={{ gap: 16 }}
+        >
+          {WEB_LEGAL_DOCUMENTS.terms.sections.map((section) => (
+            <View key={section.title}>
+              <Text style={styles.sectionHeading}>{section.title}</Text>
+              {section.body.map((paragraph) => (
+                <Text key={paragraph} style={styles.sectionDescription}>
+                  {paragraph}
+                </Text>
+              ))}
+            </View>
+          ))}
+        </ScrollView>
+      </BusinessWebDialog>
 
       <SectionCard
         description="מסמכים שהתקבלו מתשלומים שאומתו על ידי השרת."

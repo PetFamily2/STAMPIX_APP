@@ -12,6 +12,8 @@ describe('Business Web Preview OAuth callback contract', () => {
       'https://stampaix-web-preview.pages.dev',
       'https://ffaaca2.stampaix-web-preview.pages.dev',
       'https://preview.stampaix-web-preview.pages.dev',
+      'https://stampaix-web-qa.pages.dev',
+      'https://37f1e99.stampaix-web-qa.pages.dev',
     ]) {
       const callback = `${origin}/oauth-callback`;
       expect(resolveAuthRedirectUrl(callback, development)).toBe(callback);
@@ -24,6 +26,8 @@ describe('Business Web Preview OAuth callback contract', () => {
     }
     for (const origin of [
       'https://attacker.pages.dev',
+      'https://stampaix-web-qa.pages.dev.attacker.example',
+      'https://attacker-stampaix-web-qa.pages.dev',
       'https://stampaix-web-preview.pages.dev.attacker.example',
       'https://attacker-stampaix-web-preview.pages.dev',
       'http://stampaix-web-preview.pages.dev',
