@@ -1,4 +1,4 @@
-import { useAction, useQuery } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import {
   CalendarDays,
   Check,
@@ -18,7 +18,9 @@ import {
 } from 'react-native';
 import { BusinessWebConfirmDialog } from '@/components/business-web/BusinessWebDialog';
 import { AppText as Text } from '@/components/ui/AppText';
+import { TERMS_OF_SERVICE_URL } from '@/config/legalUrls';
 import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import {
   type BillingPeriod,
@@ -26,9 +28,11 @@ import {
   PLAN_ORDER,
   planConfig,
 } from '@/lib/billing/productionContract';
-import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
 import { WEB_TAX_POLICY } from '@/lib/billing/webTaxPolicy';
+import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
+import { WEB_LEGAL_VERSION } from '@/lib/legalWebContract';
 import { alignItems, flexDirection, ltrIslandText, selfStart } from '@/lib/rtl';
+import { WEB_BUSINESS_OPERATOR } from '@/lib/webBusinessOperator';
 
 const YEARLY_COPY = 'בחיוב שנתי — משלמים על 10 חודשים ומקבלים 12';
 const CANCELLATION_COPY =
@@ -84,15 +88,40 @@ function openDocumentUrl(url: string | null) {
   }
 }
 
-export function BusinessWebBilling() {
+export function BusinessWebBilling({
+  businessIdOverride,
+  businessNameOverride,
+  onBeforeCheckout,
+}: {
+  businessIdOverride?: Id<'businesses'>;
+  businessNameOverride?: string;
+  onBeforeCheckout?: () => Promise<void>;
+} = {}) {
   const { width } = useWindowDimensions();
-  const { activeBusiness, activeBusinessId } = useActiveBusiness();
-  const isOwner = activeBusiness?.staffRole === 'owner';
+  const active = useActiveBusiness();
+  const activeBusinessId = businessIdOverride ?? active.activeBusinessId;
+  const businessName =
+    businessNameOverride ?? active.activeBusiness?.name ?? '';
+  // The override scopes onboarding to its draft. Every server call still
+  // authorizes the authenticated owner independently of this UI condition.
+  const isOwner =
+    businessIdOverride !== undefined ||
+    active.activeBusiness?.staffRole === 'owner';
   const overview = useQuery(
     api.businessBilling.getBusinessBillingOverview,
     activeBusinessId && isOwner ? { businessId: activeBusinessId } : 'skip'
   );
   const createCheckout = useAction(api.sumitBilling.createSUMITCheckout);
+  const termsAcceptance = useQuery(
+    api.businessBilling.getActivationTermsAcceptance,
+    activeBusinessId && isOwner ? { businessId: activeBusinessId } : 'skip'
+  );
+  const acceptTerms = useMutation(api.businessBilling.acceptActivationTerms);
+  const [checkedBusinessId, setCheckedBusinessId] =
+    useState<Id<'businesses'> | null>(null);
+  const termsAccepted =
+    termsAcceptance?.accepted === true ||
+    checkedBusinessId === activeBusinessId;
   const checkoutAvailability = useQuery(
     api.businessBilling.getCheckoutAvailability,
     activeBusinessId && isOwner ? { businessId: activeBusinessId } : 'skip'
@@ -111,10 +140,15 @@ export function BusinessWebBilling() {
     if (!activeBusinessId || pendingPlan || overview?.hasCurrentPaidAccess) {
       return;
     }
-    if (checkoutAvailability?.available !== true) return;
+    if (checkoutAvailability?.available !== true || !termsAccepted) return;
     setActionError('');
     setPendingPlan(plan);
     try {
+      await onBeforeCheckout?.();
+      await acceptTerms({
+        businessId: activeBusinessId,
+        version: WEB_LEGAL_VERSION,
+      });
       const result = await createCheckout({
         businessId: activeBusinessId,
         plan,
@@ -162,7 +196,7 @@ export function BusinessWebBilling() {
     }
   }
 
-  if (!activeBusinessId || !activeBusiness) {
+  if (!activeBusinessId) {
     return (
       <PageState
         description="בחרו עסק כדי לצפות בחיוב ובמסמכי התשלום שלו."
@@ -212,7 +246,7 @@ export function BusinessWebBilling() {
         <View style={styles.pageHeaderCopy}>
           <Text style={styles.pageTitle}>חיוב ומסמכי תשלום</Text>
           <Text style={styles.pageSubtitle}>
-            המנוי, התשלומים ומסמכי התשלום של {activeBusiness.name}.
+            המנוי, התשלומים ומסמכי התשלום של {businessName}.
           </Text>
         </View>
       </View>
@@ -282,7 +316,7 @@ export function BusinessWebBilling() {
         <View accessibilityLiveRegion="polite" style={styles.errorBanner}>
           <Text style={styles.errorText}>
             התשלום אינו זמין כרגע. אפשר לעיין במסלולים; המנוי לא ישתנה ללא תשלום
-            מאומת. בתקופת הניסיון לא מתבצע חיוב אוטומטי.
+            מאומת. אפשר לשמור טיוטה ולחזור לתשלום בהמשך.
           </Text>
         </View>
       ) : null}
@@ -296,9 +330,7 @@ export function BusinessWebBilling() {
           <Text style={styles.sectionDescription}>
             {hasCurrentPaidAccess
               ? 'המנוי הנוכחי מוצג למטה. שינוי מסלול או מחזור חיוב עדיין לא זמין בגרסה זו.'
-              : isTrialing
-                ? '14 ימי הניסיון כוללים את יכולות Pro. אין חיוב אוטומטי בסיום; כדי להמשיך בוחרים מסלול ומשלמים בעמוד המאובטח של SUMIT.'
-                : 'התשלום מתבצע בעמוד המאובטח של SUMIT. פרטי הכרטיס אינם מוזנים או נשמרים ב-StampAix.'}
+              : 'הפעלה מחייבת חיוב מיידי בכרטיס אשראי. ב־14 הימים הראשונים מהתשלום הראשון אפשר לבקש החזר מלא דרך שירות הלקוחות. התשלום מתבצע בעמוד המאובטח של SUMIT.'}
           </Text>
         </View>
         <View accessibilityLabel="מחזור חיוב" style={styles.cadenceToggle}>
@@ -332,6 +364,47 @@ export function BusinessWebBilling() {
           })}
         </View>
       </View>
+      {!hasCurrentPaidAccess ? (
+        <View style={styles.plansHeaderCopy}>
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: termsAccepted }}
+            accessibilityLabel="אישור תנאי המנוי: חיוב מיידי ואפשרות להחזר מלא דרך השירות ב־14 הימים הראשונים"
+            onPress={() =>
+              setCheckedBusinessId(
+                checkedBusinessId === activeBusinessId ? null : activeBusinessId
+              )
+            }
+            disabled={
+              termsAcceptance?.accepted === true || pendingPlan !== null
+            }
+          >
+            <Text style={styles.sectionDescription}>
+              {termsAccepted ? '☑' : '☐'} אני מאשר/ת את תנאי המנוי: חיוב מיידי,
+              חידוש לפי המסלול שנבחר ואפשרות לבקש החזר מלא דרך השירות ב־14 הימים
+              הראשונים מהתשלום הראשון.
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => void Linking.openURL(TERMS_OF_SERVICE_URL)}
+          >
+            <Text style={styles.planName}>קריאת תנאי המנוי וההחזר</Text>
+          </Pressable>
+        </View>
+      ) : null}
+      <Pressable
+        accessibilityRole="link"
+        onPress={() =>
+          void Linking.openURL(
+            `mailto:${WEB_BUSINESS_OPERATOR.supportEmail}?subject=${encodeURIComponent(`בקשת שירות או החזר למנוי — ${businessName}`)}`
+          )
+        }
+      >
+        <Text style={styles.sectionDescription}>
+          שירות לקוחות ובקשת החזר: {WEB_BUSINESS_OPERATOR.supportEmail}
+        </Text>
+      </Pressable>
       {displayedBillingPeriod === 'yearly' ? (
         <View style={styles.yearlyBanner}>
           <CalendarDays color={TOKENS.colors.success} size={19} />
@@ -349,6 +422,7 @@ export function BusinessWebBilling() {
           const busy = pendingPlan === plan;
           const checkoutDisabled =
             hasCurrentPaidAccess ||
+            !termsAccepted ||
             pendingPlan !== null ||
             checkoutAvailability?.available !== true;
           return (

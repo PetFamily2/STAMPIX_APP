@@ -24,6 +24,15 @@ const LEGAL_CASES = [
 ];
 
 describe('public legal pages', () => {
+  test('the Web contract discloses immediate charge and the full service refund instead of a free trial', () => {
+    const html = renderPublicLegalDocument('terms');
+    expect(html).toContain('חיוב מיידי בכרטיס אשראי');
+    expect(html).toContain('14 הימים הראשונים ממועד התשלום הראשון');
+    expect(html).toContain('החזר מלא');
+    expect(html).toContain('stamp.ix.001@gmail.com');
+    expect(html).not.toContain('ללא צורך בהזנת כרטיס אשראי מראש');
+    expect(html).not.toContain('עסק חדש זכאי לתקופת ניסיון אחת');
+  });
   for (const legalCase of LEGAL_CASES) {
     test(`${legalCase.path} is public production-safe Hebrew HTML`, async () => {
       const response = handlePublicLegalDocumentRequest(legalCase.key);
@@ -46,9 +55,9 @@ describe('public legal pages', () => {
       expect(html).toContain(legalCase.representativeContent);
       expect(html).toContain('StampAix');
       expect(html).toContain('28.10.2026');
-      expect(html).toContain('2026.10.28-web');
+      expect(html).toContain('2026.10.28-paid-v1');
       expect(response.headers.get('x-stampaix-legal-version')).toBe(
-        '2026.10.28-web'
+        '2026.10.28-paid-v1'
       );
       expect(html).not.toContain('20.06.2026');
       expect(html).not.toContain('<script');

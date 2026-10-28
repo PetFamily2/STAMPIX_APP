@@ -18,11 +18,7 @@ import {
   requireCurrentUser,
 } from './guards';
 import { ensureBusinessBillingAccount } from './lib/billing/accounts';
-import {
-  GENERAL_FREE_TRIAL_PLAN,
-  getGeneralFreeTrialEnd,
-  MVP_FEATURE_FLAGS,
-} from './lib/billing/productionContract';
+import { MVP_FEATURE_FLAGS } from './lib/billing/productionContract';
 import { assertExpectedUpdatedAt } from './lib/editConflicts';
 import {
   generateInviteCode,
@@ -701,10 +697,6 @@ export async function createBusinessForOwner(
 
   const businessPublicId = await generateUniquePublicId(ctx);
   const joinCode = await generateUniqueJoinCode(ctx);
-  const startsGeneralFreeTrial = MVP_FEATURE_FLAGS.generalFreeTrialEnabled;
-  const trialEndsAt = startsGeneralFreeTrial
-    ? getGeneralFreeTrialEnd(now)
-    : null;
 
   const businessId = await ctx.db.insert('businesses', {
     ownerUserId: input.ownerUserId,
@@ -714,12 +706,12 @@ export async function createBusinessForOwner(
     name: input.name,
     logoUrl: input.logoUrl,
     colors: input.colors,
-    subscriptionPlan: startsGeneralFreeTrial
-      ? GENERAL_FREE_TRIAL_PLAN
-      : 'starter',
-    subscriptionStatus: startsGeneralFreeTrial ? 'trialing' : 'inactive',
-    subscriptionStartAt: startsGeneralFreeTrial ? now : null,
-    subscriptionEndAt: trialEndsAt,
+    // New owners prepare a draft, then pay before activating. Existing
+    // accounts and historical trial periods are never rewritten here.
+    subscriptionPlan: 'starter',
+    subscriptionStatus: 'inactive',
+    subscriptionStartAt: null,
+    subscriptionEndAt: null,
     billingPeriod: null,
     customerSegmentationConfig: {
       ...DEFAULT_CUSTOMER_SEGMENTATION_CONFIG,
@@ -741,7 +733,7 @@ export async function createBusinessForOwner(
   await ensureBusinessBillingAccount(ctx, {
     businessId,
     ownerUserId: input.ownerUserId,
-    startGeneralFreeTrial: startsGeneralFreeTrial,
+    startGeneralFreeTrial: false,
     now,
   });
   await markSmartManagerDirty(ctx, {

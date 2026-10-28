@@ -1,21 +1,20 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
-
+import {
+  hasOperationalAccessFromStatus,
+  resolveCanonicalBillingState,
+} from '../lib/billing/lifecycle';
 import {
   GENERAL_FREE_TRIAL_DAYS,
   GENERAL_FREE_TRIAL_PLAN,
   getGeneralFreeTrialEnd,
 } from '../lib/billing/productionContract';
-import {
-  hasOperationalAccessFromStatus,
-  resolveCanonicalBillingState,
-} from '../lib/billing/lifecycle';
 
 const DAY = 24 * 60 * 60 * 1000;
 const start = Date.UTC(2026, 9, 3, 12, 0, 0);
 const end = start + 14 * DAY;
 
-describe('general free trial launch contract', () => {
+describe('historical free trial compatibility (no new grants)', () => {
   test('is exactly 14 days on Pro', () => {
     expect(GENERAL_FREE_TRIAL_DAYS).toBe(14);
     expect(GENERAL_FREE_TRIAL_PLAN).toBe('pro');
@@ -84,15 +83,13 @@ describe('general free trial launch contract', () => {
     ).toBe(true);
   });
 
-  test('trial starts only from new-business creation path', () => {
+  test('new-business creation explicitly disables historical free trials', () => {
     const businessSource = readFileSync('convex/business.ts', 'utf8');
     const accountsSource = readFileSync(
       'convex/lib/billing/accounts.ts',
       'utf8'
     );
-    expect(businessSource).toContain(
-      'startGeneralFreeTrial: startsGeneralFreeTrial'
-    );
+    expect(businessSource).toContain('startGeneralFreeTrial: false');
     expect(accountsSource).toContain('args.startGeneralFreeTrial === true');
     expect(accountsSource).toContain('hasProviderEvidence: false');
   });

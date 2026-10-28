@@ -6,7 +6,7 @@
 
 ## Execution update — 2026-10-28 (supersedes historical baseline decisions)
 
-- Work branch: `agent/launch-completion-20261028`, HEAD `ffaaca2f5c5fe3067df3af8b884e53cd3bea48da`; Draft PR #13 remains open and unmerged. Its CI passed and the shared existing-DEV Preview is https://stampaix-business--znwu2cs4wv.expo.app/welcome .
+- Work branch: `agent/launch-completion-20261028`; recovered HEAD `ffaaca2`, then Cloudflare preparation committed as `4c6fae48853302770707d8a76217e646969ae272`. Draft PR #13 remains open and unmerged. CI for `4c6fae4` passed: https://github.com/PetFamily2/STAMPIX_APP/actions/runs/40734542749 . Corresponding existing-DEV Preview: https://stampaix-business--khk17cr6wf.expo.app/welcome . Paid-activation changes described below are a subsequent candidate until their own exact-revision CI passes.
 - Business owners must pay by card immediately. The first 14 days allow a full refund through customer service; there is no uncharged free trial. Server entitlement gates, onboarding, billing, legal and marketing must all be aligned before acceptance. The historical free Pro trial below is obsolete as a target, even where legacy code still implements it.
 - Monthly prices remain ₪149 / ₪299 / ₪499, with 250 / 3000 / 10000 customer limits. Previously approved annual prices remain unless separately changed.
 - All Web/PWA application routes use `business.stampaix.com`; marketing uses `stampaix.com`. Hosting is Cloudflare in the existing account, without a new paid hosting service. Convex remains the original data source, without reset or synthetic databases.
@@ -61,7 +61,7 @@ Nothing is TESTED at this baseline because no post-`231feb9` human/device eviden
 | Workstream | Baseline | Done when |
 |---|---|---|
 | Staff/Admin visual consistency | PARTIAL | Accepted at 320, 390, 768, 1024, and 1440 widths including keyboard/focus states |
-| Paid onboarding and 14-day refund contract | CHANGE REQUIRED | Immediate verified card charge before business activation, full-refund request through service in the first 14 days, and matching server/UI/legal/marketing; no free trial |
+| Paid onboarding and 14-day refund contract | IMPLEMENTED / real payment acceptance pending | New business is inactive, Web publication requires verified paid access, current business terms accepted before checkout, first-payment 14-day full-refund service policy matches Web/legal/marketing; SUMIT TEST and service execution remain open |
 | Apple OAuth | PARTIAL | Provider and ordinary login acceptance pass, unless explicitly accepted as a non-blocker |
 | Landing/domain/SEO | PARTIAL | Separate repository, DNS, canonical metadata, AASA/assetlinks, legal identity, support, and deletion links are verified |
 | Security and operations | PARTIAL | Authorization, rate limits, CSP/headers, monitoring, incident response, backups, and rollback receive release evidence |

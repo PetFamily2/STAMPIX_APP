@@ -59,6 +59,14 @@ import {
   sumitJsonRequest,
 } from './lib/billing/sumit/providerClient';
 import {
+  BILLING_REMINDER_MAX_ATTEMPTS,
+  BILLING_REMINDER_RETRY_MS,
+  type BillingReminderStageDay,
+  billingReminderDedupeKey,
+  buildBillingReminderEmail,
+  resolveBillingReminderStage,
+} from './lib/billing/sumit/reminders';
+import {
   type NormalizedSumitPayment,
   type NormalizedSumitRecurringItem,
   sumitCancellationEventId,
@@ -67,14 +75,7 @@ import {
   verifySumitPaymentEvidence,
   verifySumitRefundEvidence,
 } from './lib/billing/sumit/verify';
-import {
-  BILLING_REMINDER_MAX_ATTEMPTS,
-  BILLING_REMINDER_RETRY_MS,
-  type BillingReminderStageDay,
-  billingReminderDedupeKey,
-  buildBillingReminderEmail,
-  resolveBillingReminderStage,
-} from './lib/billing/sumit/reminders';
+import { assertBusinessActivationAccepted } from './lib/billing/webActivation';
 import { generateOpaqueToken } from './lib/ids';
 
 const AUTH_ERRORS = new Set([
@@ -190,6 +191,10 @@ export async function createSUMITCheckoutRecord(
   if (!business) {
     throw new Error('BUSINESS_NOT_FOUND');
   }
+  if (business.ownerUserId !== args.actorUserId) {
+    throw new Error('NOT_AUTHORIZED');
+  }
+  await assertBusinessActivationAccepted(ctx, args.actorUserId, business._id);
   const now = args.now ?? Date.now();
   const billingAccount = await getBillingAccountForBusiness(ctx, business._id);
   if (
@@ -1326,7 +1331,6 @@ export const reconcileSUMITBillingInternal = internalAction({
   },
 });
 
-
 const SUMIT_RECONCILIATION_MIN_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const SUMIT_RECONCILIATION_DEFAULT_LIMIT = 25;
 const SUMIT_RECONCILIATION_MAX_LIMIT = 50;
@@ -1694,14 +1698,11 @@ export const sendSUMITBillingReminderSweepInternal = internalAction({
       } else {
         failed += 1;
       }
-      await ctx.runMutation(
-        internal.sumitBilling.finishSUMITBillingReminder,
-        {
-          reminderId: claim.reminderId,
-          sent: result.ok,
-          errorCode: result.ok ? undefined : result.code,
-        }
-      );
+      await ctx.runMutation(internal.sumitBilling.finishSUMITBillingReminder, {
+        reminderId: claim.reminderId,
+        sent: result.ok,
+        errorCode: result.ok ? undefined : result.code,
+      });
     }
 
     if (!page.isDone) {

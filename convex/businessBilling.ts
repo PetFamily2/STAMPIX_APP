@@ -1,7 +1,9 @@
 import { v } from 'convex/values';
+import { WEB_LEGAL_VERSION } from '../lib/legalWebContract';
 import { mutation, query } from './_generated/server';
 import {
   requireActorHasBusinessCapability,
+  requireActorIsBusinessOwner,
   requireCurrentUser,
 } from './guards';
 import {
@@ -10,6 +12,44 @@ import {
 } from './lib/billing/accounts';
 import { resolveCanonicalBillingState } from './lib/billing/lifecycle';
 import { resolveSumitConfig } from './lib/billing/sumit/config';
+import {
+  findBusinessActivationAcceptance,
+  recordBusinessActivationAcceptance,
+} from './lib/billing/webActivation';
+
+export const getActivationTermsAcceptance = query({
+  args: { businessId: v.id('businesses') },
+  returns: v.object({
+    accepted: v.boolean(),
+    version: v.literal(WEB_LEGAL_VERSION),
+  }),
+  handler: async (ctx, { businessId }) => {
+    const owner = await requireActorIsBusinessOwner(ctx, businessId);
+    const acceptance = await findBusinessActivationAcceptance(
+      ctx,
+      owner._id,
+      businessId
+    );
+    return { accepted: acceptance !== null, version: WEB_LEGAL_VERSION };
+  },
+});
+
+export const acceptActivationTerms = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    version: v.literal(WEB_LEGAL_VERSION),
+  },
+  returns: v.object({ acceptanceId: v.id('legalAcceptances') }),
+  handler: async (ctx, { businessId }) => {
+    const owner = await requireActorIsBusinessOwner(ctx, businessId);
+    const acceptanceId = await recordBusinessActivationAcceptance(
+      ctx,
+      owner._id,
+      businessId
+    );
+    return { acceptanceId };
+  },
+});
 
 // Only non-sensitive readiness reaches the authenticated billing screen.
 // Missing/malformed provider configuration never renders an actionable checkout.

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
+import { WEB_LEGAL_VERSION } from '../../lib/legalWebContract';
 import { mapRevenueCatToCanonicalEvent } from '../lib/billing/canonicalEvent';
 import { hasOperationalAccessFromStatus } from '../lib/billing/lifecycle';
 import { DIRECT_PROVIDER_RENEWAL_GRACE_MS } from '../lib/billing/productionContract';
@@ -66,11 +67,30 @@ function createMockCtx(initial = {}) {
     'businessReferralRewards',
     'sumitCheckoutIntents',
     'sumitProviderEvents',
+    'legalAcceptances',
   ];
   const state = Object.fromEntries(
     tableNames.map((tableName) => [
       tableName,
-      new Map((initial[tableName] ?? []).map((row) => [row._id, { ...row }])),
+      new Map(
+        (
+          initial[tableName] ??
+          (tableName === 'legalAcceptances'
+            ? [
+                {
+                  _id: 'accepted_business_terms',
+                  userId: OWNER_ID,
+                  businessId: BUSINESS_ID,
+                  documentKind: 'business_terms',
+                  version: WEB_LEGAL_VERSION,
+                  source: 'business_activation',
+                  acceptedAt: OCCURRED_AT,
+                  createdAt: OCCURRED_AT,
+                },
+              ]
+            : [])
+        ).map((row) => [row._id, { ...row }])
+      ),
     ])
   );
   const rows = (tableName) => Array.from(state[tableName].values());
@@ -350,6 +370,56 @@ function verifiedPaymentArgs(overrides = {}) {
 }
 
 describe('SUMIT server authority and hosted checkout', () => {
+  test.each(
+    [
+      [],
+      [
+        {
+          documentKind: 'business_terms',
+          version: '2026.10.28-web',
+          userId: OWNER_ID,
+          businessId: BUSINESS_ID,
+        },
+      ],
+      [
+        {
+          documentKind: 'business_terms',
+          version: WEB_LEGAL_VERSION,
+          userId: OTHER_ID,
+          businessId: BUSINESS_ID,
+        },
+      ],
+      [
+        {
+          documentKind: 'business_terms',
+          version: WEB_LEGAL_VERSION,
+          userId: OWNER_ID,
+          businessId: 'another_business',
+        },
+      ],
+      [
+        {
+          documentKind: 'terms',
+          version: WEB_LEGAL_VERSION,
+          userId: OWNER_ID,
+          businessId: BUSINESS_ID,
+        },
+      ],
+    ].map((acceptances) => ({ acceptances }))
+  )('checkout rejects absent, stale, wrong-owner, wrong-business or signup-only consent (%#)', async ({
+    acceptances,
+  }) => {
+    const ctx = createMockCtx({
+      businesses: [business()],
+      legalAcceptances: acceptances.map((row) => ({ _id: 'consent', ...row })),
+    });
+    await expect(seedCheckout(ctx)).rejects.toThrow(
+      'SUMIT_BUSINESS_TERMS_REQUIRED'
+    );
+    expect(ctx.rows('sumitCheckoutIntents')).toHaveLength(0);
+    expect(ctx.rows('businessBillingAccounts')).toHaveLength(0);
+  });
+
   test('canonical price always comes from the frozen server contract', async () => {
     expect(canonicalSumitAmount('starter', 'monthly')).toBe(149);
     expect(canonicalSumitAmount('starter', 'yearly')).toBe(1490);

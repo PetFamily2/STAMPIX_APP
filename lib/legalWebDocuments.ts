@@ -69,8 +69,17 @@ export const WEB_LEGAL_DOCUMENTS: Record<LegalDocumentKey, LegalDocument> = {
     sections: [
       operatorSection,
       ...LEGAL_DOCUMENTS.terms.sections.filter(
-        (section) => !section.title.includes('יצירת קשר')
+        (section) =>
+          !section.title.includes('יצירת קשר') &&
+          !section.title.includes('תקופת ניסיון')
       ),
+      {
+        title: 'הפעלת מנוי ו־14 ימי התנסות בתשלום',
+        body: [
+          'הפעלת עסק מחייבת בחירת מסלול וחיוב מיידי בכרטיס אשראי באמצעות SUMIT. אין תקופת ניסיון חינם ללא חיוב. העסק מופעל רק לאחר אימות התשלום בשרת; אפשר להכין את פרטי העסק והכרטיסייה כטיוטה לפני התשלום.',
+          `ב־14 הימים הראשונים ממועד התשלום הראשון אפשר לבקש החזר מלא דרך שירות הלקוחות בכתובת ${OPERATOR.supportEmail}. כתבו את שם העסק, אימייל הבעלים ובקשה להחזר; אין לשלוח פרטי כרטיס. שירות הלקוחות יאמת את הבקשה ויטפל בהחזר. פתיחת הפנייה לבדה אינה אישור שההחזר כבר בוצע.`,
+        ],
+      },
       {
         title: 'מחירים, מסמכים וביטול חידוש',
         body: [

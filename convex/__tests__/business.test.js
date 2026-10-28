@@ -3,10 +3,11 @@ import {
   BUSINESS_TERMS_VERSION,
   CANONICAL_TERMS_URL,
 } from '../../lib/legalContract';
-
+import { WEB_LEGAL_VERSION } from '../../lib/legalWebContract';
 import {
   assertBusinessOnboardingReady,
   closeBusinessAccount,
+  createBusinessForOwner,
   createOrResumeBusinessOnboarding,
   generateBusinessLogoUploadUrl,
   getBusinessesNearby,
@@ -18,6 +19,11 @@ import {
   updateBusinessAddress,
   updateBusinessProfile,
 } from '../business';
+import {
+  acceptActivationTerms,
+  getActivationTermsAcceptance,
+} from '../businessBilling';
+import { assertEntitlement } from '../entitlements';
 import { completeBusinessOnboarding } from '../users';
 
 function buildUser(overrides = {}) {
@@ -240,6 +246,88 @@ function createMockCtx({
 
   return { ctx, state, scheduled };
 }
+
+describe('paid business activation', () => {
+  test('new owner gets an inactive draft account with no free period or provider evidence', async () => {
+    const { ctx, state } = createMockCtx({ businesses: [], businessStaff: [] });
+    const { businessId } = await createBusinessForOwner(ctx, {
+      ownerUserId: 'user_owner',
+      name: 'Paid launch',
+      now: 1000,
+      address: {
+        formattedAddress: 'Test address',
+        placeId: 'test-place',
+        city: 'Test city',
+        street: 'Test street',
+        streetNumber: '1',
+        lat: 32,
+        lng: 35,
+      },
+    });
+    expect(state.businesses.get(businessId)).toMatchObject({
+      subscriptionPlan: 'starter',
+      subscriptionStatus: 'inactive',
+      subscriptionStartAt: null,
+      subscriptionEndAt: null,
+    });
+    const account = Array.from(state.businessBillingAccounts.values())[0];
+    expect(account.status).toBe('inactive');
+    expect(account.hasProviderEvidence).toBe(false);
+    expect(account.trialEndsAt).toBeUndefined();
+    expect(account.trialSource).toBeUndefined();
+    await expect(assertEntitlement(ctx, businessId, {})).rejects.toThrow(
+      'SUBSCRIPTION_INACTIVE'
+    );
+  });
+
+  test('owner acceptance is idempotent and scoped to the current business and contract', async () => {
+    const { ctx, state } = createMockCtx();
+    const args = { businessId: 'business_1', version: WEB_LEGAL_VERSION };
+    expect(
+      (await getActivationTermsAcceptance._handler(ctx, args)).accepted
+    ).toBe(false);
+    const first = await acceptActivationTerms._handler(ctx, args);
+    const second = await acceptActivationTerms._handler(ctx, args);
+    expect(first).toEqual(second);
+    expect(Array.from(state.legalAcceptances.values())).toHaveLength(1);
+    expect(Array.from(state.legalAcceptances.values())[0]).toMatchObject({
+      userId: 'user_owner',
+      businessId: 'business_1',
+      version: WEB_LEGAL_VERSION,
+      documentKind: 'business_terms',
+      source: 'business_activation',
+    });
+    expect(
+      (await getActivationTermsAcceptance._handler(ctx, args)).accepted
+    ).toBe(true);
+    expect(
+      (
+        await getActivationTermsAcceptance._handler(ctx, {
+          businessId: 'business_1',
+        })
+      ).version
+    ).toBe(WEB_LEGAL_VERSION);
+  });
+
+  test.each([
+    'manager',
+    'staff',
+  ])('%s cannot accept payment terms or read owner acceptance', async (role) => {
+    const { ctx } = createMockCtx({
+      currentUserId: 'user_other',
+      users: [buildUser({ _id: 'user_other' })],
+      businessStaff: [buildStaff({ userId: 'user_other', staffRole: role })],
+    });
+    for (const fn of [acceptActivationTerms, getActivationTermsAcceptance]) {
+      await expect(
+        fn._handler(ctx, {
+          businessId: 'business_1',
+          version: WEB_LEGAL_VERSION,
+        })
+      ).rejects.toThrow('NOT_AUTHORIZED');
+    }
+  });
+});
 
 describe('business closure and restoration lifecycle', () => {
   const manager = buildStaff({

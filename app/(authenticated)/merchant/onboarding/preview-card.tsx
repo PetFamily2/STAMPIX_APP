@@ -15,6 +15,7 @@ import { ContinueButton } from '@/components/ContinueButton';
 import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
 import { LoyaltyThemePalette } from '@/components/loyalty/LoyaltyThemePalette';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { WebPaidBusinessActivation } from '@/components/onboarding/WebPaidBusinessActivation';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { TERMS_OF_SERVICE_URL } from '@/config/legalUrls';
@@ -151,52 +152,54 @@ export default function PreviewCardScreen() {
     );
   };
 
-  const handleFinish = async () => {
-    if (!businessId || !programId || isFinishing) {
-      return;
-    }
+  const saveBeforeCheckout = async () => {
+    if (!businessId || !programId) throw new Error('ONBOARDING_DRAFT_REQUIRED');
+    await saveBusinessOnboardingSnapshot({
+      businessId,
+      discoverySource: businessOnboardingDraft.discoverySource ?? undefined,
+      reason: businessOnboardingDraft.reason ?? undefined,
+      usageAreas:
+        businessOnboardingDraft.usageAreas.length > 0
+          ? businessOnboardingDraft.usageAreas
+          : undefined,
+      ownerAgeRange: businessOnboardingDraft.ageRange ?? undefined,
+      businessExample: businessOnboardingDraft.businessExample ?? undefined,
+      cadenceBand: businessOnboardingDraft.cadenceBand ?? undefined,
+      birthdayCampaignRelevant:
+        businessOnboardingDraft.birthdayCampaignRelevant ?? undefined,
+      joinAnniversaryCampaignRelevant:
+        businessOnboardingDraft.joinAnniversaryCampaignRelevant ?? undefined,
+      weakTimePromosRelevant:
+        businessOnboardingDraft.weakTimePromosRelevant ?? undefined,
+    });
 
+    const normalizedTitle =
+      programDraft.title.trim() || programDraft.rewardName.trim();
+    const normalizedReward =
+      programDraft.rewardName.trim() || programDraft.title.trim();
+
+    await updateProgramForManagement({
+      businessId,
+      programId,
+      title: normalizedTitle,
+      description: undefined,
+      imageUrl: undefined,
+      imageStorageId: programDraft.imageStorageId ?? undefined,
+      rewardName: normalizedReward,
+      maxStamps: stampCount,
+      cardTerms: programDraft.cardTerms.trim() || undefined,
+      rewardConditions: programDraft.rewardConditions.trim() || undefined,
+      stampIcon: programDraft.stampIcon.trim() || 'star',
+      stampShape: programDraft.stampShape,
+      cardThemeId: programDraft.cardThemeId,
+    });
+  };
+
+  const handleFinish = async () => {
+    if (!businessId || !programId || isFinishing) return;
     setIsFinishing(true);
     try {
-      await saveBusinessOnboardingSnapshot({
-        businessId,
-        discoverySource: businessOnboardingDraft.discoverySource ?? undefined,
-        reason: businessOnboardingDraft.reason ?? undefined,
-        usageAreas:
-          businessOnboardingDraft.usageAreas.length > 0
-            ? businessOnboardingDraft.usageAreas
-            : undefined,
-        ownerAgeRange: businessOnboardingDraft.ageRange ?? undefined,
-        businessExample: businessOnboardingDraft.businessExample ?? undefined,
-        cadenceBand: businessOnboardingDraft.cadenceBand ?? undefined,
-        birthdayCampaignRelevant:
-          businessOnboardingDraft.birthdayCampaignRelevant ?? undefined,
-        joinAnniversaryCampaignRelevant:
-          businessOnboardingDraft.joinAnniversaryCampaignRelevant ?? undefined,
-        weakTimePromosRelevant:
-          businessOnboardingDraft.weakTimePromosRelevant ?? undefined,
-      });
-
-      const normalizedTitle =
-        programDraft.title.trim() || programDraft.rewardName.trim();
-      const normalizedReward =
-        programDraft.rewardName.trim() || programDraft.title.trim();
-
-      await updateProgramForManagement({
-        businessId,
-        programId,
-        title: normalizedTitle,
-        description: undefined,
-        imageUrl: undefined,
-        imageStorageId: programDraft.imageStorageId ?? undefined,
-        rewardName: normalizedReward,
-        maxStamps: stampCount,
-        cardTerms: programDraft.cardTerms.trim() || undefined,
-        rewardConditions: programDraft.rewardConditions.trim() || undefined,
-        stampIcon: programDraft.stampIcon.trim() || 'star',
-        stampShape: programDraft.stampShape,
-        cardThemeId: programDraft.cardThemeId,
-      });
+      await saveBeforeCheckout();
 
       await publishProgram({
         businessId,
@@ -339,13 +342,19 @@ export default function PreviewCardScreen() {
               </Text>
               .
             </Text>
-            <ContinueButton
-              onPress={() => {
-                void handleFinish();
-              }}
-              disabled={!businessId || !programId || isFinishing}
-              label={PREVIEW_COPY.continue}
-            />
+            <WebPaidBusinessActivation
+              businessId={businessId}
+              businessName={businessName}
+              onBeforeCheckout={saveBeforeCheckout}
+            >
+              <ContinueButton
+                onPress={() => {
+                  void handleFinish();
+                }}
+                disabled={!businessId || !programId || isFinishing}
+                label={PREVIEW_COPY.continue}
+              />
+            </WebPaidBusinessActivation>
           </View>
         </ScrollView>
       </View>
