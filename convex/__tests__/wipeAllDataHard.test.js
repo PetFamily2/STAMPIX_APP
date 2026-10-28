@@ -171,6 +171,11 @@ function buildCtx(tables, subject, options) {
 describe('wipeAllDataHardImpl', () => {
   test('wipes all tables and returns detailed delete stats', async () => {
     const tables = {
+      systemTeamMembers: [{ _id: 'system_member', userId: 'u_admin' }],
+      systemTeamAssignments: [
+        { _id: 'system_task', memberId: 'system_member' },
+      ],
+      systemTeamAudit: [{ _id: 'system_audit', memberId: 'system_member' }],
       scannerCommandReceipts: [{ _id: 'receipt_1', actorId: 'u_admin' }],
       webPushSubscriptions: [{ _id: 'webpush_1', userId: 'u_admin' }],
       apiKeys: [{ _id: 'ak_1', clientId: 'ac_1' }],
@@ -299,6 +304,9 @@ describe('wipeAllDataHardImpl', () => {
     expect(result.timestamp).toBeGreaterThan(0);
 
     const expectedCounts = {
+      systemTeamMembers: 1,
+      systemTeamAssignments: 1,
+      systemTeamAudit: 1,
       apiKeys: 1,
       apiClients: 1,
       providerRevocationJobs: 1,

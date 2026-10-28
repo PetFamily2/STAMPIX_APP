@@ -1,13 +1,20 @@
-import { usePathname, useRouter } from 'expo-router';
+import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import {
   Building2,
   CircleDollarSign,
   LayoutDashboard,
   LifeBuoy,
   Trash2,
+  Users,
 } from 'lucide-react-native';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
 import { flexDirection, rtlBaseText } from '@/lib/rtl';
@@ -17,10 +24,12 @@ const ITEMS = [
   { href: '/admin/billing', label: 'חיוב', icon: CircleDollarSign },
   { href: '/admin/support', label: 'תמיכה', icon: LifeBuoy },
   { href: '/admin/deletions', label: 'מחיקות', icon: Trash2 },
+  { href: '/admin?view=team', label: 'עובדי מערכת', icon: Users },
 ] as const;
 
 export function AdminWebShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { view } = useLocalSearchParams<{ view?: string }>();
   const router = useRouter();
   const { width } = useWindowDimensions();
   const compact = width < 900;
@@ -41,9 +50,11 @@ export function AdminWebShell({ children }: { children: ReactNode }) {
         <View style={[styles.nav, compact ? styles.navCompact : null]}>
           {ITEMS.map(({ href, label, icon: Icon }) => {
             const active =
-              href === '/admin'
-                ? pathname === '/admin'
-                : pathname === href || pathname.startsWith(`${href}/`);
+              href === '/admin?view=team'
+                ? pathname === '/admin' && view === 'team'
+                : href === '/admin'
+                  ? pathname === '/admin' && view !== 'team'
+                  : pathname === href || pathname.startsWith(`${href}/`);
             return (
               <Pressable
                 accessibilityRole="link"
@@ -56,14 +67,13 @@ export function AdminWebShell({ children }: { children: ReactNode }) {
                 ]}
               >
                 <Icon
-                  color={active ? TOKENS.colors.primary : TOKENS.colors.textMuted}
+                  color={
+                    active ? TOKENS.colors.primary : TOKENS.colors.textMuted
+                  }
                   size={19}
                 />
                 <Text
-                  style={[
-                    styles.navText,
-                    active ? styles.navTextActive : null,
-                  ]}
+                  style={[styles.navText, active ? styles.navTextActive : null]}
                 >
                   {label}
                 </Text>
@@ -72,9 +82,14 @@ export function AdminWebShell({ children }: { children: ReactNode }) {
           })}
         </View>
 
-        <View style={[styles.sidebarFooter, compact ? styles.sidebarFooterCompact : null]}>
+        <View
+          style={[
+            styles.sidebarFooter,
+            compact ? styles.sidebarFooterCompact : null,
+          ]}
+        >
           <Building2 color={TOKENS.colors.textMuted} size={17} />
-          <Text style={styles.sidebarFooterText}>כלים תפעוליים לקריאה בלבד</Text>
+          <Text style={styles.sidebarFooterText}>פעולות לפי הרשאות החשבון</Text>
         </View>
       </View>
 
@@ -144,7 +159,7 @@ const styles = StyleSheet.create({
     borderRadius: TOKENS.radii.md,
     flexDirection: flexDirection.row,
     gap: TOKENS.space.md,
-    minHeight: 46,
+    minHeight: 48,
     paddingHorizontal: TOKENS.space.md,
   },
   navItemActive: { backgroundColor: TOKENS.colors.primarySubtle },

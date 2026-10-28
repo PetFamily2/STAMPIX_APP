@@ -10,6 +10,7 @@ import {
   MARKETING_CONSENT_SCOPE,
   MARKETING_CONSENT_VERSION,
 } from '../lib/legalContract';
+import { WEB_LEGAL_VERSION } from '../lib/legalWebContract';
 import type { Doc, Id } from './_generated/dataModel';
 import {
   internalMutation,
@@ -42,6 +43,7 @@ import { normalizeEmailAddress } from './lib/email';
 import { markSmartManagerDirty } from './lib/smartManagerDirty';
 import { SMART_MANAGER_EXECUTION_KIND } from './lib/smartManagerExecution';
 import { transitionSmartManagerOutcomeState } from './lib/smartManagerOutcomes';
+import { deleteSystemTeamUserData } from './lib/systemTeamPrivacy';
 import { resolveProgramLifecycle } from './loyaltyPrograms';
 import {
   type BusinessOnboardingFlow,
@@ -118,13 +120,16 @@ async function ensureLegalAcceptance(
 }
 
 export const acceptCurrentTerms = mutation({
-  args: { source: TERMS_ACCEPTANCE_SOURCE_UNION },
-  handler: async (ctx, { source }) => {
+  args: {
+    source: TERMS_ACCEPTANCE_SOURCE_UNION,
+    webLegalVersion: v.optional(v.literal(WEB_LEGAL_VERSION)),
+  },
+  handler: async (ctx, { source, webLegalVersion }) => {
     const user = await requireCurrentUser(ctx);
     return await ensureLegalAcceptance(ctx, {
       userId: user._id,
       documentKind: 'terms',
-      version: CANONICAL_TERMS_VERSION,
+      version: webLegalVersion ?? CANONICAL_TERMS_VERSION,
       source: source as TermsAcceptanceSource,
       acceptedAt: Date.now(),
     });
@@ -248,6 +253,9 @@ async function findUserByExternalId(ctx: any, externalId: string) {
 const DELETE_BATCH_SIZE = 100;
 const SMART_MANAGER_AUDIT_RETENTION_MS = AI_AUDIT_RETENTION_MS;
 const WIPE_ALL_TABLE_ORDER = [
+  'systemTeamAssignments',
+  'systemTeamAudit',
+  'systemTeamMembers',
   'scannerCommandReceipts',
   'webPushSubscriptions',
   'apiKeys',
@@ -439,6 +447,9 @@ function emptyDeleteStats(): DeleteStats {
 
 function emptyWipeAllDataHardCounts(): WipeAllDataHardCounts {
   return {
+    systemTeamAssignments: 0,
+    systemTeamAudit: 0,
+    systemTeamMembers: 0,
     apiKeys: 0,
     apiClients: 0,
     providerRevocationJobs: 0,
@@ -1380,8 +1391,9 @@ export const completeBusinessOnboarding = mutation({
     businessId: v.id('businesses'),
     programId: v.id('loyaltyPrograms'),
     flow: BUSINESS_ONBOARDING_FLOW_UNION,
+    webLegalVersion: v.optional(v.literal(WEB_LEGAL_VERSION)),
   },
-  handler: async (ctx, { businessId, programId, flow }) => {
+  handler: async (ctx, { businessId, programId, flow, webLegalVersion }) => {
     const user = await requireCurrentUser(ctx);
     const onboardingFlow = flow as BusinessOnboardingFlow;
     if (onboardingFlow === 'additional' && user.businessOnboardedAt == null) {
@@ -1447,7 +1459,7 @@ export const completeBusinessOnboarding = mutation({
     await ensureLegalAcceptance(ctx, {
       userId: user._id,
       documentKind: 'business_terms',
-      version: BUSINESS_TERMS_VERSION,
+      version: webLegalVersion ?? BUSINESS_TERMS_VERSION,
       source: 'business_activation',
       businessId,
       acceptedAt: now,
@@ -1733,6 +1745,28 @@ export async function deleteMyAccountHardImpl(
   }
 
   await cleanupCompletedDeletionReferencesForUser(ctx, user._id);
+  await deleteSystemTeamUserData(ctx, user);
+  await redactUserReferenceByIndexInBatches(
+    ctx,
+    'systemTeamAudit',
+    'by_actorUserId',
+    'actorUserId',
+    user._id
+  );
+  await redactUserReferenceByIndexInBatches(
+    ctx,
+    'systemTeamMembers',
+    'by_createdByUserId',
+    'createdByUserId',
+    user._id
+  );
+  await redactUserReferenceByIndexInBatches(
+    ctx,
+    'systemTeamAssignments',
+    'by_createdByUserId',
+    'createdByUserId',
+    user._id
+  );
 
   const deleted = emptyDeleteStats();
   const providerRevocation = await prepareProviderRevocationsForUser(

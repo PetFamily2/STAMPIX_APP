@@ -83,6 +83,8 @@ import type * as lib_smartManagerPreparedActions from "../lib/smartManagerPrepar
 import type * as lib_smartManagerSourceLimits from "../lib/smartManagerSourceLimits.js";
 import type * as lib_smartManagerValidators from "../lib/smartManagerValidators.js";
 import type * as lib_staffPermissions from "../lib/staffPermissions.js";
+import type * as lib_systemTeamPolicy from "../lib/systemTeamPolicy.js";
+import type * as lib_systemTeamPrivacy from "../lib/systemTeamPrivacy.js";
 import type * as lib_verifiedEmailAccountLink from "../lib/verifiedEmailAccountLink.js";
 import type * as lib_webAuthConfiguration from "../lib/webAuthConfiguration.js";
 import type * as loyaltyPrograms from "../loyaltyPrograms.js";
@@ -125,6 +127,7 @@ import type * as smartManagerOutcomes from "../smartManagerOutcomes.js";
 import type * as smartManagerRateLimits from "../smartManagerRateLimits.js";
 import type * as sumitBilling from "../sumitBilling.js";
 import type * as support from "../support.js";
+import type * as systemTeam from "../systemTeam.js";
 import type * as users from "../users.js";
 import type * as webAuth from "../webAuth.js";
 import type * as webInbox from "../webInbox.js";
@@ -214,6 +217,8 @@ declare const fullApi: ApiFromModules<{
   "lib/smartManagerSourceLimits": typeof lib_smartManagerSourceLimits;
   "lib/smartManagerValidators": typeof lib_smartManagerValidators;
   "lib/staffPermissions": typeof lib_staffPermissions;
+  "lib/systemTeamPolicy": typeof lib_systemTeamPolicy;
+  "lib/systemTeamPrivacy": typeof lib_systemTeamPrivacy;
   "lib/verifiedEmailAccountLink": typeof lib_verifiedEmailAccountLink;
   "lib/webAuthConfiguration": typeof lib_webAuthConfiguration;
   loyaltyPrograms: typeof loyaltyPrograms;
@@ -256,6 +261,7 @@ declare const fullApi: ApiFromModules<{
   smartManagerRateLimits: typeof smartManagerRateLimits;
   sumitBilling: typeof sumitBilling;
   support: typeof support;
+  systemTeam: typeof systemTeam;
   users: typeof users;
   webAuth: typeof webAuth;
   webInbox: typeof webInbox;

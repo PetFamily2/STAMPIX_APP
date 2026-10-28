@@ -19,6 +19,7 @@ import {
   webBody,
   webPage,
 } from '@/lib/design/webProductChrome';
+import { webLegalAcceptanceArgs } from '@/lib/legalWebContract';
 
 const POST_AUTH_TIMEOUT_MS = 8000;
 
@@ -90,7 +91,10 @@ export default function OAuthCallbackScreen() {
     }
 
     acceptanceStartedRef.current = true;
-    void acceptCurrentTerms({ source: acceptanceSource })
+    void acceptCurrentTerms({
+      source: acceptanceSource,
+      ...webLegalAcceptanceArgs(Platform.OS),
+    })
       .then(() => setHasRecordedTerms(true))
       .catch(() => {
         acceptanceStartedRef.current = false;

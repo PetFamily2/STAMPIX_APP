@@ -9,15 +9,19 @@ import {
 import { useWebInstall } from '@/lib/web-permissions/installPrompt';
 import { createHttpTransport } from '@/lib/web-scanner/httpTransport';
 import { getConvexUrl } from '@/utils/convexConfig';
+import { SystemTeamEntry } from './system-team/SystemTeamEntry.web';
 import { PUSH_OWNER_KEY } from './WebPushLifecycle.web';
 import { BrowserPermissionsPanel } from './web-permissions/BrowserPermissionsPanel.web';
 
 export default function WebPushSettings() {
   const { user } = useUser();
   return (
-    <BrowserPermissionsPanel>
-      <BrowserPushControl key={String(user?._id ?? 'none')} />
-    </BrowserPermissionsPanel>
+    <>
+      <BrowserPermissionsPanel>
+        <BrowserPushControl key={String(user?._id ?? 'none')} />
+      </BrowserPermissionsPanel>
+      <SystemTeamEntry />
+    </>
   );
 }
 

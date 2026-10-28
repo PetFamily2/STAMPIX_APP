@@ -49,6 +49,16 @@ class FakeQuery {
     return this.docs.slice(0, n);
   }
 
+  async paginate({ cursor, numItems }) {
+    const start = Number(cursor ?? 0);
+    const page = this.docs.slice(start, start + numItems);
+    return {
+      page,
+      isDone: start + page.length >= this.docs.length,
+      continueCursor: String(start + page.length),
+    };
+  }
+
   async first() {
     return this.docs[0] ?? null;
   }

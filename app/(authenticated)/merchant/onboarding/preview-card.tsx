@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -30,6 +31,7 @@ import {
   webPage,
   webTitle,
 } from '@/lib/design/webProductChrome';
+import { webLegalAcceptanceArgs } from '@/lib/legalWebContract';
 import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
   BUSINESS_ONBOARDING_ROUTES,
@@ -205,6 +207,7 @@ export default function PreviewCardScreen() {
         businessId,
         programId,
         flow: resolveBusinessOnboardingFlow(flow),
+        ...webLegalAcceptanceArgs(Platform.OS),
       });
       await setAppMode('business');
       reset();

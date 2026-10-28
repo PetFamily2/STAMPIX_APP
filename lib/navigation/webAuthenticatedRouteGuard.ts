@@ -18,6 +18,7 @@ const WEB_CUSTOMER_SHARED_SEGMENTS = new Set([
   'accept-invite',
   'settings-legal',
   'inbox',
+  'system-team',
 ]);
 
 export function resolveWebAuthenticatedRouteGuard(
@@ -30,6 +31,7 @@ export function resolveWebAuthenticatedRouteGuard(
     (segments.includes('accept-invite') ||
       segments.includes('settings-legal') ||
       segments.includes('inbox') ||
+      segments.includes('system-team') ||
       (input.isAdditionalMerchantOnboarding && segments.includes('merchant')))
   )
     return { action: 'stay' };

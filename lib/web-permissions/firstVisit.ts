@@ -1,4 +1,4 @@
-import { CANONICAL_PRIVACY_VERSION } from '../legalContract';
+import { WEB_LEGAL_VERSION as CANONICAL_PRIVACY_VERSION } from '../legalWebContract';
 
 // Local presentation preferences only; NOT server legal consent or marketing opt-in.
 export const PRIVACY_NOTICE_KEY = 'stampaix:privacy-notice-version';

@@ -177,4 +177,13 @@ crons.interval(
   smartManagerDeliverySweepRef
 );
 
+crons.hourly(
+  'system team invitation and data retention',
+  { minuteUTC: 25 },
+  makeFunctionReference<'mutation', Record<string, never>, null>(
+    'systemTeam:cleanup'
+  ),
+  {}
+);
+
 export default crons;

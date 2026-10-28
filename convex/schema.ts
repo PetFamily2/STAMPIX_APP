@@ -18,9 +18,74 @@ import {
   smartManagerPreparedCampaignDraftValidator,
   smartManagerPreparedChannelStrategyValidator,
 } from './lib/smartManagerValidators';
+import {
+  systemTaskStatus,
+  systemTeamRole,
+  systemTeamStatus,
+} from './lib/systemTeamPolicy';
 
 export default defineSchema({
   ...authTables,
+
+  systemTeamMembers: defineTable({
+    email: v.string(),
+    userId: v.optional(v.id('users')),
+    role: systemTeamRole,
+    status: systemTeamStatus,
+    createdByUserId: v.optional(v.id('users')),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    expiresAt: v.optional(v.number()),
+    purgeAfter: v.optional(v.number()),
+  })
+    .index('by_email', ['email'])
+    .index('by_email_userId', ['email', 'userId'])
+    .index('by_userId_status', ['userId', 'status'])
+    .index('by_userId', ['userId'])
+    .index('by_createdByUserId', ['createdByUserId'])
+    .index('by_status_expiresAt', ['status', 'expiresAt'])
+    .index('by_purgeAfter', ['purgeAfter']),
+
+  systemTeamAssignments: defineTable({
+    memberId: v.id('systemTeamMembers'),
+    kind: v.union(v.literal('business'), v.literal('support')),
+    businessId: v.optional(v.id('businesses')),
+    supportRequestId: v.optional(v.id('supportRequests')),
+    targetKey: v.string(),
+    status: systemTaskStatus,
+    note: v.string(),
+    createdByUserId: v.optional(v.id('users')),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    purgeAfter: v.optional(v.number()),
+  })
+    .index('by_memberId_status', ['memberId', 'status'])
+    .index('by_memberId', ['memberId'])
+    .index('by_memberId_targetKey', ['memberId', 'targetKey'])
+    .index('by_createdByUserId', ['createdByUserId'])
+    .index('by_businessId', ['businessId'])
+    .index('by_supportRequestId', ['supportRequestId'])
+    .index('by_purgeAfter', ['purgeAfter']),
+
+  systemTeamAudit: defineTable({
+    memberId: v.id('systemTeamMembers'),
+    actorUserId: v.optional(v.id('users')),
+    event: v.union(
+      v.literal('invited'),
+      v.literal('accepted'),
+      v.literal('active'),
+      v.literal('suspended'),
+      v.literal('revoked'),
+      v.literal('assigned'),
+      v.literal('task_updated'),
+      v.literal('support_closed')
+    ),
+    createdAt: v.number(),
+    purgeAfter: v.number(),
+  })
+    .index('by_memberId', ['memberId'])
+    .index('by_actorUserId', ['actorUserId'])
+    .index('by_purgeAfter', ['purgeAfter']),
 
   authVerifiers: defineTable({
     sessionId: v.optional(v.id('authSessions')),
@@ -1484,10 +1549,17 @@ export default defineSchema({
 
   // Additive, authenticated operation receipts. No QR, tokens or executable intent.
   webPushSubscriptions: defineTable({
-    userId: v.id('users'), endpointHash: v.string(), endpoint: v.string(),
-    p256dh: v.string(), auth: v.string(), active: v.boolean(),
-    createdAt: v.number(), updatedAt: v.number(),
-  }).index('by_user_active', ['userId', 'active']).index('by_endpointHash', ['endpointHash']),
+    userId: v.id('users'),
+    endpointHash: v.string(),
+    endpoint: v.string(),
+    p256dh: v.string(),
+    auth: v.string(),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_user_active', ['userId', 'active'])
+    .index('by_endpointHash', ['endpointHash']),
 
   scannerCommandReceipts: defineTable({
     actorId: v.id('users'),
@@ -1501,7 +1573,9 @@ export default defineSchema({
     binding: v.string(),
     result: v.any(),
     createdAt: v.number(),
-  }).index('by_actor_operation', ['actorId', 'operationId']).index('by_customer', ['customerId']),
+  })
+    .index('by_actor_operation', ['actorId', 'operationId'])
+    .index('by_customer', ['customerId']),
 
   scanSessions: defineTable({
     businessId: v.id('businesses'),

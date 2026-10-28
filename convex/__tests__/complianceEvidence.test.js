@@ -7,6 +7,7 @@ import {
   CANONICAL_TERMS_VERSION,
   MARKETING_CONSENT_VERSION,
 } from '../../lib/legalContract';
+import { WEB_LEGAL_VERSION } from '../../lib/legalWebContract';
 import {
   AI_AUDIT_RETENTION_MS,
   INACTIVE_ONBOARDING_DRAFT_RETENTION_MS,
@@ -158,6 +159,23 @@ function makeCtx(seed = {}) {
 }
 
 describe('versioned legal and marketing evidence', () => {
+  test('Web acceptance records its displayed contract without replacing legacy evidence', async () => {
+    const { ctx, db } = makeCtx();
+    await acceptCurrentTerms._handler(ctx, { source: 'signup_email' });
+    await acceptCurrentTerms._handler(ctx, {
+      source: 'signup_email',
+      webLegalVersion: WEB_LEGAL_VERSION,
+    });
+    const repeated = await acceptCurrentTerms._handler(ctx, {
+      source: 'signup_email',
+      webLegalVersion: WEB_LEGAL_VERSION,
+    });
+    expect(db.rows('legalAcceptances').map((row) => row.version)).toEqual([
+      CANONICAL_TERMS_VERSION,
+      WEB_LEGAL_VERSION,
+    ]);
+    expect(repeated.created).toBe(false);
+  });
   test('current Terms acceptance is versioned, sourced, and idempotent', async () => {
     const { ctx, db } = makeCtx();
 

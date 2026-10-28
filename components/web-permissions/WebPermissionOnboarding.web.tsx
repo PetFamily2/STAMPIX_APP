@@ -2,7 +2,7 @@ import { usePathname } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { BrowserPushControl } from '@/components/WebPushSettings.web';
 import { useUser } from '@/contexts/UserContext';
-import { CANONICAL_PRIVACY_VERSION } from '@/lib/legalContract';
+import { WEB_LEGAL_VERSION as CANONICAL_PRIVACY_VERSION } from '@/lib/legalWebContract';
 import {
   type FirstVisitStep,
   firstVisitStep,

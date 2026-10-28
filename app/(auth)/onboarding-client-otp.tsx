@@ -38,6 +38,7 @@ import {
   webPage,
   webTitle,
 } from '@/lib/design/webProductChrome';
+import { webLegalAcceptanceArgs } from '@/lib/legalWebContract';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 import { justifyContent } from '@/lib/rtl';
@@ -462,7 +463,10 @@ export default function OnboardingOtpScreen() {
       acceptanceStartedRef.current = true;
       try {
         if (shouldRecordTermsAcceptance) {
-          await acceptCurrentTerms({ source: 'signup_email' });
+          await acceptCurrentTerms({
+            source: 'signup_email',
+            ...webLegalAcceptanceArgs(Platform.OS),
+          });
         }
         hasNavigatedRef.current = true;
         clearPostAuthTimeout();
