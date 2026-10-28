@@ -1684,6 +1684,12 @@ const MESSAGE_STEPS: DeleteStep[] = [
     index: 'by_businessId',
     field: 'businessId',
   },
+  {
+    name: 'system_team_assignments',
+    table: 'systemTeamAssignments',
+    index: 'by_businessId',
+    field: 'businessId',
+  },
 ];
 
 const AI_STEPS: DeleteStep[] = [

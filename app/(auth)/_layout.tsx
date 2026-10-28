@@ -4,6 +4,7 @@ import {
   Redirect,
   Slot,
   useLocalSearchParams,
+  usePathname,
   useSegments,
 } from 'expo-router';
 import { Platform, StyleSheet, View } from 'react-native';
@@ -17,6 +18,8 @@ import {
   resolvePlatformPostAuthHref,
   resolvePostAuthRoute,
 } from '@/lib/auth/postAuthRouting';
+import { canPaintPublicWelcome } from '@/lib/auth/publicWelcome';
+import { isWebRoleRoutingEnabled } from '@/lib/auth/webRoleRouting';
 import { isAdditionalBusinessFlow } from '@/lib/onboarding/businessOnboardingFlow';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { rtlRouteContainerStyle } from '@/lib/rtl';
@@ -26,6 +29,7 @@ export default function AuthRoutesLayout() {
   const { user, isLoading: isUserLoading } = useUser();
   const sessionContext = useSessionContext();
   const segments = useSegments();
+  const pathname = usePathname();
   const { preview, map, flow } = useLocalSearchParams<{
     preview?: string;
     map?: string;
@@ -33,7 +37,9 @@ export default function AuthRoutesLayout() {
   }>();
 
   const segmentStrings = segments as string[];
-  const isPreviewMode = resolvePreviewModeFromParams({ preview, map });
+  const webRoleRoutingEnabled = isWebRoleRoutingEnabled(Platform.OS);
+  const isPreviewMode =
+    !webRoleRoutingEnabled && resolvePreviewModeFromParams({ preview, map });
   const isPaywallRoute = segmentStrings.includes('paywall');
   const isOAuthCallbackRoute = segmentStrings.includes('oauth-callback');
   const isOtpTransitionRoute = segmentStrings.includes('onboarding-client-otp');
@@ -90,6 +96,7 @@ export default function AuthRoutesLayout() {
 
   if (
     Platform.OS === 'web' &&
+    !webRoleRoutingEnabled &&
     platformPostAuthResolution.status === 'route' &&
     routeKind !== 'transition' &&
     routeKind !== 'preview'
@@ -98,6 +105,13 @@ export default function AuthRoutesLayout() {
   }
 
   if (disposition.status === 'loading') {
+    // Welcome contains only public copy. Do not hold its first paint behind a network session lookup.
+    if (canPaintPublicWelcome(Platform.OS, pathname))
+      return (
+        <View style={styles.rtlRouteGroup}>
+          <Slot />
+        </View>
+      );
     return <FullScreenLoading />;
   }
 

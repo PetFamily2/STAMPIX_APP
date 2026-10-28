@@ -13,10 +13,10 @@ import * as SecureStore from 'expo-secure-store';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   AppState,
   Linking,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -27,7 +27,6 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import {
   SETTINGS_TOKENS,
@@ -42,6 +41,7 @@ import {
   PaintedPressable,
   PaintedPressable as Pressable,
 } from '@/components/ui/PaintedPressable';
+import WebPushSettings from '@/components/WebPushSettings';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { usePushNotifications } from '@/contexts/PushNotificationsContext';
@@ -53,8 +53,10 @@ import {
   type AccountDeletionFlowResult,
   runAccountDeletionWithCleanup,
 } from '@/lib/accountDeletionReset';
+import { Alert } from '@/lib/alert';
 import { getConvexAuthSecureStoreKeysForCleanup } from '@/lib/auth/storageKeys';
 import { clearPendingJoin } from '@/lib/deeplink/pendingJoin';
+import { productPageBackground, webPage } from '@/lib/design/webProductChrome';
 import { safePush } from '@/lib/navigation';
 import {
   CUSTOMER_ROUTES,
@@ -253,6 +255,7 @@ function NotificationToggleRow({
       accessibilityLabel={title}
       accessibilityHint={subtitle}
       accessibilityState={{ checked: enabled, disabled }}
+      {...(Platform.OS === 'web' ? { 'aria-checked': enabled } : {})}
       style={({ pressed }) => [
         styles.notificationToggleRow,
         isLast ? styles.rowLast : null,
@@ -706,7 +709,7 @@ export default function SettingsScreen() {
       >
         <StickyScrollHeader
           topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
+          backgroundColor={productPageBackground}
           style={styles.headerRow}
         >
           <BusinessScreenHeader
@@ -721,6 +724,7 @@ export default function SettingsScreen() {
             avatarFullName={user?.fullName}
           />
         </StickyScrollHeader>
+        <WebPushSettings />
         <BusinessModeCtaCard
           disabled={deleteBusy}
           forcePromotionalBanner={true}
@@ -796,13 +800,15 @@ export default function SettingsScreen() {
               icon="settings-outline"
               onPress={openAccountDetails}
             />
-            <NotificationToggleRow
-              title={TEXT.notificationsToggleTitle}
-              subtitle={TEXT.notificationsToggleSubtitle}
-              enabled={notificationsEnabled}
-              disabled={notificationBusy}
-              onPress={toggleNotifications}
-            />
+            {Platform.OS !== 'web' ? (
+              <NotificationToggleRow
+                title={TEXT.notificationsToggleTitle}
+                subtitle={TEXT.notificationsToggleSubtitle}
+                enabled={notificationsEnabled}
+                disabled={notificationBusy}
+                onPress={toggleNotifications}
+              />
+            ) : null}
             <NotificationToggleRow
               title={TEXT.marketingToggleTitle}
               subtitle={TEXT.marketingToggleSubtitle}
@@ -981,7 +987,7 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#E9F0FF' },
+  safeArea: { flex: 1, backgroundColor: '#E9F0FF', ...webPage },
   scrollArea: { flex: 1 },
   scrollContent: {
     paddingHorizontal: 20,
@@ -1001,7 +1007,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     minHeight: 52,
     borderRadius: 999,
-    backgroundColor: '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#1230A8' : '#2F6BFF',
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1017,7 +1023,7 @@ const styles = StyleSheet.create({
   staffRowActionPill: {
     minHeight: 32,
     borderRadius: 999,
-    backgroundColor: '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#1230A8' : '#2F6BFF',
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1104,7 +1110,7 @@ const styles = StyleSheet.create({
     borderRadius: 10.5,
   },
   notificationSwitchThumbEnabled: {
-    backgroundColor: '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#1230A8' : '#2F6BFF',
   },
   notificationSwitchThumbDisabled: {
     backgroundColor: '#A1A1AA',

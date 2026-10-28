@@ -2,11 +2,12 @@ import type { ReactNode } from 'react';
 import {
   type StyleProp,
   StyleSheet,
-  Text,
   type TextStyle,
   View,
   type ViewStyle,
 } from 'react-native';
+
+import { AppText as Text } from '@/components/ui/AppText';
 
 import { BackButton } from '@/components/BackButton';
 import { flexDirection } from '@/lib/rtl';

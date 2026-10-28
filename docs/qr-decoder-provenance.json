@@ -1,0 +1,10 @@
+{
+  "package": "jsqr",
+  "version": "1.4.0",
+  "source": "https://registry.npmjs.org/jsqr/-/jsqr-1.4.0.tgz",
+  "npmIntegrity": "sha512-dxLob7q65Xg2DvstYkRpkYtmKm2sPJ9oFhrhmudT1dZvNFFTlroai3AWSpLey/w5vMcLBXRgOJsbXpdN9HzU/A==",
+  "sha256": "bc40c8a15196236b2314db0856f72ca0b49980cd5413b8c852a7349f5fee0859",
+  "license": "Apache-2.0",
+  "upstreamSha256": "bc40c8a15196236b2314db0856f72ca0b49980cd5413b8c852a7349f5fee0859",
+  "localPatch": null
+}

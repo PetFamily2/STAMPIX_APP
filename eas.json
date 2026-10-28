@@ -7,7 +7,8 @@
     "development": {
       "environment": "development",
       "env": {
-        "EXPO_PUBLIC_APP_ENV": "development"
+        "EXPO_PUBLIC_APP_ENV": "development",
+        "EXPO_PUBLIC_STAMPAIX_SHARED_BACKEND": "true"
       },
       "developmentClient": true,
       "distribution": "internal",
@@ -22,7 +23,8 @@
     "ios-simulator": {
       "environment": "development",
       "env": {
-        "EXPO_PUBLIC_APP_ENV": "development"
+        "EXPO_PUBLIC_APP_ENV": "development",
+        "EXPO_PUBLIC_STAMPAIX_SHARED_BACKEND": "true"
       },
       "ios": {
         "simulator": true
@@ -32,7 +34,8 @@
     "preview": {
       "environment": "preview",
       "env": {
-        "EXPO_PUBLIC_APP_ENV": "preview"
+        "EXPO_PUBLIC_APP_ENV": "preview",
+        "EXPO_PUBLIC_STAMPAIX_SHARED_BACKEND": "true"
       },
       "distribution": "internal",
       "android": {

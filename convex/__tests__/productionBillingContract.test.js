@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   CANONICAL_LOYALTY_THEME_COUNT,
+  GENERAL_FREE_TRIAL_DAYS,
+  GENERAL_FREE_TRIAL_PLAN,
   LOGICAL_SUBSCRIPTION_PRODUCTS,
   MVP_FEATURE_FLAGS,
   PLAN_ORDER,
@@ -74,6 +76,9 @@ describe('frozen launch billing contract', () => {
     expect(LOGICAL_SUBSCRIPTION_PRODUCTS).toHaveLength(6);
     expect(REVENUECAT_CANONICAL_ENTITLEMENT).toBe('business_access');
     expect(MVP_FEATURE_FLAGS.freeStarterEnabled).toBe(false);
+    expect(MVP_FEATURE_FLAGS.generalFreeTrialEnabled).toBe(true);
+    expect(GENERAL_FREE_TRIAL_DAYS).toBe(14);
+    expect(GENERAL_FREE_TRIAL_PLAN).toBe('pro');
     expect(MVP_FEATURE_FLAGS.additionalBusinessCreationEnabled).toBe(false);
     expect(MVP_FEATURE_FLAGS.referralRewardMayGrantEntitlement).toBe(false);
     expect(MVP_FEATURE_FLAGS.referralMayPatchSubscriptionEndAt).toBe(false);

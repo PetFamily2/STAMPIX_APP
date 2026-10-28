@@ -1,13 +1,15 @@
 import { useMutation } from 'convex/react';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
+import { AppText as Text } from '@/components/ui/AppText';
 import { api } from '@/convex/_generated/api';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import { webBody, webPage, webTitle } from '@/lib/design/webProductChrome';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
@@ -86,6 +88,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FBFAF7',
+    ...webPage,
   },
   content: {
     flex: 1,
@@ -106,6 +109,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     marginBottom: 8,
     lineHeight: 30,
+    ...webTitle,
   },
   description: {
     fontSize: 14,
@@ -113,6 +117,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'right',
     lineHeight: 21,
+    ...webBody,
   },
   note: {
     marginTop: 14,

@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import {
   AlertTriangle,
   Building2,
@@ -13,15 +14,16 @@ import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
-  Text,
   TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
-
 import BusinessAddressSelector from '@/components/business/BusinessAddressSelector';
 import { validateProfileFields } from '@/components/business-settings';
+import { BusinessLogoField } from '@/components/business-web/BusinessLogoField';
 import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
+import { AppText as Text } from '@/components/ui/AppText';
+import WebPushSettings from '@/components/WebPushSettings';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import {
   type BusinessSettingsSnapshot,
@@ -98,6 +100,7 @@ function snapshotCopy(snapshot: BusinessSettingsSnapshot) {
 }
 
 export function BusinessWebSettings() {
+  const router = useRouter();
   const { width } = useWindowDimensions();
   const { activeBusiness, activeBusinessId } = useActiveBusiness();
   const profile = useBusinessSettingsProfile();
@@ -374,11 +377,20 @@ export function BusinessWebSettings() {
 
   return (
     <View style={styles.page}>
+      <WebPushSettings />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="קוד הצטרפות לעסק"
+        onPress={() => router.push('/business/qr')}
+        style={{ minHeight: 48, justifyContent: 'center' }}
+      >
+        <Text>קוד הצטרפות לעסק</Text>
+      </Pressable>
       <View style={styles.pageHeader}>
         <View style={styles.pageHeaderCopy}>
           <Text style={styles.pageTitle}>הגדרות העסק</Text>
           <Text style={styles.pageSubtitle}>
-            ניהול המידע שהלקוחות ו-StampAix משתמשים בו עבור העסק הזה.
+            פרטי העסק, הכתובת ותחומי הפעילות.
           </Text>
         </View>
       </View>
@@ -425,10 +437,22 @@ export function BusinessWebSettings() {
       >
         <View style={styles.mainColumn}>
           <SettingsCard
-            description="הפרטים הבסיסיים שמוצגים ללקוחות ומזהים את העסק."
+            description="המידע הבסיסי של העסק."
             icon={Building2}
             title="פרטי העסק"
           >
+            <BusinessLogoField
+              businessId={activeBusinessId}
+              businessName={draft.name || activeBusiness.name}
+              canEdit={editable && !isSaving}
+              expectedUpdatedAt={profile.baseUpdatedAt}
+              logoUrl={
+                profile.businessSettings?.businessId === activeBusinessId
+                  ? (profile.businessSettings.logoUrl ?? null)
+                  : (activeBusiness.logoUrl ?? null)
+              }
+              onRevision={profile.noteProfileRevision}
+            />
             <FormField label="שם העסק">
               <TextInput
                 accessibilityLabel="שם העסק"
@@ -490,7 +514,7 @@ export function BusinessWebSettings() {
           </SettingsCard>
 
           <SettingsCard
-            description="בחירת תחומים ותגיות עוזרת לתאר את השירותים של העסק."
+            description="התחומים והשירותים שהעסק מציע."
             icon={Tags}
             title="תחומי פעילות"
           >
@@ -601,7 +625,7 @@ export function BusinessWebSettings() {
 
         <View style={styles.addressColumn}>
           <SettingsCard
-            description="הכתובת משמשת להצגת העסק ולחיפוש מקומי. לא נבקש מיקום מהמכשיר."
+            description="הכתובת שמוצגת ללקוחות ומשמשת לחיפוש מקומי."
             icon={MapPin}
             title="כתובת העסק"
           >
@@ -759,8 +783,8 @@ function PageState({
 const styles = StyleSheet.create({
   page: {
     alignSelf: 'center',
-    gap: TOKENS.space.xl,
-    maxWidth: 1180,
+    gap: 14,
+    maxWidth: 980,
     width: '100%',
   },
   pageHeader: { flexDirection: flexDirection.row },
@@ -785,7 +809,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: flexDirection.row,
     gap: TOKENS.space.md,
-    padding: TOKENS.space.lg,
+    padding: 12,
   },
   conflictBanner: {
     alignItems: alignItems.start,
@@ -796,7 +820,7 @@ const styles = StyleSheet.create({
     flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: TOKENS.space.md,
-    padding: TOKENS.space.lg,
+    padding: 12,
   },
   bannerCopy: { flex: 1, gap: TOKENS.space.xs, minWidth: 220 },
   bannerTitle: {
@@ -826,35 +850,26 @@ const styles = StyleSheet.create({
   contentGrid: {
     alignItems: alignItems.stretch,
     flexDirection: flexDirection.row,
-    gap: TOKENS.space.xl,
+    gap: 14,
   },
   contentGridStacked: { flexDirection: 'column' },
-  mainColumn: { flex: 1.35, gap: TOKENS.space.xl, minWidth: 0, width: '100%' },
-  addressColumn: { flex: 1, minWidth: 0, width: '100%' },
+  mainColumn: { flex: 1.5, gap: TOKENS.space.lg, minWidth: 0, width: '100%' },
+  addressColumn: { flex: 0.85, minWidth: 0, width: '100%' },
   card: {
-    ...TOKENS.shadow,
-    backgroundColor: TOKENS.colors.elevatedSurface,
-    borderColor: TOKENS.colors.border,
-    borderRadius: TOKENS.radii.lg,
-    borderWidth: 1,
-    padding: TOKENS.space.xl,
+    backgroundColor: 'transparent',
+    borderTopColor: TOKENS.colors.border,
+    borderTopWidth: 1,
+    paddingTop: 12,
     width: '100%',
   },
   cardHeader: {
     alignItems: alignItems.start,
-    borderBottomColor: TOKENS.colors.border,
-    borderBottomWidth: 1,
     flexDirection: flexDirection.row,
-    gap: TOKENS.space.md,
-    paddingBottom: TOKENS.space.lg,
+    gap: TOKENS.space.sm,
+    paddingBottom: 8,
   },
   cardIcon: {
-    alignItems: 'center',
-    backgroundColor: TOKENS.colors.primarySubtle,
-    borderRadius: TOKENS.radii.md,
-    height: 42,
-    justifyContent: 'center',
-    width: 42,
+    display: 'none',
   },
   cardHeaderCopy: { flex: 1, gap: 2 },
   cardTitle: {
@@ -869,7 +884,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  cardBody: { gap: TOKENS.space.xl, paddingTop: TOKENS.space.xl },
+  cardBody: { gap: 12, paddingTop: 10 },
   formField: { gap: TOKENS.space.sm },
   formLabelRow: {
     alignItems: 'center',
@@ -889,10 +904,10 @@ const styles = StyleSheet.create({
     borderRadius: TOKENS.radii.sm,
     borderWidth: 1,
     color: TOKENS.colors.textPrimary,
-    fontSize: 16,
-    minHeight: 48,
-    paddingHorizontal: TOKENS.space.lg,
-    paddingVertical: TOKENS.space.md,
+    fontSize: 13,
+    minHeight: 38,
+    paddingHorizontal: 10,
+    paddingVertical: TOKENS.space.sm,
     textAlign: 'right',
     writingDirection: 'rtl',
   },
@@ -900,7 +915,7 @@ const styles = StyleSheet.create({
     backgroundColor: TOKENS.colors.subtleSurface,
     color: TOKENS.colors.textSecondary,
   },
-  textArea: { minHeight: 112, textAlignVertical: 'top' },
+  textArea: { minHeight: 72, textAlignVertical: 'top' },
   ltrInput: { ...ltrIslandText },
   optionGrid: {
     flexDirection: flexDirection.row,
@@ -914,7 +929,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: flexDirection.row,
     gap: TOKENS.space.xs,
-    minHeight: 40,
+    minHeight: 32,
     paddingHorizontal: TOKENS.space.md,
   },
   optionChipSelected: {
@@ -937,7 +952,7 @@ const styles = StyleSheet.create({
     borderRadius: TOKENS.radii.pill,
     flexDirection: flexDirection.row,
     gap: TOKENS.space.xs,
-    minHeight: 34,
+    minHeight: 26,
     paddingHorizontal: TOKENS.space.md,
   },
   tagText: { ...TOKENS.typography.metadata, color: TOKENS.colors.primary },
@@ -958,14 +973,14 @@ const styles = StyleSheet.create({
     backgroundColor: TOKENS.colors.primary,
     borderRadius: TOKENS.radii.sm,
     justifyContent: 'center',
-    minWidth: 48,
+    minWidth: 44,
   },
   errorBanner: {
     backgroundColor: TOKENS.colors.dangerSubtle,
     borderColor: '#FECACA',
     borderRadius: TOKENS.radii.md,
     borderWidth: 1,
-    padding: TOKENS.space.lg,
+    padding: 12,
   },
   errorText: {
     ...TOKENS.typography.secondaryBody,
@@ -981,7 +996,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: flexDirection.row,
     gap: TOKENS.space.sm,
-    padding: TOKENS.space.lg,
+    padding: 12,
   },
   successText: {
     ...TOKENS.typography.secondaryBody,
@@ -990,16 +1005,15 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   saveBar: {
-    ...TOKENS.shadow,
     alignItems: 'center',
     backgroundColor: TOKENS.colors.elevatedSurface,
     borderColor: TOKENS.colors.border,
-    borderRadius: TOKENS.radii.lg,
+    borderRadius: TOKENS.radii.md,
     borderWidth: 1,
     flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: TOKENS.space.md,
-    padding: TOKENS.space.lg,
+    padding: 12,
   },
   saveBarCopy: { flex: 1, minWidth: 210 },
   saveBarTitle: {
@@ -1021,9 +1035,9 @@ const styles = StyleSheet.create({
     flexDirection: flexDirection.row,
     gap: TOKENS.space.sm,
     justifyContent: 'center',
-    minHeight: 44,
-    minWidth: 148,
-    paddingHorizontal: TOKENS.space.lg,
+    minHeight: 38,
+    minWidth: 108,
+    paddingHorizontal: 10,
   },
   primaryButtonDisabled: { opacity: 0.48 },
   primaryButtonText: { ...TOKENS.typography.label, color: '#FFFFFF' },
@@ -1034,8 +1048,8 @@ const styles = StyleSheet.create({
     borderRadius: TOKENS.radii.sm,
     borderWidth: 1,
     justifyContent: 'center',
-    minHeight: 44,
-    paddingHorizontal: TOKENS.space.lg,
+    minHeight: 38,
+    paddingHorizontal: 10,
   },
   secondaryButtonText: {
     ...TOKENS.typography.label,
@@ -1043,17 +1057,16 @@ const styles = StyleSheet.create({
   },
   pressed: { opacity: 0.82 },
   pageState: {
-    ...TOKENS.shadow,
     alignItems: 'center',
     alignSelf: 'center',
     backgroundColor: TOKENS.colors.elevatedSurface,
     borderColor: TOKENS.colors.border,
-    borderRadius: TOKENS.radii.lg,
+    borderRadius: TOKENS.radii.md,
     borderWidth: 1,
     gap: TOKENS.space.md,
     justifyContent: 'center',
     maxWidth: 620,
-    minHeight: 320,
+    minHeight: 160,
     padding: TOKENS.space.xxl,
     width: '100%',
   },
@@ -1061,9 +1074,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: TOKENS.colors.primarySubtle,
     borderRadius: TOKENS.radii.pill,
-    height: 56,
+    height: 44,
     justifyContent: 'center',
-    width: 56,
+    width: 44,
   },
   pageStateTitle: {
     ...TOKENS.typography.sectionTitle,

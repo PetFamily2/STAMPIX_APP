@@ -40,6 +40,7 @@ type RedemptionCelebrationViewProps = {
   artboardRef: RefObject<View | null>;
   isSharing: boolean;
   shareError: RedemptionShareError | null;
+  shareNotice?: string;
   onSharePress: () => void;
   style?: StyleProp<ViewStyle>;
 };
@@ -242,6 +243,7 @@ export function RedemptionCelebrationView({
   artboardRef,
   isSharing,
   shareError,
+  shareNotice,
   onSharePress,
   style,
 }: RedemptionCelebrationViewProps) {
@@ -342,6 +344,11 @@ export function RedemptionCelebrationView({
             </Text>
           </View>
 
+          {shareNotice ? (
+            <Text accessibilityLiveRegion="polite" style={styles.shareHint}>
+              {shareNotice}
+            </Text>
+          ) : null}
           {shareError ? (
             <View
               style={styles.errorCard}
@@ -365,10 +372,15 @@ export default function RedemptionCelebration({
   style,
 }: RedemptionCelebrationProps) {
   const presentation = buildRedemptionPresentation(source);
-  const { artboardRef, isSharing, shareError, share } = useRedemptionShare({
+  const sharing = useRedemptionShare({
     enabled: presentation.canShare,
     authorize: authorizeShare,
   });
+  const { artboardRef, isSharing, shareError, share } = sharing;
+  const shareNotice =
+    'shareNotice' in sharing && typeof sharing.shareNotice === 'string'
+      ? sharing.shareNotice
+      : undefined;
 
   return (
     <RedemptionCelebrationView
@@ -376,6 +388,7 @@ export default function RedemptionCelebration({
       artboardRef={artboardRef}
       isSharing={isSharing}
       shareError={shareError}
+      shareNotice={shareNotice}
       onSharePress={() => {
         void share();
       }}
