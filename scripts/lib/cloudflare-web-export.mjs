@@ -1,4 +1,12 @@
-import { lstatSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import {
+  copyFileSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 
 export const CLOUDFLARE_PREVIEW_BACKEND =
@@ -30,6 +38,7 @@ export function prepareCloudflarePreview(directory, { revision, backendUrl }) {
   const root = path.resolve(directory);
   let files = 0;
   let bytes = 0;
+  const vendorAssets = [];
   function inspect(folder) {
     for (const entry of readdirSync(folder, { withFileTypes: true })) {
       const file = path.join(folder, entry.name);
@@ -45,6 +54,19 @@ export function prepareCloudflarePreview(directory, { revision, backendUrl }) {
         files += 1;
         const size = lstatSync(file).size;
         bytes += size;
+        const relative = path.relative(root, file).split(path.sep).join('/');
+        // Pages intentionally ignores node_modules even below assets/. Keep
+        // Expo's content-addressed JS unchanged and proxy only these exact URLs
+        // to copied assets in an uploadable directory.
+        if (
+          relative.startsWith('assets/') &&
+          relative.split('/').includes('node_modules')
+        ) {
+          if (!/^[A-Za-z0-9_@./-]+$/.test(relative)) {
+            throw new Error('CLOUDFLARE_UNSAFE_ASSET_PATH');
+          }
+          vendorAssets.push({ file, relative });
+        }
         if (size > 25 * 1024 * 1024 || files > 19990) {
           throw new Error('CLOUDFLARE_FREE_ASSET_LIMIT');
         }
@@ -61,13 +83,27 @@ export function prepareCloudflarePreview(directory, { revision, backendUrl }) {
   if (pwa.revision !== revision || pwa.offlineWrites !== false) {
     throw new Error('CLOUDFLARE_EXPORT_REVISION_MISMATCH');
   }
+  const assetRewrites = vendorAssets.map(({ file, relative }) => {
+    const hash = createHash('sha256')
+      .update(relative)
+      .digest('hex')
+      .slice(0, 16);
+    const target = `vendor-assets/${hash}-${path.basename(file)}`;
+    mkdirSync(path.join(root, 'vendor-assets'), { recursive: true });
+    copyFileSync(file, path.join(root, target));
+    return `/${relative} /${target} 200`;
+  });
   const headers = `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  X-Frame-Options: DENY\n  Permissions-Policy: camera=(self), geolocation=(self), microphone=(), usb=(), payment=()\n  Content-Security-Policy: ${CSP}\n  X-Robots-Tag: noindex, nofollow\n  X-StampAix-Revision: ${revision}\n\n/service-worker.js\n  Cache-Control: no-store\n  Service-Worker-Allowed: /\n\n/manifest.webmanifest\n  Cache-Control: no-store\n\n/index.html\n  Cache-Control: no-store\n\n/welcome.html\n  Cache-Control: no-store\n\n/_expo/static/*\n  Cache-Control: public, max-age=31536000, immutable\n`;
   writeFileSync(path.join(root, '_headers'), headers);
   writeFileSync(
     path.join(root, '_redirects'),
     // Pages serves matching .html routes and supplies the SPA fallback itself.
     // Rewriting /welcome to welcome.html loops through its canonical redirect.
-    '# Native Pages HTML matching and SPA fallback; no HTML rewrite rules.\n'
+    [
+      '# Pages HTML matching and SPA fallback; only exact binary asset rewrites.',
+      ...assetRewrites,
+      '',
+    ].join('\n')
   );
   writeFileSync(
     path.join(root, 'pwa/hosting.json'),
