@@ -9,6 +9,7 @@ import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { normalizeEmailAddress } from './lib/email';
 import { generateNumericCode } from './lib/secureRandom';
+import { normalizeSignInEmail } from './lib/signInEmail';
 import { linkVerifiedEmailOtpToExistingOAuthUser } from './lib/verifiedEmailAccountLink';
 import {
   encryptProviderCredentialCapture,
@@ -38,7 +39,7 @@ const EMAIL_OTP_LENGTH = 6;
 const EMAIL_OTP_MAX_AGE_SECONDS = 3 * 60;
 
 function normalizeEmailIdentifier(identifier: string): string {
-  return normalizeEmailAddress(identifier) ?? '';
+  return normalizeSignInEmail(identifier);
 }
 
 function generateEmailOtpToken(): string {
@@ -46,6 +47,7 @@ function generateEmailOtpToken(): string {
 }
 
 async function sendEmailVerificationOtp(email: string, token: string) {
+  const recipient = normalizeSignInEmail(email);
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL;
 
@@ -61,7 +63,7 @@ async function sendEmailVerificationOtp(email: string, token: string) {
     },
     body: JSON.stringify({
       from,
-      to: [email],
+      to: [recipient],
       subject: 'קוד אימות ל-StampAix',
       html: `<div dir="rtl" style="font-family: Arial, sans-serif; color:#0f172a;">
 <p>הקוד שלך הוא:</p>

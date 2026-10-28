@@ -1,5 +1,8 @@
 import { sharedBackendEnabled } from '@/config/sharedBackend';
-import { productionPilotEnabled } from '@/lib/pwa/releaseGate';
+import {
+  productionPilotEnabled,
+  productionPublicEnabled,
+} from '@/lib/pwa/releaseGate';
 export function scannerPreviewEnabled(input: {
   platform: string;
   environment?: string;
@@ -91,7 +94,27 @@ export function scannerCommandsEnabled(
         flag: input.sharedBackend,
         url: input.url,
       })) ||
-    scannerProductionPilotEnabled(input)
+    scannerProductionPilotEnabled(input) ||
+    scannerProductionPublicEnabled(input)
+  );
+}
+
+/** Normal authenticated business RBAC remains mandatory for every command. */
+export function scannerProductionPublicEnabled(
+  input: Parameters<typeof scannerProductionPilotEnabled>[0]
+) {
+  return (
+    input.platform === 'web' &&
+    productionPublicEnabled(input.environment, input.releaseGate) &&
+    input.flag === 'true' &&
+    input.backend === 'verified-production' &&
+    !!input.actorId &&
+    !!input.businessId &&
+    !!input.url &&
+    input.url === input.prodUrl &&
+    input.url !== input.previewUrl &&
+    /^https:\/\/[a-z0-9-]+\.convex\.cloud$/.test(input.url) &&
+    input.url !== 'https://utmost-fennec-280.convex.cloud'
   );
 }
 

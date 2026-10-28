@@ -160,7 +160,10 @@ try {
   if (
     process.env.GITHUB_ACTIONS !== 'true' ||
     process.env.GITHUB_REPOSITORY !== 'PetFamily2/STAMPIX_APP' ||
-    process.env.GITHUB_HEAD_REF !== 'pwa/phase-3-scanner-commands-20261005' ||
+    ![
+      'pwa/phase-3-scanner-commands-20261005',
+      'agent/launch-completion-20261028',
+    ].includes(process.env.GITHUB_HEAD_REF) ||
     process.env.VERIFIED_HEAD_SHA !== sha
   )
     fail('SHARED_VERIFIED_REVISION_REQUIRED');
@@ -239,7 +242,8 @@ try {
     )
   );
   report.stage = 'BACKEND_DRY_RUN';
-  // No new schema columns, imports, seed function, auth key or provider change.
+  // Additive schema compatibility is validated against existing records; no
+  // import, seed, auth key or provider configuration change is performed.
   run(
     'node',
     [

@@ -2,7 +2,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { makeFunctionReference } from 'convex/server';
 import { v } from 'convex/values';
-import { productionPilotEnabled } from '../lib/pwa/releaseGate';
+import { productionWebEnabled } from '../lib/pwa/releaseGate';
 import {
   internalMutation,
   internalQuery,
@@ -34,7 +34,7 @@ const fingerprint = (value: string) =>
 export const enabled = () =>
   process.env.WEB_PUSH_ENABLED === 'true' &&
   (process.env.STAMPAIX_ENV === 'preview' ||
-    productionPilotEnabled(
+    productionWebEnabled(
       process.env.STAMPAIX_ENV,
       process.env.PWA_RELEASE_GATE
     ));

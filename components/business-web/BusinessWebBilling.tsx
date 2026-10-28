@@ -27,6 +27,7 @@ import {
   planConfig,
 } from '@/lib/billing/productionContract';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
+import { WEB_TAX_POLICY } from '@/lib/billing/webTaxPolicy';
 import { alignItems, flexDirection, ltrIslandText, selfStart } from '@/lib/rtl';
 
 const YEARLY_COPY = 'בחיוב שנתי — משלמים על 10 חודשים ומקבלים 12';
@@ -164,7 +165,7 @@ export function BusinessWebBilling() {
   if (!activeBusinessId || !activeBusiness) {
     return (
       <PageState
-        description="בחרו עסק כדי לצפות בחיוב ובחשבוניות שלו."
+        description="בחרו עסק כדי לצפות בחיוב ובמסמכי התשלום שלו."
         title="לא נבחר עסק פעיל"
       />
     );
@@ -209,9 +210,9 @@ export function BusinessWebBilling() {
     <View style={styles.page}>
       <View style={styles.pageHeader}>
         <View style={styles.pageHeaderCopy}>
-          <Text style={styles.pageTitle}>חיוב וחשבוניות</Text>
+          <Text style={styles.pageTitle}>חיוב ומסמכי תשלום</Text>
           <Text style={styles.pageSubtitle}>
-            המנוי, התשלומים והחשבוניות של {activeBusiness.name}.
+            המנוי, התשלומים ומסמכי התשלום של {activeBusiness.name}.
           </Text>
         </View>
       </View>
@@ -289,6 +290,9 @@ export function BusinessWebBilling() {
       <View style={styles.plansHeader}>
         <View style={styles.plansHeaderCopy}>
           <Text style={styles.sectionHeading}>בחירת מסלול</Text>
+          <Text style={styles.sectionDescription}>
+            {WEB_TAX_POLICY.priceNotice}
+          </Text>
           <Text style={styles.sectionDescription}>
             {hasCurrentPaidAccess
               ? 'המנוי הנוכחי מוצג למטה. שינוי מסלול או מחזור חיוב עדיין לא זמין בגרסה זו.'
@@ -419,7 +423,7 @@ export function BusinessWebBilling() {
       <SectionCard
         description="מסמכים שהתקבלו מתשלומים שאומתו על ידי השרת."
         icon={ReceiptText}
-        title="חשבוניות וקבלות"
+        title="מסמכי תשלום וקבלות"
       >
         {documents.length === 0 ? (
           <Text style={styles.emptyDocuments}>אין עדיין מסמכים להצגה.</Text>

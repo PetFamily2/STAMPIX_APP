@@ -10,6 +10,9 @@
 - Customer limits remain 250 / 3000 / 10000.
 - Identity continuity issue S1-01 is closed by operator report and remains a regression check.
 - All documented product features are part of the launch target.
+- Scope amendment, explicitly approved by the user on 2026-10-28: paid collectible
+  pack sales are excluded from launch. All other feature targets remain. Track
+  current execution in `docs/LAUNCH_EXECUTION_20261028.md`.
 - No database reset, fixture acceptance, merge, shared Preview deployment, Production
   deployment, real charge, or destructive action occurs without its explicit gate.
 
@@ -34,7 +37,7 @@ Nothing is TESTED at this baseline because no post-`231feb9` human/device eviden
 | Gamification album | MISSING | Server-verified stickers and album live inside Wallet, including safe achievement sharing |
 | Challenges and streaks | MISSING | Server-authoritative progress, anti-abuse rules, privacy review, and accessible reduced-motion UI |
 | Leaderboards | MISSING | Consent and privacy policy prevent PII disclosure; ranking and anti-fraud rules are server-enforced |
-| Paid collectible packs | MISSING | Product, tax, refund, receipt, entitlement, anti-fraud, and provider contracts are approved and tested before any sale |
+| Paid collectible packs | EXCLUDED by user on 2026-10-28 | No pack sales, checkout, or marketing promise in this launch |
 | PWA and Push | PARTIAL | Install/update/offline recovery and real Push pass on Android Chrome, Samsung Internet, and iPhone Safari |
 | SUMIT TEST | PARTIAL | All six products, callback, canonical receipt, failure, cancellation, invoice, reconciliation, and idempotency pass in TEST only |
 

@@ -7,6 +7,12 @@ ordinary Web app use it directly. No snapshot import, account copying, reset,
 fixture provisioning, new database, provider key or OAuth client is part of this change.
 Production deployment and merging to main remain outside authorization.
 
+2026-10-28 execution update: the user requested full launch implementation. The
+exact `agent/launch-completion-20261028` branch may use the same verified DEV
+deployment path after full CI. This does not enable Production: public release
+still depends on provider setup and actual acceptance. Launch CI exports Web
+only. No Native build or submission is part of this work.
+
 ## Application changes
 
 - One shared non-production backend selection is used by the app, customer camera

@@ -552,7 +552,12 @@ export default defineSchema({
     .index('by_businessPublicId', ['businessPublicId'])
     .index('by_joinCode', ['joinCode'])
     .index('by_isActive', ['isActive'])
-    .index('by_onboardingResearchPurgeAfter', ['onboardingResearchPurgeAfter']),
+    .index('by_onboardingResearchPurgeAfter', ['onboardingResearchPurgeAfter'])
+    .index('by_placeId', ['placeId'])
+    .searchIndex('search_public_name', {
+      searchField: 'name',
+      filterFields: ['isActive'],
+    }),
 
   businessDeletionJobs: defineTable({
     businessId: v.string(),

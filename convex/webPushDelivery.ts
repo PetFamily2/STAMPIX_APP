@@ -2,7 +2,7 @@
 import { makeFunctionReference } from 'convex/server';
 import { v } from 'convex/values';
 import webpush from 'web-push';
-import { productionPilotEnabled } from '../lib/pwa/releaseGate';
+import { productionWebEnabled } from '../lib/pwa/releaseGate';
 import type { Id } from './_generated/dataModel';
 import { internalAction } from './_generated/server';
 
@@ -15,7 +15,7 @@ export const send = internalAction({
       process.env.WEB_PUSH_ENABLED !== 'true' ||
       !(
         process.env.STAMPAIX_ENV === 'preview' ||
-        productionPilotEnabled(
+        productionWebEnabled(
           process.env.STAMPAIX_ENV,
           process.env.PWA_RELEASE_GATE
         )

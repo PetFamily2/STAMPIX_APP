@@ -44,7 +44,8 @@ for (const file of [
   if (!approved.equals(readFileSync(file)))
     throw new Error(`Protected Native maps/location/push changed: ${file}`);
 }
-// Preserve every existing schema table exactly; new tables are additive.
+// Preserve existing table fields and indexes. The 2026-10-28 full Web launch
+// adds exactly two public-discovery read indexes; no field or data migration.
 function tableSources(source) {
   const ast = ts.createSourceFile(
     'schema.ts',
@@ -89,8 +90,61 @@ const oldTables = tableSources(
   })
 );
 const newTables = tableSources(readFileSync('convex/schema.ts', 'utf8'));
+function withoutApprovedDiscoveryIndexes(source) {
+  const ast = ts.createSourceFile(
+    'table.ts',
+    `const table = ${source};`,
+    ts.ScriptTarget.Latest,
+    true
+  );
+  let node = ast.statements[0].declarationList.declarations[0].initializer;
+  const literalIs = (value, expected) =>
+    !!value && ts.isStringLiteral(value) && value.text === expected;
+  const arrayIs = (value, expected) =>
+    !!value &&
+    ts.isArrayLiteralExpression(value) &&
+    value.elements.length === 1 &&
+    literalIs(value.elements[0], expected);
+  while (
+    ts.isCallExpression(node) &&
+    ts.isPropertyAccessExpression(node.expression)
+  ) {
+    const method = node.expression.name.text;
+    const [name, options] = node.arguments;
+    const placeIndex =
+      method === 'index' &&
+      node.arguments.length === 2 &&
+      literalIs(name, 'by_placeId') &&
+      arrayIs(options, 'placeId');
+    const searchProperties =
+      options && ts.isObjectLiteralExpression(options)
+        ? options.properties
+        : [];
+    const nameIndex =
+      method === 'searchIndex' &&
+      node.arguments.length === 2 &&
+      literalIs(name, 'search_public_name') &&
+      searchProperties.length === 2 &&
+      searchProperties.every(
+        (property) =>
+          ts.isPropertyAssignment(property) &&
+          ((property.name.getText(ast) === 'searchField' &&
+            literalIs(property.initializer, 'name')) ||
+            (property.name.getText(ast) === 'filterFields' &&
+              arrayIs(property.initializer, 'isActive')))
+      );
+    if (!placeIndex && !nameIndex) break;
+    node = node.expression.expression;
+  }
+  return node.getText(ast);
+}
 for (const [name, source] of oldTables)
-  if (newTables.get(name) !== source)
+  if (
+    !newTables.has(name) ||
+    (name === 'businesses'
+      ? withoutApprovedDiscoveryIndexes(newTables.get(name)) !== source
+      : newTables.get(name) !== source)
+  )
     throw new Error(`Existing schema table changed: ${name}`);
 const priorPackage = JSON.parse(
   execFileSync('git', ['show', `${base}:package.json`], { encoding: 'utf8' })
