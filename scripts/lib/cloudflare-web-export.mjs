@@ -52,6 +52,9 @@ export function prepareCloudflarePreview(directory, { revision, backendUrl }) {
     }
   }
   inspect(root);
+  if (readdirSync(root).includes('404.html')) {
+    throw new Error('CLOUDFLARE_SPA_FALLBACK_DISABLED');
+  }
   const pwa = JSON.parse(
     readFileSync(path.join(root, 'pwa/release.json'), 'utf8')
   );
@@ -62,7 +65,9 @@ export function prepareCloudflarePreview(directory, { revision, backendUrl }) {
   writeFileSync(path.join(root, '_headers'), headers);
   writeFileSync(
     path.join(root, '_redirects'),
-    '/welcome /welcome.html 200\n/* /index.html 200\n'
+    // Pages serves matching .html routes and supplies the SPA fallback itself.
+    // Rewriting /welcome to welcome.html loops through its canonical redirect.
+    '# Native Pages HTML matching and SPA fallback; no HTML rewrite rules.\n'
   );
   writeFileSync(
     path.join(root, 'pwa/hosting.json'),
