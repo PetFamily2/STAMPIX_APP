@@ -1,0 +1,26 @@
+{
+  "starter_monthly": {
+    "hostedUrl": "https://pay.sumit.co.il/13mel2z/13n1foh/13n1foi/payment/",
+    "productId": "2396879010"
+  },
+  "pro_monthly": {
+    "hostedUrl": "https://pay.sumit.co.il/13mel2z/13n1fz1/13n1fz2/payment/",
+    "productId": "2396879390"
+  },
+  "premium_monthly": {
+    "hostedUrl": "https://pay.sumit.co.il/13mel2z/13n1gez/13n1gf0/payment/",
+    "productId": "2396879964"
+  },
+  "starter_yearly": {
+    "hostedUrl": "https://pay.sumit.co.il/13mel2z/13n1lty/13n1ltz/payment/",
+    "productId": "2396886983"
+  },
+  "pro_yearly": {
+    "hostedUrl": "https://pay.sumit.co.il/13mel2z/13n1nwc/13n1nwd/payment/",
+    "productId": "2396889661"
+  },
+  "premium_yearly": {
+    "hostedUrl": "https://pay.sumit.co.il/13mel2z/13n1oef/13n1oeg/payment/",
+    "productId": "2396890312"
+  }
+}
