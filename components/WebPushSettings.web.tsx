@@ -1,5 +1,11 @@
 import { useAuthToken } from '@convex-dev/auth/react';
-import { useEffect, useRef, useState } from 'react';
+import {
+  type Ref,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 import { useUser } from '@/contexts/UserContext';
 import {
   isAppleMobile,
@@ -25,7 +31,19 @@ export default function WebPushSettings() {
   );
 }
 
-export function BrowserPushControl({ onEnabled }: { onEnabled?: () => void }) {
+export type PushActivationHandle = {
+  enable: () => Promise<boolean | undefined>;
+};
+
+export function BrowserPushControl({
+  onEnabled,
+  activationRef,
+  compact = false,
+}: {
+  onEnabled?: () => void;
+  activationRef?: Ref<PushActivationHandle>;
+  compact?: boolean;
+}) {
   const { user } = useUser();
   const token = useAuthToken();
   const current = useRef({ user, token });
@@ -293,6 +311,7 @@ export function BrowserPushControl({ onEnabled }: { onEnabled?: () => void }) {
         setEnabled(true);
         setMessage('ההתראות מחוברות לחשבון. העדפת דיוור שיווקי לא השתנתה.');
         onEnabled?.();
+        return true;
       }
     } catch (error) {
       if (valid()) {
@@ -307,6 +326,10 @@ export function BrowserPushControl({ onEnabled }: { onEnabled?: () => void }) {
       }
     }
   };
+  // The setup action enables only: retrying must never turn off an existing subscription.
+  useImperativeHandle(activationRef, () => ({
+    enable: () => (enabled ? Promise.resolve(true) : toggle()),
+  }));
   return (
     <section dir="rtl" className="permission-row" aria-label="הרשאת התראות">
       <h3>התראות בדפדפן</h3>
@@ -321,43 +344,47 @@ export function BrowserPushControl({ onEnabled }: { onEnabled?: () => void }) {
                 ? 'הרשאה אושרה; החיבור לחשבון אינו פעיל'
                 : 'התראות אינן פעילות'}
       </output>
-      <p>אישור התראות אינו מפעיל דיוור שיווקי ואינו שולח הודעת בדיקה.</p>
+      {!compact ? (
+        <p>אישור התראות אינו מפעיל דיוור שיווקי ואינו שולח הודעת בדיקה.</p>
+      ) : null}
       {failure ? (
         <output aria-live="polite">{pushFailureMessage(failure)}</output>
       ) : null}
       {permission === 'denied' ? <p>{pushFailureMessage('DENIED')}</p> : null}
       {!user ? <p>התחברו לחשבון כדי להפעיל התראות.</p> : null}
-      <div className="permission-actions">
-        <button
-          type="button"
-          disabled={
-            busy ||
-            checking ||
-            !user ||
-            !token ||
-            (!enabled &&
-              (!!failure || !config?.enabled || permission === 'denied'))
-          }
-          onClick={() => void toggle()}
-        >
-          {busy
-            ? 'מעדכנים…'
-            : enabled
-              ? 'כיבוי התראות לחשבון'
-              : 'אישור והפעלת התראות'}
-        </button>
-        <button
-          type="button"
-          className="secondary"
-          disabled={busy || checking}
-          onClick={() => {
-            setMessage('');
-            refreshRef.current();
-          }}
-        >
-          בדיקה מחדש
-        </button>
-      </div>
+      {!compact ? (
+        <div className="permission-actions">
+          <button
+            type="button"
+            disabled={
+              busy ||
+              checking ||
+              !user ||
+              !token ||
+              (!enabled &&
+                (!!failure || !config?.enabled || permission === 'denied'))
+            }
+            onClick={() => void toggle()}
+          >
+            {busy
+              ? 'מעדכנים…'
+              : enabled
+                ? 'כיבוי התראות לחשבון'
+                : 'אישור והפעלת התראות'}
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            disabled={busy || checking}
+            onClick={() => {
+              setMessage('');
+              refreshRef.current();
+            }}
+          >
+            בדיקה מחדש
+          </button>
+        </div>
+      ) : null}
       {message ? <output aria-live="polite">{message}</output> : null}
     </section>
   );

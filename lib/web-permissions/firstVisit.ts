@@ -2,8 +2,8 @@ import { WEB_LEGAL_VERSION as CANONICAL_PRIVACY_VERSION } from '../legalWebContr
 
 // Local presentation preferences only; NOT server legal consent or marketing opt-in.
 export const PRIVACY_NOTICE_KEY = 'stampaix:privacy-notice-version';
-export const setupNoticeKey = (actorId: string) =>
-  `stampaix:permission-intro:v1:${actorId}`;
+export const setupNoticeKey = (actorId: string, role = 'customer') =>
+  `stampaix:permission-intro:v2:${actorId}:${role}`;
 export type FirstVisitStep = 'privacy' | 'install' | 'notifications' | null;
 export function firstVisitStep(input: {
   privacyVersion: string | null;
