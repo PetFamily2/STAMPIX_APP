@@ -19,6 +19,7 @@
     banner = null;
   };
   const render = () => {
+    if (document.querySelector('[data-privacy-notice]:not([hidden])')) return;
     if (installed || hidden() || banner || !document.body) return;
     banner = document.createElement('aside');
     banner.id = 'stampaix-install-banner';
@@ -105,6 +106,7 @@
     promptEvent = null;
     remove();
   });
+  window.addEventListener('stampaix:privacy-acknowledged', render);
   standalone.addEventListener('change', () => {
     installed = navigator.standalone === true || standalone.matches;
     if (installed) remove();

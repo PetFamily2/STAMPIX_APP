@@ -3,6 +3,7 @@ import path from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { WelcomeContent } from '../../components/public-web/WelcomeContent';
 import { manualQaClientEnabled } from '../../lib/auth/manualQaPolicy';
+import { WEB_LEGAL_VERSION } from '../../lib/legalWebContract';
 
 /** A real public entry page with working links before the application is downloaded. */
 export function exportPublicWelcome(output, pwaEnabled) {
@@ -43,6 +44,67 @@ export function exportPublicWelcome(output, pwaEnabled) {
             backend: process.env.EXPO_PUBLIC_WEB_SCANNER_BACKEND,
           })}
         />
+        <aside
+          hidden={true}
+          data-privacy-notice="true"
+          data-privacy-version={WEB_LEGAL_VERSION}
+          dir="rtl"
+          aria-label="פרטיות וקובצי Cookie"
+          style={{
+            position: 'fixed',
+            bottom: 16,
+            insetInlineStart: 16,
+            width: 'min(360px, calc(100vw - 32px))',
+            boxSizing: 'border-box',
+            padding: 18,
+            background: '#fff',
+            color: '#101936',
+            border: '1px solid #DFE5F0',
+            borderRadius: 16,
+            boxShadow: '0 6px 24px #1019361a',
+            font: '14px Heebo,Arial,sans-serif',
+            lineHeight: 1.5,
+            textAlign: 'right',
+            zIndex: 11000,
+          }}
+        >
+          <strong>פרטיות וקובצי Cookie</strong>
+          <p style={{ margin: '6px 0 10px' }}>
+            מידע על השימוש בנתונים ובקובצי Cookie נמצא במדיניות הפרטיות. את
+            ההרשאות אפשר לנהל בהגדרות.
+          </p>
+          <nav
+            aria-label="מידע ובחירות פרטיות"
+            style={{ display: 'flex', gap: 16, marginBottom: 12 }}
+          >
+            <a
+              href="/legal?document=privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              מדיניות הפרטיות
+            </a>
+            <a href="/settings#browser-permissions">הרשאות והגדרות</a>
+          </nav>
+          <button
+            data-privacy-accept="true"
+            type="button"
+            style={{
+              width: '100%',
+              minHeight: 44,
+              border: 0,
+              borderRadius: 10,
+              background: '#1834AD',
+              color: '#fff',
+              font: 'inherit',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            אישור
+          </button>
+        </aside>
+        <script src="/pwa/privacy-notice.js" defer={true} />
         {pwaEnabled && <script src="/pwa/welcome.js" defer={true} />}
         {pwaEnabled && <script src="/pwa/install.js" defer={true} />}
       </body>
