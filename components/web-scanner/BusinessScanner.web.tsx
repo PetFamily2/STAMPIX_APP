@@ -306,7 +306,8 @@ export default function BusinessScanner(props: {
   ]);
   const ready = state.phase === 'READY_FOR_ACTION';
   const success = state.phase === 'SUCCESS';
-  const cameraActive = cameraState.status === 'scanning';
+  const cameraActive =
+    cameraState.status === 'scanning' || cameraState.status === 'locked';
   const requestingCamera = cameraState.status === 'requesting';
   const cameraError = [
     'denied',
@@ -499,10 +500,8 @@ export default function BusinessScanner(props: {
               type="button"
               disabled={busy || !!blocked || requestingCamera}
               onClick={() => {
-                if (commands.current?.reset()) {
-                  camera.current?.reset();
-                  setRevision((r) => r + 1);
-                }
+                if (!commands.current?.reset()) return;
+                camera.current?.continueScanning();
               }}
             >
               סריקת לקוח נוסף

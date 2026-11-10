@@ -280,10 +280,11 @@ export class WebQrController {
             return;
           }
           if (result) {
+            // Keep the live preview. Only the decode loop pauses until the next customer.
             this.locked = true;
-            this.wanted = false;
+            this.wanted = true;
+            this.clearTimer(this.timer);
             this.emit({ type: 'decoded', length: result.length });
-            this.release();
             return;
           }
         }
@@ -320,6 +321,29 @@ export class WebQrController {
     if (this.wanted && this.granted && !this.locked && this.deps.isVisible()) {
       void this.start();
     }
+  }
+
+  /** Resume decoding on the open camera. Opens a new stream only if the old one ended. */
+  continueScanning() {
+    if (this.disposed || !this.deps.isVisible()) {
+      return;
+    }
+    const track = this.stream?.getVideoTracks()[0];
+    if (!this.stream || !track || track.readyState === 'ended') {
+      this.locked = false;
+      void this.start(this.state.selectedCamera);
+      return;
+    }
+    this.locked = false;
+    this.wanted = true;
+    this.lastFrameTime = -1;
+    this.lastProgress = this.now();
+    this.sessionStarted = this.now();
+    if (!this.decoder) {
+      this.decoder = this.deps.createDecoder();
+    }
+    this.emit({ type: 'status', status: 'scanning' });
+    this.schedule(this.generation, 250);
   }
 
   stop() {
