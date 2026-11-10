@@ -5,7 +5,9 @@ Base: Work launch tip `ffaaca2` on `agent/launch-completion-20261028`.
 The two scanner and onboarding commits `ad5fca0` and `37c4b83` are applied on that base.
 Uncommitted gamification files in the game worktree were not included, and that branch was not updated.
 Data source: original Convex deployment `utmost-fennec-280`. No billing write, no new database, and no entitlement bypass.
-Hosted SHA and Cloudflare QA URL are recorded after the upload is confirmed. No defect below is `CLOSED`.
+Prepared app SHA: `821977dbba05a08aebc7ee9cfc34c3dc4bfe8554`.
+Cloudflare upload on 2026-11-10 did not happen. Wrangler had no saved login, the dashboard showed a sign-in form, and the authorization wait timed out. No Pages project was created or overwritten. The Web export also stopped before upload: Metro looked for `c:\C:\STAMPIX_FOLDER\STAMPIX_APP\...` and exited. Production, Convex, entitlements, and the Work launch branch were not changed.
+No defect below is `CLOSED`.
 
 Statuses: `OPEN`, `REPRODUCED`, `FIXED`, `VERIFIED`, `CLOSED`, `REOPENED`.
 A defect is not `CLOSED` without the evidence named in its test row. A real camera check also needs device UAT.
