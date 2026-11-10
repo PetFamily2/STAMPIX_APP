@@ -5,8 +5,11 @@ Base: Work launch tip `ffaaca2` on `agent/launch-completion-20261028`.
 The two scanner and onboarding commits `ad5fca0` and `37c4b83` are applied on that base.
 Uncommitted gamification files in the game worktree were not included, and that branch was not updated.
 Data source: original Convex deployment `utmost-fennec-280`. No billing write, no new database, and no entitlement bypass.
-Prepared app SHA: `821977dbba05a08aebc7ee9cfc34c3dc4bfe8554`.
-Cloudflare upload on 2026-11-10 did not happen. Wrangler had no saved login, the dashboard showed a sign-in form, and the authorization wait timed out. No Pages project was created or overwritten. The Web export also stopped before upload: Metro looked for `c:\C:\STAMPIX_FOLDER\STAMPIX_APP\...` and exited. Production, Convex, entitlements, and the Work launch branch were not changed.
+Deployed SHA: `9686eb7db9686c37b421bdb3bfc729d4b77ac506`.
+Cloudflare Pages project: `stampaix-web-qa`, deployment `27c8fe2a-4278-4f65-898a-af3e718a3754`, environment Preview.
+Phone URL: https://qa-cloudflare-scanner-onboar.stampaix-web-qa.pages.dev/welcome
+Exact deployment URL: https://27c8fe2a.stampaix-web-qa.pages.dev
+The hosted bundle is `index-43dc2a00fd63438be577b5a2b2c5bcdd.js` and uses `utmost-fennec-280`. `aware-llama-850` appears only inside a denylist. The marketing project and the Work launch branch were not updated.
 No defect below is `CLOSED`.
 
 Statuses: `OPEN`, `REPRODUCED`, `FIXED`, `VERIFIED`, `CLOSED`, `REOPENED`.
