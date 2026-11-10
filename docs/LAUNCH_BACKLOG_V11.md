@@ -2,6 +2,8 @@
 
 ## 2026-11-10 execution update
 
+- Existing-account Email OTP acceptance PASSED: user confirmed success; authenticated browser reached /business on QA 0ce6a74 with original business and 147 stamps/9 redemptions. Provider reported delivered for the latest attempt. Earlier bounced/suppressed attempts are not claimed globally fixed; new-user, expired/incorrect-code and recovery acceptance remain separate. be229a6 is deployed to stable QA / immutable https://f8ebbb4a.stampaix-web-qa.pages.dev and hides unconfigured Apple on Web only. Apple connection remains unconfigured; no paid Developer enrollment or Native changes.
+
 - Authentication incident: original DEV readiness confirms Google/Email configured, Apple not configured. Presence-only audit confirms missing Apple ID/secret; Web must hide unconfigured Apple, preserving Native. User has no confirmed Developer account. This does not complete Apple integration.
 - Email provider read APIs succeed and sender domain is verified (not sandbox). One login OTP today hard-bounced Permanent/General without detailed cause; recipient/code/key were not exposed. User reports no code arrival. Existing-address delivery and complete OTP login remain unaccepted; a browser form is prepared for user testing. Fifty-nine focused availability/OTP/address tests pass. Configuration presence is not delivery acceptance.
 
