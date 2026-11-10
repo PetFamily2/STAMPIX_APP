@@ -696,12 +696,12 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 560,
     alignSelf: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
   },
   headerRow: {
-    marginBottom: 28,
+    marginBottom: 16,
   },
   title: {
     fontSize: 24,
