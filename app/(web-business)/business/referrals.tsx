@@ -3,7 +3,10 @@ import { WebManagementSurface } from '@/components/business-web/WebManagementSur
 export default function Referrals() {
   return (
     <WebManagementSurface>
-      <Editor />
+      <Editor
+        campaignsHref="/business/campaigns"
+        settingsHref="/business/settings"
+      />
     </WebManagementSurface>
   );
 }

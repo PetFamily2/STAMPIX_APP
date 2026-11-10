@@ -1,5 +1,11 @@
 # StampAix launch backlog — v11 control baseline
 
+## 2026-11-10 execution update
+
+- Stable QA: https://review.stampaix-web-qa.pages.dev/welcome ; 8abb944 passed CI 42849220495. Existing business login and safe PWA update were observed. The compact privacy notice persists after acknowledgment; installation offer follows it.
+- Mobile More navigation: top-level destinations are Web routes; shared referral content retained legacy permission/back destinations and shared upgrade actions led to the legacy subscription screen. Web-specific destinations and a Web billing adapter correct those exits, preserving Native defaults. Focused regression tests pass; QA publication and phone acceptance of the reported item remain open. Shared legacy presentation is not claimed redesigned.
+- No payment, onboarding, physical-device, security/operations or Production gate is closed by this navigation correction. GAME-01/02 remain Post-launch and Cursor-owned.
+
 **Baseline:** `231feb9b38828a2e4e1b3e68ebc23eadff5831b6`  
 **Working base:** `pwa/phase-3-scanner-commands-20261005`  
 **Status:** not launch-ready; automated evidence exists, human and device acceptance is incomplete.

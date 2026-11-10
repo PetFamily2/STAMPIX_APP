@@ -1,7 +1,12 @@
 import type { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMutation, useQuery } from 'convex/react';
-import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  type Href,
+  Redirect,
+  useLocalSearchParams,
+  useRouter,
+} from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -127,7 +132,13 @@ function EmptyReferralActionState({
   );
 }
 
-export default function BusinessReferralSettingsScreen() {
+export default function BusinessReferralSettingsScreen({
+  settingsHref = '/(authenticated)/(business)/settings',
+  campaignsHref = '/(authenticated)/(business)/campaigns',
+}: {
+  settingsHref?: Href;
+  campaignsHref?: string;
+} = {}) {
   const router = useRouter();
   const contentWidth = useSettingsContentWidth();
   const params = useLocalSearchParams<{ tab?: string }>();
@@ -310,7 +321,7 @@ export default function BusinessReferralSettingsScreen() {
   };
 
   if (activeBusiness && !canViewSettings) {
-    return <Redirect href="/(authenticated)/(business)/settings" />;
+    return <Redirect href={settingsHref} />;
   }
 
   return (
@@ -329,7 +340,7 @@ export default function BusinessReferralSettingsScreen() {
         <BusinessSettingsSubpageHeader
           title="קמפיין חבר מביא חבר"
           subtitle="הגדרת תבנית, הפעלה וביצועים"
-          fallbackHref="/(authenticated)/(business)/campaigns"
+          fallbackHref={campaignsHref}
         />
 
         <View style={styles.tabRow}>
