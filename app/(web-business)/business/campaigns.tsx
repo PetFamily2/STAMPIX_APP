@@ -1,9 +1,11 @@
-import { CampaignsHubContent } from '@/app/(authenticated)/(business)/cards/campaigns';
-import { WebManagementSurface } from '@/components/business-web/WebManagementSurface';
+import { BusinessWebCampaigns } from '@/components/business-web/BusinessWebCampaigns';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 export default function Campaigns() {
-  return (
-    <WebManagementSurface>
-      <CampaignsHubContent />
-    </WebManagementSurface>
-  );
+  const { activeBusinessId } = useActiveBusiness();
+  return activeBusinessId ? (
+    <BusinessWebCampaigns
+      key={String(activeBusinessId)}
+      businessId={activeBusinessId}
+    />
+  ) : null;
 }

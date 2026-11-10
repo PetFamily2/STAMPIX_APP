@@ -2,6 +2,8 @@
 
 ## 2026-11-10 execution update
 
+- User confirmed the affected More entries are Campaigns and Referrals. Navigation correction 882467a is deployed to QA. Follow-up replaces the legacy campaign hub with a dedicated Web surface retaining scopes, quota, lifecycle filtering, timing/audience, editor links, referral entry and existing restore action. Referral settings now opt into Web presentation while preserving original Native defaults and existing save/query behavior. Visual QA of that follow-up is pending deployment.
+
 - Stable QA: https://review.stampaix-web-qa.pages.dev/welcome ; 8abb944 passed CI 42849220495. Existing business login and safe PWA update were observed. The compact privacy notice persists after acknowledgment; installation offer follows it.
 - Mobile More navigation: top-level destinations are Web routes; shared referral content retained legacy permission/back destinations and shared upgrade actions led to the legacy subscription screen. Web-specific destinations and a Web billing adapter correct those exits, preserving Native defaults. Focused regression tests pass; QA publication and phone acceptance of the reported item remain open. Shared legacy presentation is not claimed redesigned.
 - No payment, onboarding, physical-device, security/operations or Production gate is closed by this navigation correction. GAME-01/02 remain Post-launch and Cursor-owned.
