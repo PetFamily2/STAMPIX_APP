@@ -1,5 +1,5 @@
-import { resolveCardTheme } from '@/constants/cardThemes';
 import { resolveStampIcon } from '@/constants/stampIcons';
+import { resolveClassicStampPalette } from '@/lib/loyalty/classicStampPalette';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
 
 function StampMark({ id, color }: { id: string; color: string }) {
@@ -77,7 +77,6 @@ export function ScannerProgramTiles({
         .sx-programs button:disabled{cursor:default;opacity:.65}
         .sx-programs strong{width:100%;font-size:13px;line-height:16px;font-weight:800;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
         .sx-programs span,.sx-programs small{width:100%;font-size:11px;line-height:14px}
-        .sx-programs .sx-mark{position:absolute;top:6px;right:6px;width:16px;height:16px;border-radius:8px;background:#047857;color:#fff;font-size:11px;line-height:16px}
       `}</style>
       {recoveryId &&
       !programs.some((p) => p.loyaltyProgramId === recoveryId) ? (
@@ -86,7 +85,7 @@ export function ScannerProgramTiles({
         </button>
       ) : null}
       {programs.map((program) => {
-        const theme = resolveCardTheme(program.cardThemeId);
+        const palette = resolveClassicStampPalette(program.cardThemeId);
         const icon = resolveStampIcon(program.stampIcon);
         const selected = selectedId === program.loyaltyProgramId;
         return (
@@ -99,23 +98,18 @@ export function ScannerProgramTiles({
             aria-label={`בחירת כרטיסייה ${program.title}`}
             onClick={() => onSelect(program.loyaltyProgramId)}
             style={{
-              background: `linear-gradient(135deg, ${theme.gradient[0]}, ${theme.gradient[1]} 58%, ${theme.gradient[2]})`,
-              borderColor: selected ? '#047857' : theme.keyline,
+              background: palette.paper,
+              borderColor: selected ? '#047857' : 'transparent',
               borderWidth: selected ? 5 : 3,
-              color: theme.titleColor,
+              color: palette.ink,
             }}
           >
-            {selected ? <span className="sx-mark">✓</span> : null}
-            <StampMark id={icon.id} color={theme.accent} />
-            <strong>{program.title}</strong>
-            <span style={{ color: theme.subtitleColor }}>
+            <StampMark id={icon.id} color={palette.ink} />
+            <strong style={{ color: palette.ink }}>{program.title}</strong>
+            <span style={{ color: palette.mute }}>
               {program.maxStamps} חותמות
               {program.rewardName ? ` · ${program.rewardName}` : ''}
             </span>
-            <small style={{ color: theme.accent }}>
-              ✓ פעילה
-              {selected ? ' · נבחרה לסריקה' : ''}
-            </small>
           </button>
         );
       })}

@@ -43,6 +43,8 @@ export default function BusinessScanner(props: {
   const camera = useRef<WebQrController | null>(null);
   const commands = useRef<WebScannerCommands | null>(null);
   const lockLease = useRef<Promise<void>>(Promise.resolve());
+  const recentQr = useRef<{ value: string; until: number } | null>(null);
+  const autoStamp = useRef<string | null>(null);
   const [state, setState] = useState(initialCommand);
   const [cameraState, setCameraState] = useState(initialScannerState);
   const [blocked, setBlocked] = useState<string | null>('מכינים את הסורק');
@@ -173,8 +175,28 @@ export default function BusinessScanner(props: {
                 if (next.status === 'locked' && qrReference) {
                   const data = qrReference;
                   qrReference = null;
-                  if (current.current.canStartScan !== false)
-                    void engine.decode(data);
+                  if (current.current.canStartScan === false || !data) return;
+                  const now = Date.now();
+                  if (
+                    recentQr.current?.value === data &&
+                    now < recentQr.current.until
+                  ) {
+                    capture.continueScanning();
+                    return;
+                  }
+                  const phase = engine.state.phase;
+                  if (phase === 'SUCCESS' || phase === 'ERROR') {
+                    if (!engine.reset()) {
+                      capture.continueScanning();
+                      return;
+                    }
+                  }
+                  if (!['IDLE', 'CAMERA_READY'].includes(engine.state.phase)) {
+                    capture.continueScanning();
+                    return;
+                  }
+                  recentQr.current = { value: data, until: now + 30_000 };
+                  void engine.decode(data);
                 }
               },
             });
@@ -216,6 +238,19 @@ export default function BusinessScanner(props: {
     props.url,
     props.enabled,
   ]);
+  useEffect(() => {
+    if (state.phase !== 'READY_FOR_ACTION' || !state.session) return;
+    if (state.session.resolution === 'REDEEM_AVAILABLE') return;
+    const sessionId = String(state.session.scanSessionId ?? '');
+    if (!sessionId || autoStamp.current === sessionId) return;
+    autoStamp.current = sessionId;
+    navigator.vibrate?.(80);
+    void commands.current?.action('stamp');
+  }, [state.phase, state.session]);
+  useEffect(() => {
+    if (state.phase !== 'SUCCESS' && state.phase !== 'ERROR') return;
+    camera.current?.continueScanning();
+  }, [state.phase]);
   const ready = state.phase === 'READY_FOR_ACTION';
   const success = state.phase === 'SUCCESS';
   const cameraActive =
@@ -286,11 +321,11 @@ export default function BusinessScanner(props: {
             <p>פנו לבעלים</p>
           )
         ) : null}
-        {ready && state.session ? (
+        {ready && redeem && state.session ? (
           <>
             <p className="sx-name">{state.session.customerDisplayName}</p>
             {stampProgress ? <p className="sx-progress">{stampProgress}</p> : null}
-            <p>{redeem ? 'הטבה מוכנה למימוש' : 'נדרש אישור חותמת'}</p>
+            <p>הטבה מוכנה למימוש</p>
           </>
         ) : null}
         {success ? (
@@ -312,20 +347,13 @@ export default function BusinessScanner(props: {
               הפעלת מצלמה
             </button>
           ) : null}
-          {ready ? (
+          {ready && redeem ? (
             <button
               className="primary"
               type="button"
-              onClick={() =>
-                void commands.current?.action(redeem ? 'redeem' : 'stamp')
-              }
+              onClick={() => void commands.current?.action('redeem')}
             >
-              {redeem ? 'מימוש ההטבה' : 'אישור חותמת'}
-            </button>
-          ) : null}
-          {ready ? (
-            <button type="button" onClick={nextCustomer}>
-              לא עכשיו
+              מימוש ההטבה
             </button>
           ) : null}
           {success &&
