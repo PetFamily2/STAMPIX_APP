@@ -30,7 +30,7 @@ import {
 import { safeBack } from '@/lib/navigation';
 
 const TEXT = {
-  title: 'ברוכים הבאים! איך לקרוא לך?',
+  title: 'איך לקרוא לך?',
   subtitle: '',
   firstNameLabel: 'שם פרטי',
   firstNamePlaceholder: 'ישראל',
@@ -370,9 +370,9 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 560,
     alignSelf: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 32,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
   },
   header: {
     marginBottom: 12,

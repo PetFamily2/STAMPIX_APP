@@ -36,11 +36,11 @@ type BenefitTypeId =
 
 const TEXT = {
   title: 'מה מעניין אותך?',
-  description: 'זה עוזר לנו להבין אילו הטבות מעניינות אותך',
-  interestSectionTitle: 'סוגי עסקים',
-  interestHelper: 'בחרו עד 3',
-  benefitSectionTitle: 'איזה סוג הטבות כיף לך לקבל?',
-  benefitHelper: 'בחרו עד 2',
+  description: 'בחרו מה שמתאים',
+  interestSectionTitle: 'עסקים',
+  interestHelper: 'עד 3',
+  benefitSectionTitle: 'הטבות',
+  benefitHelper: 'עד 2',
   continue: 'המשך',
 };
 
@@ -163,9 +163,7 @@ export default function OnboardingInterestsScreen() {
                     selected={isSelected}
                     label={type.title}
                     onPress={() => toggleType(type.id)}
-                    labelNumberOfLines={1}
-                    labelAdjustsFontSizeToFit={true}
-                    labelMinimumFontScale={0.82}
+                    labelNumberOfLines={2}
                     icon={
                       <Ionicons
                         name={type.icon}
@@ -196,9 +194,7 @@ export default function OnboardingInterestsScreen() {
                     selected={isSelected}
                     label={type.title}
                     onPress={() => toggleBenefit(type.id)}
-                    labelNumberOfLines={1}
-                    labelAdjustsFontSizeToFit={true}
-                    labelMinimumFontScale={0.82}
+                    labelNumberOfLines={2}
                     icon={
                       <Ionicons
                         name={type.icon}
@@ -236,9 +232,9 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 620,
     alignSelf: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
   },
   header: {
     marginBottom: 4,
@@ -266,8 +262,8 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   section: {
-    marginTop: 22,
-    gap: 10,
+    marginTop: 14,
+    gap: 8,
   },
   sectionHeader: {
     gap: 2,

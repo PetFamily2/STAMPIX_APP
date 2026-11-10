@@ -49,9 +49,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     maxWidth: 112,
-    marginStart: 12,
+    marginRight: 12,
     alignItems: 'stretch',
     justifyContent: 'center',
+    ...(Platform.OS === 'web'
+      ? { maxWidth: '100%' as const, width: '100%' as const, marginRight: 0 }
+      : null),
   },
   track: {
     height: 6,

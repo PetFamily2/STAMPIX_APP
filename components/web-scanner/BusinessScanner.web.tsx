@@ -21,20 +21,24 @@ import {
 import { createRawWorkerDecoder } from '../../lib/web-scanner/rawWorker';
 import { recoveryIdentity } from '../../lib/web-scanner/recovery';
 import { initialScannerState } from '../../lib/web-scanner/state';
+import {
+  scannerErrorLabel,
+  scannerNeedsSubscription,
+  scannerSuccessLabel,
+} from '../../lib/web-scanner/userMessage';
 
 const labels: Record<CommandState['phase'], string> = {
   IDLE: 'המצלמה כבויה',
   CAMERA_READY: 'כוונו QR למצלמה',
   QR_LOCKED: 'הקוד נקרא',
-  RESOLVING: 'בודקים את הקוד בשרת',
+  RESOLVING: 'הקוד נקרא',
   READY_FOR_ACTION: 'בחרו פעולה',
-  COMMITTING: 'הפעולה נשלחה — ממתינים לאישור',
-  UNKNOWN_OUTCOME:
-    'תוצאת הפעולה עדיין אינה ידועה. אין לסרוק או לבצע פעולה נוספת.',
-  RECONCILING: 'מבררים את התוצאה בשרת',
-  SUCCESS: 'השרת אישר את הפעולה',
-  ERROR: 'הפעולה לא אושרה',
-  OFFLINE: 'אין חיבור זמין — הפעולה לא נשלחה',
+  COMMITTING: 'שולחים',
+  UNKNOWN_OUTCOME: 'בודקים תוצאה',
+  RECONCILING: 'בודקים תוצאה',
+  SUCCESS: 'חותמת נוספה',
+  ERROR: 'נסו שוב',
+  OFFLINE: 'אין רשת',
 };
 /** Web camera and commands use normal Convex Auth and server business permissions. */
 export default function BusinessScanner(props: {
@@ -45,6 +49,7 @@ export default function BusinessScanner(props: {
   url: string;
   enabled: boolean;
   canStartScan?: boolean;
+  canManageSubscription?: boolean;
   onBusy?: (busy: boolean) => void;
 }) {
   const current = useRef(props);
@@ -60,6 +65,12 @@ export default function BusinessScanner(props: {
     Array<{ rewardId: string; title: string }>
   >([]);
   const [revision, setRevision] = useState(0);
+  const [armed, setArmed] = useState<{
+    phase: CommandState['phase'];
+    action: string;
+  } | null>(null);
+  const isArmed = (action: string) =>
+    armed?.phase === state.phase && armed.action === action;
   useEffect(() => {
     const busy = [
       'QR_LOCKED',
@@ -85,7 +96,7 @@ export default function BusinessScanner(props: {
     let detachCamera: (() => void) | undefined;
     const onNetwork = () => commands.current?.networkChanged();
     const onPageHide = () => {
-      camera.current?.stop();
+      camera.current?.suspend();
       commands.current?.invalidate();
     };
     const onPageShow = () => {
@@ -304,9 +315,15 @@ export default function BusinessScanner(props: {
     'insecure',
     'unsupported',
   ].includes(cameraState.status);
-  const statusMessage = ['IDLE', 'CAMERA_READY'].includes(state.phase)
-    ? cameraStatusMessage(cameraState.status)
-    : labels[state.phase];
+  const redeem = state.session?.resolution === 'REDEEM_AVAILABLE';
+  const statusMessage =
+    state.phase === 'ERROR'
+      ? scannerErrorLabel(state.code)
+      : state.phase === 'SUCCESS'
+        ? scannerSuccessLabel(state.receipt)
+        : ['IDLE', 'CAMERA_READY'].includes(state.phase)
+          ? cameraStatusMessage(cameraState.status)
+          : labels[state.phase];
   const busy = [
     'QR_LOCKED',
     'RESOLVING',
@@ -345,7 +362,7 @@ export default function BusinessScanner(props: {
                 ? 'אשרו גישה למצלמה בחלון הדפדפן'
                 : ready || success
                   ? 'פרטי הפעולה מופיעים בהמשך'
-                  : 'הרשאה שמורה מאפשרת הפעלה אוטומטית. אחרת לחצו על הפעלת מצלמה.'}
+                  : 'לחצו להפעלת מצלמה'}
             </span>
           </div>
         )}
@@ -354,11 +371,15 @@ export default function BusinessScanner(props: {
         <h2>מצב הסריקה</h2>
         {blocked ? <p role="alert">{blocked}</p> : null}
         <p aria-live="polite">{statusMessage}</p>
-        <p className="sx-permission-hint">
-          הרשאת המצלמה נשמרת בדפדפן לכתובת האתר הזו. בחרו הרשאה מתמשכת אם הדפדפן
-          מציע זאת. המצלמה נעצרת ביציאה מהסורק וברקע.
-        </p>
-        {state.code ? <p>{state.code}</p> : null}
+        {scannerNeedsSubscription(state.code) && state.phase === 'ERROR' ? (
+          props.canManageSubscription ? (
+            <a className="sx-billing" href="/business/billing">
+              ניהול מנוי
+            </a>
+          ) : (
+            <p>פנו לבעלים</p>
+          )
+        ) : null}
         {cameraError && !['IDLE', 'CAMERA_READY'].includes(state.phase) ? (
           <p role="alert">{cameraStatusMessage(cameraState.status)}</p>
         ) : null}
@@ -366,12 +387,6 @@ export default function BusinessScanner(props: {
           <p>הכרטיסייה אינה זמינה לסריקה חדשה. אפשר לברר תוצאה קודמת.</p>
         ) : null}
         {state.session ? <p>{state.session.customerDisplayName}</p> : null}
-        {state.receipt && success ? (
-          <p>
-            אישור שרת:{' '}
-            {state.receipt.eventType ?? state.receipt.status ?? 'הטבה מומשה'}
-          </p>
-        ) : null}
         <div className="sx-actions">
           {!cameraActive && !ready && !success ? (
             <button
@@ -398,17 +413,20 @@ export default function BusinessScanner(props: {
             <button
               className="primary"
               type="button"
-              onClick={() =>
-                void commands.current?.action(
-                  state.session?.resolution === 'REDEEM_AVAILABLE'
-                    ? 'redeem'
-                    : 'stamp'
-                )
-              }
+              onClick={() => {
+                if (redeem && !isArmed('redeem')) {
+                  setArmed({ phase: state.phase, action: 'redeem' });
+                  return;
+                }
+                setArmed(null);
+                void commands.current?.action(redeem ? 'redeem' : 'stamp');
+              }}
             >
-              {state.session?.resolution === 'REDEEM_AVAILABLE'
-                ? 'אישור מימוש'
-                : 'אישור חותמת'}
+              {redeem
+                ? isArmed('redeem')
+                  ? 'אישור מימוש'
+                  : 'ממשו פרס'
+                : 'הוסף חותמת'}
             </button>
           ) : null}
           {success && state.receipt?.redemptionContinuationAvailableUntil ? (
@@ -424,9 +442,16 @@ export default function BusinessScanner(props: {
           !state.receipt.undoBlockedReason ? (
             <button
               type="button"
-              onClick={() => void commands.current?.action('undo')}
+              onClick={() => {
+                if (!isArmed('undo')) {
+                  setArmed({ phase: state.phase, action: 'undo' });
+                  return;
+                }
+                setArmed(null);
+                void commands.current?.action('undo');
+              }}
             >
-              ביטול הפעולה
+              {isArmed('undo') ? 'אישור ביטול' : 'ביטול'}
             </button>
           ) : null}
           {success
@@ -434,11 +459,19 @@ export default function BusinessScanner(props: {
                 <button
                   type="button"
                   key={benefit.rewardId}
-                  onClick={() =>
-                    void commands.current?.action('referral', benefit.rewardId)
-                  }
+                  onClick={() => {
+                    const action = `benefit:${benefit.rewardId}`;
+                    if (!isArmed(action)) {
+                      setArmed({ phase: state.phase, action });
+                      return;
+                    }
+                    setArmed(null);
+                    void commands.current?.action('referral', benefit.rewardId);
+                  }}
                 >
-                  {benefit.title}
+                  {isArmed(`benefit:${benefit.rewardId}`)
+                    ? 'אישור הטבה'
+                    : benefit.title}
                 </button>
               ))
             : null}
@@ -458,7 +491,7 @@ export default function BusinessScanner(props: {
               type="button"
               onClick={() => void commands.current?.retrySameSession()}
             >
-              ניסיון מפורש באותה פעולה ובאותו מזהה
+              נסו שוב
             </button>
           ) : null}
           {state.phase !== 'IDLE' || cameraActive ? (
@@ -518,6 +551,7 @@ const SCANNER_CHROME = `
 .sx-scan button{min-height:${TOKENS.control.height}px;padding:12px;border-radius:${TOKENS.radii.md}px;border:1px solid ${TOKENS.colors.borderStrong};background:${TOKENS.colors.elevatedSurface};color:${TOKENS.colors.primary};font:600 16px/1.4 Heebo,Arial,sans-serif;cursor:pointer}
 .sx-scan button.primary{background:${TOKENS.colors.primary};border-color:${TOKENS.colors.primary};color:${TOKENS.colors.elevatedSurface}}
 .sx-scan button:disabled{opacity:.45;cursor:default}
+.sx-billing{display:flex;align-items:center;justify-content:center;min-height:44px;border-radius:${TOKENS.radii.md}px;background:${TOKENS.colors.primary};color:${TOKENS.colors.elevatedSurface};font:600 16px/1 Heebo,Arial,sans-serif;text-decoration:none}
 .sx-scan label{display:flex;flex-direction:column;gap:8px}
 .sx-scan select{width:100%;min-width:0;min-height:${TOKENS.control.height}px;padding:8px 12px;background:${TOKENS.colors.elevatedSurface};color:${TOKENS.colors.textPrimary};border-radius:${TOKENS.radii.md}px;border:1px solid ${TOKENS.colors.borderStrong};font:400 16px Heebo,Arial,sans-serif}
 @media (min-width:1024px){

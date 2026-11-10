@@ -122,6 +122,9 @@ export default function ScannerPreviewRoute() {
           token={token}
           url={url}
           enabled={enabled}
+          canManageSubscription={
+            activeBusiness?.capabilities?.manage_subscription === true
+          }
           canStartScan={
             programs?.some(
               (p: any) => p.loyaltyProgramId === scannerProgramId
@@ -155,8 +158,8 @@ export default function ScannerPreviewRoute() {
           </h2>
           <p style={{ margin: 0 }}>
             {programs?.length === 0
-              ? 'כרטיסיות פעילות יופיעו כאן לאחר יצירתן במועדון.'
-              : 'לחצו על כרטיסייה. אם הרשאת המצלמה שמורה בדפדפן, הסריקה תיפתח אוטומטית. כל חותמת או מימוש ידרשו אישור שלכם.'}
+              ? 'כרטיסייה פעילה תופיע כאן.'
+              : 'לחצו על כרטיסייה.'}
           </p>
         </section>
       )}

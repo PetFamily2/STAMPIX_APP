@@ -44,6 +44,8 @@ export class WebQrController {
   private lastFrameTime = -1;
   private lastProgress = 0;
   private sessionStarted = 0;
+  private stallRestarts = 0;
+  private endedRestarts = 0;
   private readonly now: () => number;
   private readonly setTimer: NonNullable<ScannerDependencies['schedule']>;
   private readonly clearTimer: NonNullable<ScannerDependencies['cancel']>;
@@ -80,7 +82,10 @@ export class WebQrController {
     this.deps.video.srcObject = null;
   }
 
-  async start(deviceId = this.state.selectedCamera): Promise<void> {
+  async start(
+    deviceId = this.state.selectedCamera,
+    options?: { recover?: boolean }
+  ): Promise<void> {
     if (this.disposed || this.locked) {
       return;
     }
@@ -150,16 +155,22 @@ export class WebQrController {
       if (!track) {
         throw new DOMException('No camera', 'NotFoundError');
       }
-      const interrupted = () => {
-        if (generation === this.generation) {
-          this.suspend();
+      const ended = () => {
+        if (generation !== this.generation || this.locked) {
+          return;
         }
+        // A transient Android mute must not drop the stream. Only a real end
+        // restarts once, then pauses if the camera does not come back.
+        if (this.deps.isVisible() && this.endedRestarts < 1) {
+          this.endedRestarts += 1;
+          void this.start(this.state.selectedCamera, { recover: true });
+          return;
+        }
+        this.suspend();
       };
-      track.addEventListener('ended', interrupted);
-      track.addEventListener('mute', interrupted);
+      track.addEventListener('ended', ended);
       this.cleanupTrack = () => {
-        track.removeEventListener('ended', interrupted);
-        track.removeEventListener('mute', interrupted);
+        track.removeEventListener('ended', ended);
       };
       // Focus capability is optional; browsers/lenses may ignore or reject it.
       const capabilities = track.getCapabilities?.() as
@@ -186,6 +197,10 @@ export class WebQrController {
       this.lastFrameTime = -1;
       this.lastProgress = this.now();
       this.sessionStarted = this.now();
+      if (!options?.recover) {
+        this.stallRestarts = 0;
+        this.endedRestarts = 0;
+      }
       this.emit({ type: 'status', status: 'scanning' });
       void this.listCameras(generation, track.getSettings().deviceId ?? '');
       this.schedule(generation, 250);
@@ -232,15 +247,31 @@ export class WebQrController {
     if (generation !== this.generation || this.locked || this.disposed) {
       return;
     }
-    if (!this.deps.isVisible() || this.now() - this.sessionStarted > 120000) {
+    if (!this.deps.isVisible()) {
       this.suspend();
+      return;
+    }
+    if (this.now() - this.sessionStarted > 120000) {
+      // Recycle the decoder while the page is open so a shift keeps the camera.
+      this.decoder?.destroy();
+      this.decoder = this.deps.createDecoder();
+      this.sessionStarted = this.now();
+      this.lastFrameTime = -1;
+      this.lastProgress = this.now();
+      this.schedule(generation, 250);
       return;
     }
     const started = this.now();
     try {
       const video = this.deps.video;
-      if (video.readyState >= 2 && video.currentTime !== this.lastFrameTime) {
-        this.lastFrameTime = video.currentTime;
+      const track = this.stream?.getVideoTracks()[0];
+      const advanced = video.currentTime !== this.lastFrameTime;
+      const muted = track?.muted === true;
+      // Some Android browsers freeze currentTime while frames still arrive.
+      if (video.readyState >= 2 && (advanced || !muted)) {
+        if (advanced) {
+          this.lastFrameTime = video.currentTime;
+        }
         this.lastProgress = this.now();
         const frame = this.deps.capture();
         if (frame && this.decoder) {
@@ -258,6 +289,11 @@ export class WebQrController {
         }
       }
       if (this.now() - this.lastProgress > 8000) {
+        if (this.stallRestarts < 1 && this.deps.isVisible()) {
+          this.stallRestarts += 1;
+          void this.start(this.state.selectedCamera, { recover: true });
+          return;
+        }
         this.wanted = false;
         this.release();
         this.emit({ type: 'status', status: 'error' });
