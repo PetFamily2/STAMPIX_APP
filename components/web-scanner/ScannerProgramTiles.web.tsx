@@ -71,13 +71,13 @@ export function ScannerProgramTiles({
     <fieldset aria-label="בחירת כרטיסייה לסריקה" className="sx-programs">
       <legend>כרטיסיות פעילות לסריקה</legend>
       <style>{`
-        .sx-programs{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;margin:12px 0;padding:0;border:0;min-width:0}
-        .sx-programs legend{padding:0;margin-bottom:8px;color:${TOKENS.colors.textPrimary};font-weight:600}
+        .sx-programs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:0 0 12px;padding:0;border:0;min-width:0}
+        .sx-programs legend{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
         .sx-programs button{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:4px;height:112px;min-width:0;padding:8px 6px;border:3px solid transparent;border-radius:13px;font:inherit;text-align:center;cursor:pointer;overflow:hidden}
         .sx-programs button:disabled{cursor:default;opacity:.65}
         .sx-programs strong{width:100%;font-size:13px;line-height:16px;font-weight:800;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
         .sx-programs span,.sx-programs small{width:100%;font-size:11px;line-height:14px}
-        .sx-programs .sx-mark{position:absolute;top:6px;right:6px;width:16px;height:16px;border-radius:8px;background:#2F6BFF;color:#fff;font-size:11px;line-height:16px}
+        .sx-programs .sx-mark{position:absolute;top:6px;right:6px;width:16px;height:16px;border-radius:8px;background:#047857;color:#fff;font-size:11px;line-height:16px}
       `}</style>
       {recoveryId &&
       !programs.some((p) => p.loyaltyProgramId === recoveryId) ? (
@@ -100,7 +100,8 @@ export function ScannerProgramTiles({
             onClick={() => onSelect(program.loyaltyProgramId)}
             style={{
               background: `linear-gradient(135deg, ${theme.gradient[0]}, ${theme.gradient[1]} 58%, ${theme.gradient[2]})`,
-              borderColor: selected ? '#2F6BFF' : theme.keyline,
+              borderColor: selected ? '#047857' : theme.keyline,
+              borderWidth: selected ? 5 : 3,
               color: theme.titleColor,
             }}
           >
