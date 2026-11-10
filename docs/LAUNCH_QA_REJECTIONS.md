@@ -5,12 +5,12 @@ Base: Work launch tip `ffaaca2` on `agent/launch-completion-20261028`.
 The two scanner and onboarding commits `ad5fca0` and `37c4b83` are applied on that base.
 Uncommitted gamification files in the game worktree were not included, and that branch was not updated.
 Data source: original Convex deployment `utmost-fennec-280`. No billing write, no new database, and no entitlement bypass.
-Deployed SHA: `ccc897433dbbef31360e51768feff25a3e909bd6`.
-Cloudflare Pages project: `stampaix-web-qa`, deployment `aa35791c`, environment Preview.
+Deployed SHA: `58742f4af62cff28398e1304789973bba951b277`.
+Cloudflare Pages project: `stampaix-web-qa`, deployment `51ec27ac`, environment Preview.
 Phone check on 2026-11-10 showed a scan-state panel after a read. That panel is removed. The camera starts with the screen. Device retest is still required.
 Phone URL: https://qa-cloudflare-scanner-onboar.stampaix-web-qa.pages.dev/welcome
-Exact deployment URL: https://aa35791c.stampaix-web-qa.pages.dev
-The hosted bundle is `index-6a803e73e549ca1d8284abc11a883fc8.js` and uses `utmost-fennec-280`. `aware-llama-850` appears only inside a denylist. The marketing project and the Work launch branch were not updated.
+Exact deployment URL: https://51ec27ac.stampaix-web-qa.pages.dev
+The hosted bundle is `index-1aae2440172b15b985514360410f4ca5.js` and uses `utmost-fennec-280`. `aware-llama-850` appears only inside a denylist. The marketing project and the Work launch branch were not updated.
 No defect below is `CLOSED`.
 
 Statuses: `OPEN`, `REPRODUCED`, `FIXED`, `VERIFIED`, `CLOSED`, `REOPENED`.
