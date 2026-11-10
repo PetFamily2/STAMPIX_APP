@@ -69,15 +69,14 @@ export default function ScannerPreviewRoute() {
   }, [scopeKey, priorProgram]);
   if (!enabled || !user || !activeBusinessId || !token)
     return (
-      <main dir="rtl" style={{ padding: 24 }}>
-        <h1>סורק Web עדיין אינו זמין</h1>
-        <p>אפשר להמשיך לסרוק באפליקציה.</p>
+      <main dir="rtl" style={{ padding: 16 }}>
+        <p>הסורק לא זמין</p>
       </main>
     );
   if (recoveryUnavailable)
     return (
       <p role="alert" dir="rtl">
-        סימון פעולה קודמת דורש בירור. הסורק חסום.
+        נדרש בירור
       </p>
     );
   const scannerProgramId = selectedScannerProgram(
@@ -89,16 +88,35 @@ export default function ScannerPreviewRoute() {
   return (
     <div
       dir="rtl"
-      style={{ height: '100%', minHeight: 0, overflowY: 'auto' }}
+      style={{
+        height: '100%',
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+      }}
       {...(!scannerProgramId ? { role: 'main' } : {})}
     >
-      {!scannerProgramId ? <h1>סריקת QR</h1> : null}
-      <label>
-        {process.env.EXPO_PUBLIC_MANUAL_QA_ENABLED === 'true'
-          ? 'כרטיס לבדיקה'
-          : 'כרטיסייה'}{' '}
+      <label
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          margin: 0,
+          font: '600 13px/1 Heebo, Arial, sans-serif',
+        }}
+      >
+        כרטיסייה
         <select
-          style={{ minHeight: 44, padding: '8px 12px', maxWidth: '100%' }}
+          aria-label="כרטיסייה"
+          style={{
+            flex: 1,
+            minHeight: 44,
+            padding: '8px 12px',
+            maxWidth: '100%',
+            borderRadius: 12,
+            border: '1px solid #D5DBE6',
+          }}
           disabled={busy || !!priorProgram}
           value={scannerProgramId ?? ''}
           onChange={(event) =>
@@ -128,6 +146,9 @@ export default function ScannerPreviewRoute() {
           token={token}
           url={url}
           enabled={enabled}
+          canManageSubscription={
+            activeBusiness?.capabilities?.manage_subscription === true
+          }
           canStartScan={
             programs?.some(
               (p: any) => p.loyaltyProgramId === scannerProgramId

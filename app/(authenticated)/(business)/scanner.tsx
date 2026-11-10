@@ -1385,10 +1385,10 @@ export default function ScannerScreen() {
             <Pressable
               onPress={openPlanManagement}
               accessibilityRole="button"
-              accessibilityLabel="בדיקת המסלול"
+              accessibilityLabel="ניהול מנוי"
               style={styles.secondaryButton}
             >
-              <Text style={styles.secondaryButtonText}>בדיקת המסלול</Text>
+              <Text style={styles.secondaryButtonText}>ניהול מנוי</Text>
             </Pressable>
           ) : null}
           {canOfferProgramChange ? (
