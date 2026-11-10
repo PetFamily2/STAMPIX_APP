@@ -167,7 +167,12 @@ function DevicePermission({ kind }: { kind: 'camera' | 'geolocation' }) {
 
 export function BrowserPermissionsPanel({ children }: { children: ReactNode }) {
   return (
-    <section className="sx-permissions" aria-label="הרשאות והתקנה" dir="rtl">
+    <section
+      id="browser-permissions"
+      className="sx-permissions"
+      aria-label="הרשאות והתקנה"
+      dir="rtl"
+    >
       <style>{PERMISSION_STYLES}</style>
       <h2>הרשאות והתקנה</h2>
       <p>

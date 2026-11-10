@@ -2,6 +2,18 @@ import { WEB_LEGAL_VERSION as CANONICAL_PRIVACY_VERSION } from '../legalWebContr
 
 // Local presentation preferences only; NOT server legal consent or marketing opt-in.
 export const PRIVACY_NOTICE_KEY = 'stampaix:privacy-notice-version';
+
+export function canShowPermissionIntro(path: string, signedIn: boolean) {
+  if (
+    /(?:^|\/)legal(?:\/|$)/.test(path) ||
+    path.includes('scanner') ||
+    path.includes('oauth-callback')
+  )
+    return false;
+  // Authentication already includes its own legal links and consent. Keep it unobstructed.
+  if (/(?:^|\/)(?:sign-in|sign-up)(?:\/|$)/.test(path)) return false;
+  return signedIn || path === '/welcome' || path === '/';
+}
 export const setupNoticeKey = (actorId: string, role = 'customer') =>
   `stampaix:permission-intro:v2:${actorId}:${role}`;
 export type FirstVisitStep = 'privacy' | 'install' | 'notifications' | null;
