@@ -3,6 +3,12 @@ import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
+import {
+  webAccentFill,
+  webBody,
+  webPage,
+  webTitle,
+} from '@/lib/design/webProductChrome';
 import { safeBack } from '@/lib/navigation';
 
 const TEXT = {
@@ -40,6 +46,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F7F4',
+    ...webPage,
   },
   content: {
     flex: 1,
@@ -56,6 +63,7 @@ const styles = StyleSheet.create({
     color: '#111827',
     textAlign: 'right',
     writingDirection: 'rtl',
+    ...webTitle,
   },
   subtitle: {
     fontSize: 14,
@@ -64,11 +72,13 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
     lineHeight: 20,
+    ...webBody,
   },
   button: {
     marginTop: 8,
     minHeight: 48,
     backgroundColor: '#2563eb',
+    ...webAccentFill,
     borderRadius: 999,
     paddingHorizontal: 20,
     alignItems: 'center',

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import {
+  Platform,
   Pressable,
   type StyleProp,
   StyleSheet,
@@ -9,6 +10,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { BUSINESS_WEB_TOKENS as T } from '@/lib/design/businessWebTokens';
 import { rtlBaseView, rtlCenterText } from '@/lib/rtl';
 
 type OnboardingChoiceButtonProps = {
@@ -39,7 +41,14 @@ export function OnboardingChoiceButton({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      style={({ pressed }) => [pressableStyle, pressed ? styles.pressed : null]}
+      style={({ pressed }) => [
+        pressableStyle,
+        pressed
+          ? Platform.OS === 'web'
+            ? styles.pressedWeb
+            : styles.pressed
+          : null,
+      ]}
     >
       <View
         collapsable={false}
@@ -77,20 +86,33 @@ const styles = StyleSheet.create({
     opacity: 0.86,
     transform: [{ scale: 0.99 }],
   },
+  pressedWeb: {
+    opacity: 0.92,
+  },
   option: {
     minHeight: 52,
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 13,
     borderWidth: 1,
+    ...(Platform.OS === 'web'
+      ? { minHeight: T.control.height, borderRadius: T.radii.md }
+      : null),
   },
   optionSelected: {
     backgroundColor: '#2563EB',
     borderColor: '#2563EB',
+    ...(Platform.OS === 'web'
+      ? {
+          backgroundColor: T.colors.primary,
+          borderColor: T.colors.primary,
+        }
+      : null),
   },
   optionUnselected: {
     backgroundColor: '#FFFFFF',
     borderColor: '#E5E7EB',
+    ...(Platform.OS === 'web' ? { borderColor: T.colors.borderStrong } : null),
   },
   optionContent: {
     position: 'relative',
@@ -110,7 +132,7 @@ const styles = StyleSheet.create({
   optionText: {
     width: '100%',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: Platform.OS === 'web' ? '600' : '700',
     textAlign: 'center',
     ...rtlCenterText,
   },

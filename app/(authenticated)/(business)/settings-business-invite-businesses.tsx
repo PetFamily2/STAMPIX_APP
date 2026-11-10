@@ -4,7 +4,6 @@ import { Redirect } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Linking,
   Platform,
   ScrollView,
@@ -18,7 +17,6 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
-
 import {
   BusinessSettingsSubpageHeader,
   useSettingsContentWidth,
@@ -30,6 +28,7 @@ import { PaintedPressable } from '@/components/ui/PaintedPressable';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { Alert } from '@/lib/alert';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
   earnedRewardLabel,

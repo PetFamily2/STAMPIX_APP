@@ -706,6 +706,8 @@ export async function createBusinessForOwner(
     name: input.name,
     logoUrl: input.logoUrl,
     colors: input.colors,
+    // New owners prepare a draft, then pay before activating. Existing
+    // accounts and historical trial periods are never rewritten here.
     subscriptionPlan: 'starter',
     subscriptionStatus: 'inactive',
     subscriptionStartAt: null,
@@ -731,6 +733,7 @@ export async function createBusinessForOwner(
   await ensureBusinessBillingAccount(ctx, {
     businessId,
     ownerUserId: input.ownerUserId,
+    startGeneralFreeTrial: false,
     now,
   });
   await markSmartManagerDirty(ctx, {
@@ -2154,6 +2157,100 @@ export const updateBusinessProfile = mutation({
       businessPhone: normalizedBusinessPhone,
       serviceTypes: normalizedServiceTypes,
       serviceTags: normalizedServiceTags,
+      updatedAt,
+    };
+  },
+});
+
+export const generateBusinessLogoUploadUrl = mutation({
+  args: {
+    businessId: v.id('businesses'),
+  },
+  handler: async (ctx, { businessId }) => {
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'edit_business_profile'
+    );
+    const business = await ctx.db.get(businessId);
+    if (!business || business.isActive !== true) {
+      throw new Error('BUSINESS_INACTIVE');
+    }
+    const uploadUrl = await ctx.storage.generateUploadUrl();
+    return { uploadUrl };
+  },
+});
+
+export const setBusinessLogo = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    expectedUpdatedAt: v.optional(v.number()),
+    storageId: v.optional(v.id('_storage')),
+    remove: v.optional(v.boolean()),
+  },
+  handler: async (
+    ctx,
+    { businessId, expectedUpdatedAt, storageId, remove }
+  ) => {
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'edit_business_profile'
+    );
+    const business = await ctx.db.get(businessId);
+    if (!business || business.isActive !== true) {
+      throw new Error('BUSINESS_INACTIVE');
+    }
+    assertExpectedUpdatedAt({
+      entity: 'business',
+      entityId: String(businessId),
+      expectedUpdatedAt,
+      actualUpdatedAt: business.updatedAt,
+    });
+
+    const updatedAt = Date.now();
+    let logoUrl: string | undefined;
+    if (remove === true) {
+      logoUrl = undefined;
+    } else {
+      if (!storageId) {
+        throw new Error('LOGO_FILE_MISSING');
+      }
+      const metadata = await ctx.storage.getMetadata(storageId);
+      if (!metadata) {
+        throw new Error('LOGO_FILE_MISSING');
+      }
+      if (
+        metadata.contentType !== 'image/jpeg' &&
+        metadata.contentType !== 'image/png' &&
+        metadata.contentType !== 'image/webp'
+      ) {
+        throw new Error('LOGO_FILE_TYPE');
+      }
+      if (metadata.size > 2 * 1024 * 1024) {
+        throw new Error('LOGO_FILE_TOO_LARGE');
+      }
+      const resolvedUrl = await ctx.storage.getUrl(storageId);
+      if (!resolvedUrl) {
+        throw new Error('LOGO_FILE_MISSING');
+      }
+      logoUrl = resolvedUrl;
+    }
+
+    await ctx.db.patch(businessId, {
+      logoUrl,
+      updatedAt,
+    });
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['business', 'profile'],
+      reasons: ['business_logo_updated'],
+      now: updatedAt,
+    });
+
+    return {
+      businessId,
+      logoUrl: logoUrl ?? null,
       updatedAt,
     };
   },

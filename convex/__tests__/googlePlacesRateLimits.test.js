@@ -67,6 +67,30 @@ function createPolicyHarness(initialNow = 1_000_000) {
 describe('Google Places rate-limit policies', () => {
   test('defines the exact versioned autocomplete and place-details policies', () => {
     expect(GOOGLE_PLACES_RATE_LIMIT_DEFINITIONS).toEqual({
+      placesDiscoveryUserSustainedV1: {
+        kind: 'token bucket',
+        rate: 6,
+        period: MINUTE,
+        capacity: 3,
+      },
+      placesDiscoveryUserDailyV1: {
+        kind: 'fixed window',
+        rate: 30,
+        period: DAY,
+      },
+      placesDiscoveryGlobalSustainedV1: {
+        kind: 'token bucket',
+        rate: 60,
+        period: MINUTE,
+        capacity: 20,
+        shards: 5,
+      },
+      placesDiscoveryGlobalDailyV1: {
+        kind: 'fixed window',
+        rate: 1000,
+        period: DAY,
+        shards: 5,
+      },
       placesAutocompleteUserSustainedV1: {
         kind: 'token bucket',
         rate: 30,
@@ -153,9 +177,7 @@ describe('Google Places rate-limit policies', () => {
       'placesDetailsGlobalSustainedV1',
       'placesDetailsGlobalDailyV1',
     ]);
-    expect(
-      GOOGLE_PLACES_LIMIT_NAMES_BY_OPERATION.addressResolution
-    ).toEqual([
+    expect(GOOGLE_PLACES_LIMIT_NAMES_BY_OPERATION.addressResolution).toEqual([
       'placesAddressResolutionUserSustainedV1',
       'placesAddressResolutionUserDailyV1',
       'placesAddressResolutionGlobalSustainedV1',
@@ -233,11 +255,11 @@ describe('Google Places rate-limit policies', () => {
     const harness = createPolicyHarness();
 
     for (let index = 0; index < 12; index += 1) {
-      await harness.limiter.limit(
-        {},
-        'placesAutocompleteUserSustainedV1',
-        { key: 'user-a', reserve: false, throws: true }
-      );
+      await harness.limiter.limit({}, 'placesAutocompleteUserSustainedV1', {
+        key: 'user-a',
+        reserve: false,
+        throws: true,
+      });
     }
 
     await expect(
@@ -321,11 +343,10 @@ describe('Google Places rate-limit policies', () => {
     }
 
     await expect(
-      harness.limiter.limit(
-        {},
-        'placesAddressResolutionGlobalSustainedV1',
-        { reserve: false, throws: true }
-      )
+      harness.limiter.limit({}, 'placesAddressResolutionGlobalSustainedV1', {
+        reserve: false,
+        throws: true,
+      })
     ).rejects.toBeInstanceOf(ConvexError);
     await expect(
       harness.limiter.limit({}, 'placesAddressResolutionGlobalDailyV1', {
@@ -336,11 +357,10 @@ describe('Google Places rate-limit policies', () => {
 
     harness.advanceBy(1000);
     await expect(
-      harness.limiter.limit(
-        {},
-        'placesAddressResolutionGlobalSustainedV1',
-        { reserve: false, throws: true }
-      )
+      harness.limiter.limit({}, 'placesAddressResolutionGlobalSustainedV1', {
+        reserve: false,
+        throws: true,
+      })
     ).resolves.toEqual({ ok: true });
   });
 

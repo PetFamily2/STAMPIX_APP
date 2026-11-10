@@ -1,6 +1,6 @@
 import { type FunctionReference, httpRouter } from 'convex/server';
-import { CANONICAL_LEGAL_VERSION } from '../lib/legalContract';
-import { LEGAL_DOCUMENTS } from '../lib/legalDocuments';
+import { WEB_LEGAL_VERSION as CANONICAL_LEGAL_VERSION } from '../lib/legalWebContract';
+import { WEB_LEGAL_DOCUMENTS as LEGAL_DOCUMENTS } from '../lib/legalWebDocuments';
 import { api, internal } from './_generated/api';
 import { httpAction } from './_generated/server';
 import {
@@ -334,6 +334,7 @@ type PublicLegalDocumentKey = 'privacy' | 'terms';
 
 function legalDocumentHeaders() {
   return {
+    'X-StampAix-Legal-Version': CANONICAL_LEGAL_VERSION,
     'Content-Type': 'text/html; charset=utf-8',
     'Content-Language': 'he',
     'Cache-Control': 'public, max-age=300',

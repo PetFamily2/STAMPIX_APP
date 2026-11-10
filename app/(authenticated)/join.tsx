@@ -18,6 +18,11 @@ import {
   consumePendingJoin,
   savePendingJoin,
 } from '@/lib/deeplink/pendingJoin';
+import {
+  webAccentFill,
+  webPage,
+  webTitle,
+} from '@/lib/design/webProductChrome';
 import { safeBack } from '@/lib/navigation';
 import {
   CUSTOMER_BACK_FALLBACKS,
@@ -327,7 +332,7 @@ export default function JoinScreen() {
 
   return (
     <SafeAreaView
-      style={{ flex: 1, backgroundColor: '#E9F0FF' }}
+      style={{ flex: 1, backgroundColor: '#E9F0FF', ...webPage }}
       edges={['top']}
     >
       <View style={{ flex: 1 }}>
@@ -346,6 +351,7 @@ export default function JoinScreen() {
               fontWeight: '900',
               color: '#1A2B4A',
               textAlign: 'right',
+              ...webTitle,
             }}
           >
             {feedback ? (
@@ -432,6 +438,7 @@ export default function JoinScreen() {
               paddingHorizontal: 14,
               paddingVertical: 11,
               backgroundColor: '#2F6BFF',
+              ...webAccentFill,
               opacity: pressed ? 0.85 : 1,
               marginTop: 12,
             })}

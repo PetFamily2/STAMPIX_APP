@@ -6,7 +6,7 @@ import {
   useFocusEffect,
   useNavigation,
 } from '@react-navigation/native';
-import { useMutation, useQuery } from 'convex/react';
+import { useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter, useSegments } from 'expo-router';
 import {
   useCallback,
@@ -43,6 +43,7 @@ import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { useScannerCommandSafety } from '@/hooks/useScannerCommandSafety';
 import { track } from '@/lib/analytics';
 import {
   trackActivationEvent,
@@ -95,6 +96,7 @@ type ScannerProgram = {
 };
 
 type ResolvedScan = {
+  reconciledAfterUnknown?: boolean;
   scanSessionId: string;
   sessionExpiresAt: number;
   customerUserId: string;
@@ -248,6 +250,7 @@ export default function ScannerScreen() {
   const previousStorageKeyRef = useRef<string | null>(null);
   const businessIdentityInitializedRef = useRef(false);
   const previousBusinessIdRef = useRef<string | null>(null);
+  const previousActorIdRef = useRef(user?._id);
   const selectedProgramIdRef = useRef<string | null>(null);
   const transactionGenerationRef = useRef(0);
   const celebratedPosRedemptionIdsRef = useRef(new Set<string>());
@@ -290,15 +293,41 @@ export default function ScannerScreen() {
   ) as ReferralBenefitItem[] | undefined;
   const referralBenefits = referralBenefitsQuery ?? [];
 
-  const resolveScan = useMutation(api.scanner.resolveScan);
-  const commitStamp = useMutation(api.scanner.commitStamp);
-  const commitRedeem = useMutation(api.scanner.commitRedeem);
-  const commitCompletedStampRedeem = useMutation(
-    api.scanner.commitCompletedStampRedeem
+  const safety = useScannerCommandSafety(
+    user && activeBusinessId && selectedProgram && scannerDeviceId
+      ? {
+          actorId: String(user._id),
+          businessId: String(activeBusinessId),
+          programId: selectedProgram.loyaltyProgramId,
+          runtimeId: scannerRuntimeSessionId,
+          deviceId: scannerDeviceId,
+        }
+      : null
   );
-  const undoLastScannerAction = useMutation(api.scanner.undoLastScannerAction);
-  const redeemReferralBenefit = useMutation(
-    api.referrals.redeemReferralBenefit
+  const { run: safeRun, isLocked: commandsLocked } = safety;
+  const resolveScan = useCallback(
+    (args: Record<string, any>) => safeRun('resolve', args),
+    [safeRun]
+  );
+  const commitStamp = useCallback(
+    (args: Record<string, any>) => safeRun('stamp', args),
+    [safeRun]
+  );
+  const commitRedeem = useCallback(
+    (args: Record<string, any>) => safeRun('redeem', args),
+    [safeRun]
+  );
+  const commitCompletedStampRedeem = useCallback(
+    (args: Record<string, any>) => safeRun('continuation', args),
+    [safeRun]
+  );
+  const undoLastScannerAction = useCallback(
+    (args: Record<string, any>) => safeRun('undo', args),
+    [safeRun]
+  );
+  const redeemReferralBenefit = useCallback(
+    (args: Record<string, any>) => safeRun('referral', args),
+    [safeRun]
   );
 
   useEffect(() => {
@@ -351,11 +380,15 @@ export default function ScannerScreen() {
       previousBusinessIdRef.current = businessId;
       return;
     }
-    if (previousBusinessIdRef.current === businessId) {
+    if (
+      previousBusinessIdRef.current === businessId &&
+      previousActorIdRef.current === user?._id
+    ) {
       return;
     }
 
     previousBusinessIdRef.current = businessId;
+    previousActorIdRef.current = user?._id;
     invalidateTransactionGeneration(transactionGenerationRef);
     if (completeResetTimeoutRef.current) {
       clearTimeout(completeResetTimeoutRef.current);
@@ -367,7 +400,7 @@ export default function ScannerScreen() {
     setBenefitActionMessage(null);
     setPosRedemptionCelebration(null);
     dispatch({ type: 'BUSINESS_CHANGED' });
-  }, [activeBusinessId, isBusinessLoading]);
+  }, [activeBusinessId, isBusinessLoading, user?._id]);
 
   useLayoutEffect(() => {
     if (!programsLoaded || !storageKey) {
@@ -493,6 +526,7 @@ export default function ScannerScreen() {
   }, []);
 
   const resetForNextCustomer = useCallback(() => {
+    if (commandsLocked()) return;
     invalidateTransactionGeneration(transactionGenerationRef);
     clearCompleteResetTimer();
     setIsUndoing(false);
@@ -500,13 +534,14 @@ export default function ScannerScreen() {
     setBenefitActionMessage(null);
     setPosRedemptionCelebration(null);
     dispatch({ type: 'NEXT_CUSTOMER' });
-  }, [clearCompleteResetTimer]);
+  }, [clearCompleteResetTimer, commandsLocked]);
 
   const queueCompleteReset = useCallback(
     (delayMs = COMPLETE_RESET_MS) => {
       clearCompleteResetTimer();
       completeResetTimeoutRef.current = setTimeout(
         () => {
+          if (commandsLocked()) return;
           invalidateTransactionGeneration(transactionGenerationRef);
           setIsUndoing(false);
           setIsRedeemingBenefitId(null);
@@ -518,23 +553,25 @@ export default function ScannerScreen() {
         Math.max(0, delayMs)
       );
     },
-    [clearCompleteResetTimer]
+    [clearCompleteResetTimer, commandsLocked]
   );
 
   useFocusEffect(
     useCallback(() => {
+      if (commandsLocked()) return;
       setScannerRuntimeSessionId(generateRuntimeSessionId());
       resetForNextCustomer();
-    }, [resetForNextCustomer])
+    }, [resetForNextCustomer, commandsLocked])
   );
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('tabPress', () => {
+      if (commandsLocked()) return;
       setScannerRuntimeSessionId(generateRuntimeSessionId());
       resetForNextCustomer();
     });
     return unsubscribe;
-  }, [navigation, resetForNextCustomer]);
+  }, [navigation, resetForNextCustomer, commandsLocked]);
 
   useLayoutEffect(() => {
     return () => {
@@ -565,6 +602,7 @@ export default function ScannerScreen() {
     async (programId: string) => {
       if (
         !storageKey ||
+        (flow.selectedProgramId && commandsLocked()) ||
         (flow.phase !== 'ready' && flow.phase !== 'needs_program')
       ) {
         return;
@@ -579,7 +617,13 @@ export default function ScannerScreen() {
         // The counter preset remains active for this app session.
       }
     },
-    [clearCompleteResetTimer, flow.phase, storageKey]
+    [
+      clearCompleteResetTimer,
+      flow.phase,
+      flow.selectedProgramId,
+      commandsLocked,
+      storageKey,
+    ]
   );
 
   const recoverFromStaleProgram = useCallback(
@@ -863,7 +907,10 @@ export default function ScannerScreen() {
             resolved.resolution === 'REDEEM_AVAILABLE' ? 'redeem' : 'stamp',
           joinedCustomer: resolved.resolution === 'JOIN_AND_STAMP',
         };
-        if (resolved.resolution === 'REDEEM_AVAILABLE') {
+        if (
+          resolved.resolution === 'REDEEM_AVAILABLE' ||
+          resolved.reconciledAfterUnknown
+        ) {
           dispatch({ type: 'SHOW_REDEEM_CONFIRMATION', session });
           return;
         }
@@ -1247,14 +1294,18 @@ export default function ScannerScreen() {
     if (flow.phase === 'redeem_confirmation' && flow.session) {
       return (
         <View style={styles.statusContent}>
-          <RewardReadyCue />
+          {flow.session.actionMode === 'redeem' ? <RewardReadyCue /> : null}
           <Text style={styles.resultCustomer}>
             {flow.session.customerDisplayName}
           </Text>
           <Text style={styles.resultProgram} numberOfLines={1}>
             {flow.session.program.title} · {flow.session.program.rewardName}
           </Text>
-          <Text style={styles.statusTitle}>הטבה מוכנה למימוש</Text>
+          <Text style={styles.statusTitle}>
+            {flow.session.actionMode === 'stamp'
+              ? 'הסריקה אומתה — נדרש אישור חותמת'
+              : 'הטבה מוכנה למימוש'}
+          </Text>
           {flow.session.membership ? (
             <Text style={styles.progressValue}>
               {flow.session.membership.currentStamps}/
@@ -1262,10 +1313,18 @@ export default function ScannerScreen() {
             </Text>
           ) : null}
           <ActionButton
-            label="מימוש ההטבה"
+            label={
+              flow.session.actionMode === 'stamp'
+                ? 'אישור חותמת'
+                : 'מימוש ההטבה'
+            }
             variant="success"
             onPress={() => void handleRedeem()}
-            accessibilityLabel={`מימוש ${flow.session.program.rewardName}`}
+            accessibilityLabel={
+              flow.session.actionMode === 'stamp'
+                ? 'אישור חותמת'
+                : `מימוש ${flow.session.program.rewardName}`
+            }
             fullWidth={true}
             testID="scanner-redeem-reward-cta"
             icon={<Ionicons name="gift-outline" size={20} color="#FFFFFF" />}
@@ -1467,6 +1526,35 @@ export default function ScannerScreen() {
         </StickyScrollHeader>
 
         <View style={styles.contentFrame}>
+          {safety.phase === 'UNKNOWN_OUTCOME' ||
+          safety.phase === 'RECONCILING' ? (
+            <View accessibilityRole="alert" style={{ padding: 16, gap: 12 }}>
+              <Text style={{ textAlign: 'right' }}>
+                תוצאת הפעולה עדיין אינה ידועה. הסורק נעול עד לבירור מול השרת.
+              </Text>
+              <ActionButton
+                label="בירור תוצאה"
+                onPress={() => void safety.reconcile()}
+              />
+              {safety.canRetry ? (
+                <ActionButton
+                  label="ניסיון באותה פעולה"
+                  onPress={() => void safety.retry()}
+                />
+              ) : null}
+            </View>
+          ) : null}
+          {safety.recovered ? (
+            <View accessibilityRole="alert" style={{ padding: 16 }}>
+              <Text style={{ textAlign: 'right' }}>
+                {safety.recovered.receipt.commandFailureCode
+                  ? 'השרת אימת שהפעולה הקודמת לא הושלמה. ניתן לסרוק שוב.'
+                  : safety.recovered.operation === 'resolve'
+                    ? 'תוצאת הסריקה הקודמת אומתה. לא נשלחה חותמת נוספת.'
+                    : 'הפעולה הקודמת אומתה מול השרת.'}
+              </Text>
+            </View>
+          ) : null}
           {renderProgramContext()}
           {shouldShowTransactionArea ? (
             <View
@@ -1487,7 +1575,11 @@ export default function ScannerScreen() {
                     resetKey={flow.scannerResetKey}
                     showStatus={false}
                     cameraMinHeight={isTablet ? 360 : 260}
-                    isBusy={flow.phase !== 'ready'}
+                    isBusy={
+                      flow.phase !== 'ready' ||
+                      !safety.hydrated ||
+                      commandsLocked()
+                    }
                   />
                   {flow.phase === 'resolving' ? (
                     <View pointerEvents="none" style={styles.cameraBusyOverlay}>

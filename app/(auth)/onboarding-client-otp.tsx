@@ -10,7 +10,6 @@ import {
   type NativeSyntheticEvent,
   Platform,
   StyleSheet,
-  Text,
   TextInput,
   type TextInputKeyPressEventData,
   View,
@@ -18,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ContinueButton } from '@/components/ContinueButton';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
+import { AppText as Text } from '@/components/ui/AppText';
 import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { useSessionContext, useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
@@ -28,6 +28,17 @@ import {
   resolvePlatformPostAuthHref,
   resolvePostAuthRoute,
 } from '@/lib/auth/postAuthRouting';
+import {
+  productAccent,
+  webAccentBackground,
+  webAccentBorder,
+  webAccentFill,
+  webAccentText,
+  webBody,
+  webPage,
+  webTitle,
+} from '@/lib/design/webProductChrome';
+import { webLegalAcceptanceArgs } from '@/lib/legalWebContract';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 import { justifyContent } from '@/lib/rtl';
@@ -452,7 +463,10 @@ export default function OnboardingOtpScreen() {
       acceptanceStartedRef.current = true;
       try {
         if (shouldRecordTermsAcceptance) {
-          await acceptCurrentTerms({ source: 'signup_email' });
+          await acceptCurrentTerms({
+            source: 'signup_email',
+            ...webLegalAcceptanceArgs(Platform.OS),
+          });
         }
         hasNavigatedRef.current = true;
         clearPostAuthTimeout();
@@ -552,7 +566,7 @@ export default function OnboardingOtpScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.postAuthContent}>
-          <ActivityIndicator size="small" color="#2563eb" />
+          <ActivityIndicator size="small" color={productAccent} />
           <Text style={styles.postAuthText}>משלימים התחברות</Text>
         </View>
       </SafeAreaView>
@@ -608,8 +622,8 @@ export default function OnboardingOtpScreen() {
                   importantForAutofill="yes"
                   autoFocus={digitIndex === 0}
                   caretHidden={isActive && isEmpty}
-                  cursorColor="#2563eb"
-                  selectionColor="#2563eb"
+                  cursorColor={productAccent}
+                  selectionColor={productAccent}
                   underlineColorAndroid="transparent"
                   maxLength={CODE_LENGTH}
                   style={styles.digitInput}
@@ -679,6 +693,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FBFAF7',
+    ...webPage,
   },
   content: {
     flex: 1,
@@ -698,6 +713,7 @@ const styles = StyleSheet.create({
     color: '#111827',
     textAlign: 'right',
     marginBottom: 8,
+    ...webTitle,
   },
   subtitle: {
     marginTop: 5,
@@ -705,6 +721,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#64748B',
     textAlign: 'right',
+    ...webBody,
   },
   // Digit 1 is the leftmost cell. This row stays physically LTR.
   digitsContainer: {
@@ -729,6 +746,7 @@ const styles = StyleSheet.create({
   },
   digitCellActive: {
     borderColor: '#2563eb',
+    ...webAccentBorder,
   },
   digitInput: {
     width: '100%',
@@ -752,6 +770,7 @@ const styles = StyleSheet.create({
     marginLeft: -1,
     borderRadius: 1,
     backgroundColor: '#2563eb',
+    ...webAccentBackground,
   },
   errorText: {
     marginTop: 16,
@@ -768,6 +787,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#2563eb',
+    ...webAccentText,
   },
   resendTextDisabled: {
     fontWeight: '700',
@@ -815,6 +835,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 30,
     elevation: 8,
+    ...webAccentFill,
   },
   buttonInactive: {
     backgroundColor: '#e5e7eb',

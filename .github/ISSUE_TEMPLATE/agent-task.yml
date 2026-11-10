@@ -1,0 +1,86 @@
+name: Agent development task
+description: Define one bounded, approval-gated StampAix development batch
+title: "[TASK] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This template plans a task. Creating the issue does not approve code changes,
+        deployment, merge, billing, Production, or destructive operations.
+
+  - type: input
+    id: task_id
+    attributes:
+      label: Task ID
+      description: Stable identifier used in the approval and branch name.
+      placeholder: DEV-001
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0 - release blocker or safety
+        - P1 - launch scope
+        - P2 - post-acceptance improvement
+    validations:
+      required: true
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: One measurable outcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Product areas and files allowed to change.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Evidence required before the task can be marked complete.
+      placeholder: |
+        - [ ] Automated checks
+        - [ ] Manual role/device checks
+    validations:
+      required: true
+
+  - type: textarea
+    id: forbidden
+    attributes:
+      label: Forbidden operations
+      value: |
+        - No data reset, deletion, or synthetic data in the shared database
+        - No shared Convex or Preview deployment without PREVIEW-<sha>
+        - No merge without MERGE-<pr>
+        - No Production deployment without PROD-<sha>
+        - No real charge without BILLING-LIVE-<case>
+        - No destructive action without DESTRUCTIVE-<action>
+    validations:
+      required: true
+
+  - type: textarea
+    id: tests
+    attributes:
+      label: Required tests and QA
+      description: Automated checks, roles, browsers, devices, and provider evidence.
+    validations:
+      required: true
+
+  - type: input
+    id: approval
+    attributes:
+      label: Development approval
+      description: Exact approval string. Leave empty while planning.
+      placeholder: APPROVE DEV-001

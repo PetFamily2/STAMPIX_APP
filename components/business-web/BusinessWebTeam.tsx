@@ -1,4 +1,6 @@
-import { useMutation, useQuery } from 'convex/react';
+import {
+  useMutation,
+  useQuery } from 'convex/react';
 import {
   CalendarClock,
   Check,
@@ -10,17 +12,20 @@ import {
   UserPlus,
   Users,
   UserX,
-} from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
+  } from 'lucide-react-native';
+import { useEffect,
+  useMemo,
+  useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
-  Text,
   TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
+
+import { AppText as Text } from '@/components/ui/AppText';
 
 import {
   BusinessWebConfirmDialog,
@@ -569,7 +574,7 @@ export function BusinessWebTeam() {
         <View style={styles.pageHeaderCopy}>
           <Text style={styles.pageTitle}>צוות</Text>
           <Text style={styles.pageSubtitle}>
-            ניהול האנשים שיכולים לגשת לעסק והתפקיד של כל אחד מהם.
+            עובדים, תפקידים והרשאות.
           </Text>
         </View>
         {!seatLimitReached ? (
@@ -1108,13 +1113,13 @@ const styles = StyleSheet.create({
   page: {
     alignSelf: 'center',
     gap: TOKENS.space.xl,
-    maxWidth: 1180,
+    maxWidth: 980,
     width: '100%',
   },
   pageHeader: {
     alignItems: alignItems.start,
     flexDirection: flexDirection.row,
-    gap: TOKENS.space.lg,
+    gap: TOKENS.space.md,
     justifyContent: 'space-between',
   },
   pageHeaderCopy: { flex: 1, gap: TOKENS.space.xs },
@@ -1137,7 +1142,7 @@ const styles = StyleSheet.create({
     flexDirection: flexDirection.row,
     gap: TOKENS.space.sm,
     justifyContent: 'center',
-    minHeight: 44,
+    minHeight: 34,
     paddingHorizontal: TOKENS.space.lg,
   },
   primaryButtonText: { ...TOKENS.typography.label, color: '#FFFFFF' },
@@ -1147,7 +1152,7 @@ const styles = StyleSheet.create({
     borderColor: '#FECACA',
     borderRadius: TOKENS.radii.md,
     borderWidth: 1,
-    padding: TOKENS.space.lg,
+    padding: TOKENS.space.md,
   },
   errorText: {
     ...TOKENS.typography.secondaryBody,
@@ -1160,7 +1165,7 @@ const styles = StyleSheet.create({
     borderColor: '#FED7AA',
     borderRadius: TOKENS.radii.md,
     borderWidth: 1,
-    padding: TOKENS.space.lg,
+    padding: TOKENS.space.md,
   },
   limitCopy: { gap: TOKENS.space.xs },
   limitTitle: {
@@ -1178,29 +1183,24 @@ const styles = StyleSheet.create({
   summaryGrid: {
     flexDirection: flexDirection.row,
     flexWrap: 'wrap',
-    gap: TOKENS.space.lg,
+    gap: 0,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: TOKENS.colors.border,
+    paddingVertical: 10,
   },
   summaryCard: {
-    ...TOKENS.shadow,
     alignItems: alignItems.start,
-    backgroundColor: TOKENS.colors.elevatedSurface,
-    borderColor: TOKENS.colors.border,
-    borderRadius: TOKENS.radii.lg,
-    borderWidth: 1,
     flex: 1,
-    flexBasis: 220,
+    flexBasis: 150,
     flexDirection: flexDirection.row,
-    gap: TOKENS.space.md,
-    minHeight: 122,
-    padding: TOKENS.space.lg,
+    gap: 0,
+    minHeight: 56,
+    paddingHorizontal: 14,
+    paddingVertical: 2,
   },
   summaryIcon: {
-    alignItems: 'center',
-    backgroundColor: TOKENS.colors.primarySubtle,
-    borderRadius: TOKENS.radii.md,
-    height: 40,
-    justifyContent: 'center',
-    width: 40,
+    display: 'none',
   },
   summaryCopy: { flex: 1, gap: 2 },
   summaryLabel: {
@@ -1210,9 +1210,9 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   summaryValue: {
-    fontSize: 26,
-    fontWeight: '700',
-    lineHeight: 34,
+    fontSize: 19,
+    fontWeight: '600',
+    lineHeight: 25,
     color: TOKENS.colors.textPrimary,
     textAlign: 'right',
   },
@@ -1223,15 +1223,13 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   sectionCard: {
-    ...TOKENS.shadow,
-    backgroundColor: TOKENS.colors.elevatedSurface,
-    borderColor: TOKENS.colors.border,
-    borderRadius: TOKENS.radii.lg,
-    borderWidth: 1,
+    backgroundColor: 'transparent',
+    borderTopColor: TOKENS.colors.border,
+    borderTopWidth: 1,
     overflow: 'visible',
-    padding: TOKENS.space.xl,
+    paddingTop: 12,
   },
-  sectionHeader: { marginBottom: TOKENS.space.lg },
+  sectionHeader: { marginBottom: 10 },
   sectionHeadingCopy: { flex: 1, gap: 2 },
   sectionTitleRow: {
     alignItems: 'center',
@@ -1273,7 +1271,7 @@ const styles = StyleSheet.create({
     borderBottomColor: TOKENS.colors.border,
     borderBottomWidth: 1,
     flexDirection: flexDirection.row,
-    minHeight: 44,
+    minHeight: 34,
     paddingHorizontal: TOKENS.space.lg,
   },
   tableHeading: {
@@ -1290,7 +1288,7 @@ const styles = StyleSheet.create({
     borderBottomColor: TOKENS.colors.border,
     borderBottomWidth: 1,
     flexDirection: flexDirection.row,
-    minHeight: 76,
+    minHeight: 50,
     paddingHorizontal: TOKENS.space.lg,
   },
   tableCell: {
@@ -1311,9 +1309,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: TOKENS.colors.primarySubtle,
     borderRadius: TOKENS.radii.pill,
-    height: 42,
+    height: 30,
     justifyContent: 'center',
-    width: 42,
+    width: 30,
   },
   avatarText: { ...TOKENS.typography.label, color: TOKENS.colors.primary },
   identityCopy: { flex: 1, gap: 2, minWidth: 0 },
@@ -1339,8 +1337,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: TOKENS.radii.pill,
     justifyContent: 'center',
-    minHeight: 26,
-    paddingHorizontal: TOKENS.space.md,
+    minHeight: 22,
+    paddingHorizontal: 8,
   },
   badgeSuccess: { backgroundColor: TOKENS.colors.successSubtle },
   badgeWarning: { backgroundColor: TOKENS.colors.warningSubtle },
@@ -1352,8 +1350,8 @@ const styles = StyleSheet.create({
   roleBadge: {
     backgroundColor: TOKENS.colors.primarySubtle,
     borderRadius: TOKENS.radii.pill,
-    minHeight: 26,
-    paddingHorizontal: TOKENS.space.md,
+    minHeight: 22,
+    paddingHorizontal: 8,
     justifyContent: 'center',
   },
   roleBadgeText: {
@@ -1375,9 +1373,9 @@ const styles = StyleSheet.create({
     borderColor: TOKENS.colors.border,
     borderRadius: TOKENS.radii.sm,
     borderWidth: 1,
-    height: 40,
+    height: 34,
     justifyContent: 'center',
-    width: 40,
+    width: 34,
   },
   actionMenu: {
     ...TOKENS.shadow,
@@ -1393,7 +1391,7 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   menuAction: {
-    minHeight: 42,
+    minHeight: 38,
     justifyContent: 'center',
     paddingHorizontal: TOKENS.space.lg,
   },
@@ -1411,8 +1409,8 @@ const styles = StyleSheet.create({
     borderColor: TOKENS.colors.border,
     borderRadius: TOKENS.radii.md,
     borderWidth: 1,
-    gap: TOKENS.space.md,
-    padding: TOKENS.space.lg,
+    gap: 10,
+    padding: 10,
   },
   memberCardTop: {
     alignItems: alignItems.start,
@@ -1435,22 +1433,15 @@ const styles = StyleSheet.create({
   inviteList: { gap: TOKENS.space.sm },
   inviteRow: {
     alignItems: 'center',
-    backgroundColor: TOKENS.colors.subtleSurface,
-    borderColor: TOKENS.colors.border,
-    borderRadius: TOKENS.radii.md,
-    borderWidth: 1,
+    borderBottomWidth: 1,
+    borderBottomColor: TOKENS.colors.border,
     flexDirection: flexDirection.row,
     flexWrap: 'wrap',
-    gap: TOKENS.space.md,
-    padding: TOKENS.space.lg,
+    gap: 10,
+    paddingVertical: 10,
   },
   inviteIcon: {
-    alignItems: 'center',
-    backgroundColor: TOKENS.colors.primarySubtle,
-    borderRadius: TOKENS.radii.md,
-    height: 40,
-    justifyContent: 'center',
-    width: 40,
+    display: 'none',
   },
   inviteCopy: { flex: 1, gap: 2, minWidth: 180 },
   inviteName: {
@@ -1473,7 +1464,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 38,
     minWidth: 72,
-    paddingHorizontal: TOKENS.space.md,
+    paddingHorizontal: 8,
   },
   secondarySmallButtonText: {
     ...TOKENS.typography.metadata,
@@ -1487,7 +1478,7 @@ const styles = StyleSheet.create({
   historyList: {
     borderTopColor: TOKENS.colors.border,
     borderTopWidth: 1,
-    gap: TOKENS.space.lg,
+    gap: 14,
     marginTop: TOKENS.space.lg,
     paddingTop: TOKENS.space.lg,
   },
@@ -1520,15 +1511,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: TOKENS.space.sm,
     justifyContent: 'center',
-    minHeight: 116,
-    padding: TOKENS.space.lg,
+    minHeight: 88,
+    padding: TOKENS.space.md,
   },
   ownerOnlyNotice: {
     backgroundColor: TOKENS.colors.primarySubtle,
     borderRadius: TOKENS.radii.md,
     gap: TOKENS.space.xs,
     marginBottom: TOKENS.space.lg,
-    padding: TOKENS.space.lg,
+    padding: TOKENS.space.md,
   },
   ownerOnlyTitle: {
     ...TOKENS.typography.label,
@@ -1559,7 +1550,7 @@ const styles = StyleSheet.create({
     gap: TOKENS.space.md,
     justifyContent: 'center',
     maxWidth: 620,
-    minHeight: 320,
+    minHeight: 160,
     padding: TOKENS.space.xxl,
     width: '100%',
   },
@@ -1603,8 +1594,8 @@ const styles = StyleSheet.create({
     borderRadius: TOKENS.radii.sm,
     borderWidth: 1,
     color: TOKENS.colors.textPrimary,
-    fontSize: 16,
-    minHeight: 48,
+    fontSize: 13,
+    minHeight: 38,
     paddingHorizontal: TOKENS.space.lg,
     paddingVertical: TOKENS.space.md,
   },
@@ -1618,7 +1609,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: flexDirection.row,
     gap: TOKENS.space.sm,
-    minHeight: 46,
+    minHeight: 38,
     paddingHorizontal: TOKENS.space.lg,
   },
   roleOptionSelected: {
@@ -1674,7 +1665,7 @@ const styles = StyleSheet.create({
     borderRadius: TOKENS.radii.sm,
     borderWidth: 1,
     justifyContent: 'center',
-    minHeight: 44,
+    minHeight: 34,
     paddingHorizontal: TOKENS.space.lg,
   },
   secondaryButtonText: {

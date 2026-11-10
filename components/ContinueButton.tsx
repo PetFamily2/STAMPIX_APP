@@ -1,4 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
+
+import { AppText as Text } from '@/components/ui/AppText';
+import { BUSINESS_WEB_TOKENS as T } from '@/lib/design/businessWebTokens';
 
 import { rtlBaseView, rtlCenterText } from '@/lib/rtl';
 
@@ -23,7 +26,11 @@ export function ContinueButton({
       accessibilityState={{ disabled }}
       accessibilityLabel={accessibilityLabel ?? label}
       style={({ pressed }) =>
-        pressed && !disabled ? styles.pressed : undefined
+        pressed && !disabled
+          ? Platform.OS === 'web'
+            ? styles.pressedWeb
+            : styles.pressed
+          : undefined
       }
     >
       <View
@@ -44,6 +51,9 @@ const styles = StyleSheet.create({
     opacity: 0.84,
     transform: [{ scale: 0.99 }],
   },
+  pressedWeb: {
+    opacity: 0.92,
+  },
   buttonActive: {
     backgroundColor: '#2563eb',
     minHeight: 52,
@@ -57,6 +67,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.16,
     shadowRadius: 10,
     elevation: 3,
+    ...(Platform.OS === 'web'
+      ? {
+          backgroundColor: T.colors.primary,
+          borderRadius: T.radii.md,
+          minHeight: T.control.height,
+          shadowOpacity: 0,
+          elevation: 0,
+        }
+      : null),
   },
   buttonInactive: {
     backgroundColor: '#e5e7eb',

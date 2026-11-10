@@ -7,17 +7,26 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
+import { AppText as Text } from '@/components/ui/AppText';
 import { PaintedPressable } from '@/components/ui/PaintedPressable';
 import { api } from '@/convex/_generated/api';
+import {
+  productAccent,
+  webAccentFill,
+  webAccentText,
+  webBody,
+  webField,
+  webLabel,
+  webPage,
+  webTitle,
+} from '@/lib/design/webProductChrome';
 import { safeBack } from '@/lib/navigation';
 
 const TEXT = {
@@ -238,7 +247,7 @@ export default function NameCaptureScreen() {
   ) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color="#2563eb" />
+        <ActivityIndicator size="small" color={productAccent} />
         <Text style={styles.loadingText}>{TEXT.loading}</Text>
       </SafeAreaView>
     );
@@ -354,6 +363,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FBFAF7',
+    ...webPage,
   },
   content: {
     flex: 1,
@@ -370,6 +380,7 @@ const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
     backgroundColor: '#FBFAF7',
+    ...webPage,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 10,
@@ -396,6 +407,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: 999,
     backgroundColor: '#2563EB',
+    ...webAccentFill,
     paddingHorizontal: 24,
     paddingVertical: 12,
     alignItems: 'center',
@@ -415,6 +427,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#2563EB',
+    ...webAccentText,
     textAlign: 'center',
     writingDirection: 'rtl',
   },
@@ -428,6 +441,7 @@ const styles = StyleSheet.create({
     lineHeight: 32,
     maxWidth: '100%',
     flexShrink: 1,
+    ...webTitle,
   },
   subtitle: {
     fontSize: 14,
@@ -437,6 +451,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
     lineHeight: 20,
     maxWidth: '100%',
+    ...webBody,
   },
   form: {
     marginTop: 20,
@@ -452,6 +467,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
     marginBottom: 8,
+    ...webLabel,
   },
   input: {
     borderRadius: 16,
@@ -463,6 +479,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#111827',
+    ...webField,
   },
   errorText: {
     marginTop: 14,

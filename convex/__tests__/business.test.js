@@ -3,19 +3,27 @@ import {
   BUSINESS_TERMS_VERSION,
   CANONICAL_TERMS_URL,
 } from '../../lib/legalContract';
-
+import { WEB_LEGAL_VERSION } from '../../lib/legalWebContract';
 import {
   assertBusinessOnboardingReady,
   closeBusinessAccount,
+  createBusinessForOwner,
   createOrResumeBusinessOnboarding,
+  generateBusinessLogoUploadUrl,
   getBusinessesNearby,
   getBusinessSettings,
   listMyClosedBusinesses,
   restoreBusinessAccount,
   saveBusinessOnboardingSnapshot,
+  setBusinessLogo,
   updateBusinessAddress,
   updateBusinessProfile,
 } from '../business';
+import {
+  acceptActivationTerms,
+  getActivationTermsAcceptance,
+} from '../businessBilling';
+import { assertEntitlement } from '../entitlements';
 import { completeBusinessOnboarding } from '../users';
 
 function buildUser(overrides = {}) {
@@ -200,10 +208,126 @@ function createMockCtx({
         return `_scheduled_${scheduled.length}`;
       },
     },
+    storage: {
+      generateUploadUrl: async () => 'https://upload.example/business-logo',
+      getMetadata: async (storageId) => {
+        if (storageId === 'storage_logo') {
+          return {
+            storageId,
+            sha256: 'abc',
+            size: 1200,
+            contentType: 'image/jpeg',
+          };
+        }
+        if (storageId === 'storage_logo_big') {
+          return {
+            storageId,
+            sha256: 'abc',
+            size: 3 * 1024 * 1024,
+            contentType: 'image/jpeg',
+          };
+        }
+        if (storageId === 'storage_logo_text') {
+          return {
+            storageId,
+            sha256: 'abc',
+            size: 40,
+            contentType: 'text/plain',
+          };
+        }
+        return null;
+      },
+      getUrl: async (storageId) =>
+        storageId === 'storage_logo'
+          ? 'https://files.example/business-logo.jpg'
+          : null,
+    },
   };
 
   return { ctx, state, scheduled };
 }
+
+describe('paid business activation', () => {
+  test('new owner gets an inactive draft account with no free period or provider evidence', async () => {
+    const { ctx, state } = createMockCtx({ businesses: [], businessStaff: [] });
+    const { businessId } = await createBusinessForOwner(ctx, {
+      ownerUserId: 'user_owner',
+      name: 'Paid launch',
+      now: 1000,
+      address: {
+        formattedAddress: 'Test address',
+        placeId: 'test-place',
+        city: 'Test city',
+        street: 'Test street',
+        streetNumber: '1',
+        lat: 32,
+        lng: 35,
+      },
+    });
+    expect(state.businesses.get(businessId)).toMatchObject({
+      subscriptionPlan: 'starter',
+      subscriptionStatus: 'inactive',
+      subscriptionStartAt: null,
+      subscriptionEndAt: null,
+    });
+    const account = Array.from(state.businessBillingAccounts.values())[0];
+    expect(account.status).toBe('inactive');
+    expect(account.hasProviderEvidence).toBe(false);
+    expect(account.trialEndsAt).toBeUndefined();
+    expect(account.trialSource).toBeUndefined();
+    await expect(assertEntitlement(ctx, businessId, {})).rejects.toThrow(
+      'SUBSCRIPTION_INACTIVE'
+    );
+  });
+
+  test('owner acceptance is idempotent and scoped to the current business and contract', async () => {
+    const { ctx, state } = createMockCtx();
+    const args = { businessId: 'business_1', version: WEB_LEGAL_VERSION };
+    expect(
+      (await getActivationTermsAcceptance._handler(ctx, args)).accepted
+    ).toBe(false);
+    const first = await acceptActivationTerms._handler(ctx, args);
+    const second = await acceptActivationTerms._handler(ctx, args);
+    expect(first).toEqual(second);
+    expect(Array.from(state.legalAcceptances.values())).toHaveLength(1);
+    expect(Array.from(state.legalAcceptances.values())[0]).toMatchObject({
+      userId: 'user_owner',
+      businessId: 'business_1',
+      version: WEB_LEGAL_VERSION,
+      documentKind: 'business_terms',
+      source: 'business_activation',
+    });
+    expect(
+      (await getActivationTermsAcceptance._handler(ctx, args)).accepted
+    ).toBe(true);
+    expect(
+      (
+        await getActivationTermsAcceptance._handler(ctx, {
+          businessId: 'business_1',
+        })
+      ).version
+    ).toBe(WEB_LEGAL_VERSION);
+  });
+
+  test.each([
+    'manager',
+    'staff',
+  ])('%s cannot accept payment terms or read owner acceptance', async (role) => {
+    const { ctx } = createMockCtx({
+      currentUserId: 'user_other',
+      users: [buildUser({ _id: 'user_other' })],
+      businessStaff: [buildStaff({ userId: 'user_other', staffRole: role })],
+    });
+    for (const fn of [acceptActivationTerms, getActivationTermsAcceptance]) {
+      await expect(
+        fn._handler(ctx, {
+          businessId: 'business_1',
+          version: WEB_LEGAL_VERSION,
+        })
+      ).rejects.toThrow('NOT_AUTHORIZED');
+    }
+  });
+});
 
 describe('business closure and restoration lifecycle', () => {
   const manager = buildStaff({
@@ -521,6 +645,86 @@ describe('business profile settings and discovery filters', () => {
     expect(updatedBusiness.businessPhone).toBe('+972 (50) 123-4567');
     expect(updatedBusiness.serviceTypes).toEqual(['beauty', 'retail']);
     expect(updatedBusiness.serviceTags).toEqual(['טיפוח', 'שיער']);
+    expect(updatedBusiness.logoUrl).toBeUndefined();
+  });
+
+  test('business logo upload saves logoUrl without changing the rest of the profile', async () => {
+    const { ctx, state } = createMockCtx({
+      businesses: [buildBusiness({ logoUrl: 'https://files.example/old.jpg' })],
+    });
+
+    const upload = await generateBusinessLogoUploadUrl._handler(ctx, {
+      businessId: 'business_1',
+    });
+    expect(upload.uploadUrl).toBe('https://upload.example/business-logo');
+
+    const saved = await setBusinessLogo._handler(ctx, {
+      businessId: 'business_1',
+      storageId: 'storage_logo',
+    });
+    const updated = state.businesses.get('business_1');
+    expect(saved.logoUrl).toBe('https://files.example/business-logo.jpg');
+    expect(updated.logoUrl).toBe('https://files.example/business-logo.jpg');
+    expect(updated.name).toBe('Test Business');
+    expect(updated.formattedAddress).toBe('Test Address');
+
+    const removed = await setBusinessLogo._handler(ctx, {
+      businessId: 'business_1',
+      expectedUpdatedAt: saved.updatedAt,
+      remove: true,
+    });
+    expect(removed.logoUrl).toBeNull();
+    expect(state.businesses.get('business_1').logoUrl).toBeUndefined();
+    expect(state.businesses.get('business_1').name).toBe('Test Business');
+  });
+
+  test('business logo changes require profile edit permission', async () => {
+    const staff = createMockCtx({
+      currentUserId: 'user_staff',
+      users: [buildUser({ _id: 'user_staff' })],
+      businessStaff: [
+        buildStaff({
+          _id: 'staff_logo',
+          userId: 'user_staff',
+          staffRole: 'staff',
+        }),
+      ],
+    });
+
+    await expect(
+      generateBusinessLogoUploadUrl._handler(staff.ctx, {
+        businessId: 'business_1',
+      })
+    ).rejects.toThrow('NOT_AUTHORIZED');
+    await expect(
+      setBusinessLogo._handler(staff.ctx, {
+        businessId: 'business_1',
+        storageId: 'storage_logo',
+      })
+    ).rejects.toThrow('NOT_AUTHORIZED');
+    expect(staff.state.businesses.get('business_1').logoUrl).toBeUndefined();
+  });
+
+  test('business logo rejects an unsupported type or an oversized file', async () => {
+    const { ctx, state } = createMockCtx({
+      businesses: [buildBusiness({ logoUrl: 'https://files.example/old.jpg' })],
+    });
+
+    await expect(
+      setBusinessLogo._handler(ctx, {
+        businessId: 'business_1',
+        storageId: 'storage_logo_text',
+      })
+    ).rejects.toThrow('LOGO_FILE_TYPE');
+    await expect(
+      setBusinessLogo._handler(ctx, {
+        businessId: 'business_1',
+        storageId: 'storage_logo_big',
+      })
+    ).rejects.toThrow('LOGO_FILE_TOO_LARGE');
+    expect(state.businesses.get('business_1').logoUrl).toBe(
+      'https://files.example/old.jpg'
+    );
   });
 
   test('updateBusinessProfile rejects invalid input', async () => {

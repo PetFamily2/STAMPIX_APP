@@ -1,0 +1,94 @@
+name: Agent safe Web and PWA verification
+
+# Verification-only CI for explicitly approved agent task branches.
+# This workflow intentionally has no deployment job, environment, or secrets.
+on:
+  pull_request:
+    branches:
+      - pwa/phase-3-scanner-commands-20261005
+      - agent/dev-control-001
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-safe-verify-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.head_ref, 'agent/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      EXPO_PUBLIC_APP_ENV: preview
+      EXPO_PUBLIC_CONVEX_URL_DEV: https://utmost-fennec-280.convex.cloud
+      EXPO_PUBLIC_WEB_ROLE_ROUTING: 'true'
+      EXPO_PUBLIC_WEB_QR_LAB: 'false'
+      EXPO_PUBLIC_WEB_SCANNER_COMMANDS: 'true'
+      EXPO_PUBLIC_STAMPAIX_SHARED_BACKEND: 'true'
+      EXPO_PUBLIC_PWA_ENABLED: 'true'
+      EXPO_PUBLIC_SCANNER_RECEIPTS: 'true'
+    steps:
+      - name: Checkout exact revision without write credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.5
+
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Test
+        run: bun test
+
+      - name: Type check
+        run: bun run type-check
+
+      - name: Verify Web RTL source contracts
+        run: bun run verify:rtl-build-source
+
+      - name: Verify scanner, camera, billing, and shared-backend boundaries
+        run: node scripts/verify-web-phase3-boundaries.mjs
+
+      - name: Export Web and PWA JavaScript only
+        run: bunx expo export --platform web --output-dir ${{ runner.temp }}/agent-safe-export --max-workers 2
+
+      - name: Export local Web scanner assets
+        run: bun scripts/export-web-scanner-business.mjs ${{ runner.temp }}/agent-safe-export
+
+      - name: Verify safe PWA artifacts
+        run: node scripts/finalize-web-pwa-export.mjs ${{ runner.temp }}/agent-safe-export
+
+      - name: Check exported client files for known secret patterns
+        run: node scripts/verify-client-secret-patterns.mjs ${{ runner.temp }}/agent-safe-export
+
+      - name: Check repository diff formatting
+        run: git diff --check
+
+      - name: Record verification boundary
+        if: always()
+        run: |
+          {
+            echo "## Agent safe verification"
+            echo "- Revision: \`${{ github.event.pull_request.head.sha || github.sha }}\`"
+            echo "- Verification only: yes"
+            echo "- Build scope: Web and PWA only"
+            echo "- Android or iOS build attempted: no"
+            echo "- Deployment attempted: no"
+            echo "- Convex mutation or sync attempted: no"
+            echo "- Production credentials available: no"
+          } >> "$GITHUB_STEP_SUMMARY"
