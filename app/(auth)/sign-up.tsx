@@ -95,7 +95,9 @@ export default function SignUpScreen() {
   }>();
   const isPreviewMode = resolvePreviewModeFromParams({ preview, map });
   const showGoogleOAuth = showsGoogleOAuthOnSignUp(Platform.OS);
-  const showAppleOAuth = showsAppleOAuthOnSignUp(Platform.OS);
+  const showAppleOAuth =
+    showsAppleOAuthOnSignUp(Platform.OS) &&
+    (Platform.OS !== 'web' || webAuth.providers?.apple === true);
   const { completeStep, trackChoice, trackContinue } = useOnboardingTracking({
     screen: 'sign_up',
   });

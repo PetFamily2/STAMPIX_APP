@@ -2,6 +2,9 @@
 
 ## 2026-11-10 execution update
 
+- Authentication incident: original DEV readiness confirms Google/Email configured, Apple not configured. Presence-only audit confirms missing Apple ID/secret; Web must hide unconfigured Apple, preserving Native. User has no confirmed Developer account. This does not complete Apple integration.
+- Email provider read APIs succeed and sender domain is verified (not sandbox). One login OTP today hard-bounced Permanent/General without detailed cause; recipient/code/key were not exposed. User reports no code arrival. Existing-address delivery and complete OTP login remain unaccepted; a browser form is prepared for user testing. Fifty-nine focused availability/OTP/address tests pass. Configuration presence is not delivery acceptance.
+
 - Follow-up visual acceptance: 0ce6a74 deployed to stable review and immutable https://9b4cdd6c.stampaix-web-qa.pages.dev . Authenticated browser at 390×844 confirmed referral customer tab, menu-to-campaign navigation and active/inactive/archive filters with original 1/10/20 counts. Restore control was observed but not executed; no settings save or campaign sending occurred. Eleven focused tests, types, scoped style and Web/PWA export passed; exact-revision full CI remains unconfirmed and physical-device acceptance remains open.
 
 - User confirmed the affected More entries are Campaigns and Referrals. Navigation correction 882467a is deployed to QA. Follow-up replaces the legacy campaign hub with a dedicated Web surface retaining scopes, quota, lifecycle filtering, timing/audience, editor links, referral entry and existing restore action. Referral settings now opt into Web presentation while preserving original Native defaults and existing save/query behavior. Visual QA of that follow-up is pending deployment.
