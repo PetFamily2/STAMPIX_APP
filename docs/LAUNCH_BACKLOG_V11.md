@@ -2,6 +2,8 @@
 
 ## 2026-11-10 execution update
 
+- Follow-up visual acceptance: 0ce6a74 deployed to stable review and immutable https://9b4cdd6c.stampaix-web-qa.pages.dev . Authenticated browser at 390×844 confirmed referral customer tab, menu-to-campaign navigation and active/inactive/archive filters with original 1/10/20 counts. Restore control was observed but not executed; no settings save or campaign sending occurred. Eleven focused tests, types, scoped style and Web/PWA export passed; exact-revision full CI remains unconfirmed and physical-device acceptance remains open.
+
 - User confirmed the affected More entries are Campaigns and Referrals. Navigation correction 882467a is deployed to QA. Follow-up replaces the legacy campaign hub with a dedicated Web surface retaining scopes, quota, lifecycle filtering, timing/audience, editor links, referral entry and existing restore action. Referral settings now opt into Web presentation while preserving original Native defaults and existing save/query behavior. Visual QA of that follow-up is pending deployment.
 
 - Stable QA: https://review.stampaix-web-qa.pages.dev/welcome ; 8abb944 passed CI 42849220495. Existing business login and safe PWA update were observed. The compact privacy notice persists after acknowledgment; installation offer follows it.
