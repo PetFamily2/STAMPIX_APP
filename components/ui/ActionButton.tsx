@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   type StyleProp,
   StyleSheet,
@@ -69,7 +70,11 @@ export function ActionButton({
       style={({ pressed }) => [
         styles.pressable,
         fullWidth ? styles.fullWidth : styles.compact,
-        pressed && !isDisabled ? styles.pressed : null,
+        pressed && !isDisabled
+          ? Platform.OS === 'web'
+            ? styles.pressedWeb
+            : styles.pressed
+          : null,
         style,
       ]}
     >
@@ -80,6 +85,10 @@ export function ActionButton({
           styles.surface,
           fullWidth ? styles.fullWidth : null,
           styles[variant],
+          Platform.OS === 'web' && variant === 'primary'
+            ? styles.primaryWeb
+            : null,
+          Platform.OS === 'web' ? styles.surfaceWeb : null,
           muted ? styles[`${variant}Disabled`] : null,
         ]}
       >
@@ -136,6 +145,13 @@ const styles = StyleSheet.create({
     borderColor: '#2F6BFF',
     backgroundColor: '#2F6BFF',
   },
+  primaryWeb: {
+    borderColor: '#1230A8',
+    backgroundColor: '#1230A8',
+  },
+  surfaceWeb: {
+    borderRadius: 12,
+  },
   primaryDisabled: {
     borderColor: '#B7C3D6',
     backgroundColor: '#D5DCE8',
@@ -143,6 +159,7 @@ const styles = StyleSheet.create({
   secondary: {
     borderColor: '#AFC8F5',
     backgroundColor: '#FFFFFF',
+    ...(Platform.OS === 'web' ? { borderColor: '#1230A8' } : null),
   },
   secondaryDisabled: {
     borderColor: '#CBD5E1',
@@ -168,6 +185,9 @@ const styles = StyleSheet.create({
     opacity: 0.84,
     transform: [{ scale: 0.99 }],
   },
+  pressedWeb: {
+    opacity: 0.92,
+  },
   label: {
     flexShrink: 1,
     fontSize: 14,
@@ -183,7 +203,7 @@ const styles = StyleSheet.create({
     color: '#334155',
   },
   secondaryLabel: {
-    color: '#1D4ED8',
+    color: Platform.OS === 'web' ? '#1230A8' : '#1D4ED8',
   },
   secondaryLabelDisabled: {
     color: '#64748B',

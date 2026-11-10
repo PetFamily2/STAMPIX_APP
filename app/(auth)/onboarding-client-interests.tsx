@@ -1,17 +1,20 @@
-import {
-  Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
-
-import { AppText as Text } from '@/components/ui/AppText';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingChoiceButton } from '@/components/OnboardingChoiceButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
+import { AppText as Text } from '@/components/ui/AppText';
+import {
+  productAccent,
+  webBody,
+  webLabel,
+  webPage,
+  webSectionTitle,
+  webTitle,
+} from '@/lib/design/webProductChrome';
 import { safeBack, safePush } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 import { alignItems } from '@/lib/rtl';
@@ -33,11 +36,11 @@ type BenefitTypeId =
 
 const TEXT = {
   title: 'מה מעניין אותך?',
-  description: 'זה עוזר לנו להבין אילו הטבות מעניינות אותך',
-  interestSectionTitle: 'סוגי עסקים',
-  interestHelper: 'בחרו עד 3',
-  benefitSectionTitle: 'איזה סוג הטבות כיף לך לקבל?',
-  benefitHelper: 'בחרו עד 2',
+  description: 'בחרו מה שמתאים',
+  interestSectionTitle: 'עסקים',
+  interestHelper: 'עד 3',
+  benefitSectionTitle: 'הטבות',
+  benefitHelper: 'עד 2',
   continue: 'המשך',
 };
 
@@ -160,14 +163,12 @@ export default function OnboardingInterestsScreen() {
                     selected={isSelected}
                     label={type.title}
                     onPress={() => toggleType(type.id)}
-                    labelNumberOfLines={1}
-                    labelAdjustsFontSizeToFit={true}
-                    labelMinimumFontScale={0.82}
+                    labelNumberOfLines={2}
                     icon={
                       <Ionicons
                         name={type.icon}
                         size={20}
-                        color={isSelected ? '#FFFFFF' : '#2563EB'}
+                        color={isSelected ? '#FFFFFF' : productAccent}
                       />
                     }
                   />
@@ -193,14 +194,12 @@ export default function OnboardingInterestsScreen() {
                     selected={isSelected}
                     label={type.title}
                     onPress={() => toggleBenefit(type.id)}
-                    labelNumberOfLines={1}
-                    labelAdjustsFontSizeToFit={true}
-                    labelMinimumFontScale={0.82}
+                    labelNumberOfLines={2}
                     icon={
                       <Ionicons
                         name={type.icon}
                         size={20}
-                        color={isSelected ? '#FFFFFF' : '#2563EB'}
+                        color={isSelected ? '#FFFFFF' : productAccent}
                       />
                     }
                   />
@@ -226,15 +225,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FBFAF7',
+    ...webPage,
   },
   content: {
     flex: 1,
     width: '100%',
     maxWidth: 620,
     alignSelf: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
   },
   header: {
     marginBottom: 4,
@@ -245,6 +245,7 @@ const styles = StyleSheet.create({
     color: '#111827',
     textAlign: 'right',
     marginBottom: 8,
+    ...webTitle,
   },
   description: {
     fontSize: 14,
@@ -252,6 +253,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'right',
     lineHeight: 20,
+    ...webBody,
   },
   scroll: {
     flex: 1,
@@ -260,8 +262,8 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   section: {
-    marginTop: 22,
-    gap: 10,
+    marginTop: 14,
+    gap: 8,
   },
   sectionHeader: {
     gap: 2,
@@ -272,12 +274,14 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#111827',
     textAlign: 'right',
+    ...webSectionTitle,
   },
   sectionHelper: {
     fontSize: 12,
     fontWeight: '700',
     color: '#6b7280',
     textAlign: 'right',
+    ...webLabel,
   },
   optionsContainer: {
     gap: 8,

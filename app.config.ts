@@ -184,11 +184,36 @@ function withUiSoundEffects(config: ExpoConfig): ExpoConfig {
   };
 }
 
+/** Production build mode here means bundled export, not deployment to Production. */
+export function withSafeWebRouteLoading(config: ExpoConfig): ExpoConfig {
+  return {
+    ...config,
+    plugins: config.plugins?.map((plugin): ExpoPlugin => {
+      const [name, options] =
+        typeof plugin === 'string' ? [plugin, {}] : plugin;
+      if (name !== 'expo-router') return plugin;
+      const previous = options?.asyncRoutes;
+      const asyncRoutes =
+        typeof previous === 'object' && previous !== null
+          ? previous
+          : previous !== undefined
+            ? { default: previous }
+            : {};
+      return [
+        name,
+        { ...options, asyncRoutes: { ...asyncRoutes, web: false } },
+      ];
+    }),
+  };
+}
+
 export default function defineConfig(_context: ConfigContext): ExpoConfig {
-  return withUiSoundEffects(
-    withGoogleMapsNativeKeys(
-      withEnvironmentAwareNotifications(
-        withEnvironmentAwareGoogleServicesFile(baseConfig)
+  return withSafeWebRouteLoading(
+    withUiSoundEffects(
+      withGoogleMapsNativeKeys(
+        withEnvironmentAwareNotifications(
+          withEnvironmentAwareGoogleServicesFile(baseConfig)
+        )
       )
     )
   );

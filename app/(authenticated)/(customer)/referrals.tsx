@@ -16,6 +16,11 @@ import {
   PaintedPressable as Pressable,
 } from '@/components/ui/PaintedPressable';
 import { api } from '@/convex/_generated/api';
+import {
+  productPageBackground,
+  webAccentFill,
+  webPage,
+} from '@/lib/design/webProductChrome';
 import { safeBack } from '@/lib/navigation';
 import {
   CUSTOMER_BACK_FALLBACKS,
@@ -170,7 +175,7 @@ export default function CustomerReferralsScreen() {
       >
         <StickyScrollHeader
           topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
+          backgroundColor={productPageBackground}
         >
           <View style={styles.headerRow}>
             <BusinessScreenHeader
@@ -325,6 +330,7 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#E9F0FF',
+    ...webPage,
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -455,6 +461,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
+    ...webAccentFill,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },

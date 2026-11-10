@@ -1,4 +1,3 @@
-/* Modified for StampAix Phase 2: QR version 23 alignment center 74 -> 78. See CHANGES.md. */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
 		module.exports = factory();
@@ -8962,7 +8961,7 @@ exports.VERSIONS = [
     {
         infoBits: 0x177EC,
         versionNumber: 23,
-        alignmentPatternCenters: [6, 30, 54, 78, 102],
+        alignmentPatternCenters: [6, 30, 54, 74, 102],
         errorCorrectionLevels: [
             {
                 ecCodewordsPerBlock: 30,

@@ -1,4 +1,5 @@
 import { useQuery } from 'convex/react';
+import { useLocalSearchParams } from 'expo-router';
 import { Search, Users } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
@@ -7,6 +8,11 @@ import { AppText as Text } from '@/components/ui/AppText';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
+import {
+  customerMatchesWebRouteFilter,
+  parseWebCustomerRouteFilter,
+  webCustomerRouteFilterLabel,
+} from '@/lib/recommendations/webCustomerFilter';
 import { flexDirection, rtlBaseText, selfStart } from '@/lib/rtl';
 
 type CustomerRow = {
@@ -43,18 +49,25 @@ export function BusinessWebCustomers({
   const data = useQuery(api.customerCards.listBusinessCustomersBase, {
     businessId: activeBusinessId,
   });
+  const { filter } = useLocalSearchParams<{ filter?: string | string[] }>();
+  const routeFilter = parseWebCustomerRouteFilter(filter);
   const [search, setSearch] = useState('');
   const customers = (data ?? []) as CustomerRow[];
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return customers;
-    return customers.filter((customer) =>
-      [customer.name, customer.phone, customer.primaryProgramName]
+    return customers.filter((customer) => {
+      if (!customerMatchesWebRouteFilter(customer, routeFilter)) {
+        return false;
+      }
+      if (!q) {
+        return true;
+      }
+      return [customer.name, customer.phone, customer.primaryProgramName]
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(q))
-    );
-  }, [customers, search]);
+        .some((value) => String(value).toLowerCase().includes(q));
+    });
+  }, [customers, routeFilter, search]);
 
   const activeCount = customers.filter(
     (customer) => customer.customerState === 'ACTIVE'
@@ -102,6 +115,12 @@ export function BusinessWebCustomers({
           />
         </View>
 
+        {routeFilter ? (
+          <Text style={styles.filterLabel}>
+            {webCustomerRouteFilterLabel(routeFilter)}
+          </Text>
+        ) : null}
+
         {data === undefined ? (
           <Text style={styles.emptyText}>טוענים לקוחות…</Text>
         ) : filtered.length === 0 ? (
@@ -113,7 +132,9 @@ export function BusinessWebCustomers({
             <Text style={styles.emptyText}>
               {customers.length === 0
                 ? 'לקוחות שיצטרפו לעסק יופיעו כאן.'
-                : 'נסו חיפוש אחר.'}
+                : routeFilter
+                  ? 'אין לקוחות בקבוצה הזו.'
+                  : 'נסו חיפוש אחר.'}
             </Text>
           </View>
         ) : (
@@ -173,6 +194,7 @@ const styles = StyleSheet.create({
   summaryLabel: { ...TOKENS.typography.metadata, color: TOKENS.colors.textMuted, ...rtlBaseText },
   summaryValue: { fontSize: 21, lineHeight: 27, fontWeight: '600', color: TOKENS.colors.textPrimary, ...rtlBaseText },
   panel: { gap: 10 },
+  filterLabel: { ...TOKENS.typography.metadata, color: TOKENS.colors.primary, ...rtlBaseText },
   searchWrap: { width: '100%', maxWidth: 360, alignSelf: selfStart, flexDirection: flexDirection.row, alignItems: 'center', gap: 8, borderWidth: 1, borderColor: TOKENS.colors.borderStrong, borderRadius: TOKENS.radii.sm, minHeight: 36, paddingHorizontal: 10 },
   searchInput: { flex: 1, fontSize: 13, color: TOKENS.colors.textPrimary, textAlign: 'right', writingDirection: 'rtl', outlineStyle: 'none' } as any,
   list: { gap: 0, borderTopWidth: 1, borderTopColor: TOKENS.colors.border },

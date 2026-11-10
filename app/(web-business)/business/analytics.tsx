@@ -1,13 +1,5 @@
-import { BusinessWebAnalytics } from '@/components/business-web/BusinessWebAnalytics';
-import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { Redirect } from 'expo-router';
 
 export default function BusinessWebAnalyticsScreen() {
-  const { activeBusinessId } = useActiveBusiness();
-
-  return activeBusinessId ? (
-    <BusinessWebAnalytics
-      key={String(activeBusinessId)}
-      activeBusinessId={activeBusinessId}
-    />
-  ) : null;
+  return <Redirect href="/business/customers" />;
 }

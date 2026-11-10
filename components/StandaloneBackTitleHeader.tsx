@@ -1,15 +1,14 @@
 import type { ReactNode } from 'react';
 import {
+  Platform,
   type StyleProp,
   StyleSheet,
   type TextStyle,
   View,
   type ViewStyle,
 } from 'react-native';
-
-import { AppText as Text } from '@/components/ui/AppText';
-
 import { BackButton } from '@/components/BackButton';
+import { AppText as Text } from '@/components/ui/AppText';
 import { flexDirection } from '@/lib/rtl';
 
 type StandaloneBackTitleHeaderProps = {
@@ -38,7 +37,13 @@ export function StandaloneBackTitleHeader({
   children,
 }: StandaloneBackTitleHeaderProps) {
   return (
-    <View style={[styles.container, style]}>
+    <View
+      style={[
+        styles.container,
+        Platform.OS === 'web' ? styles.containerWeb : null,
+        style,
+      ]}
+    >
       <View style={styles.titleRow}>
         <BackButton onPress={onBackPress} />
         <View style={styles.titleBlock}>
@@ -61,7 +66,14 @@ export function StandaloneBackTitleHeader({
       </View>
 
       {leftAccessory ? (
-        <View style={styles.leftAccessory}>{leftAccessory}</View>
+        <View
+          style={[
+            styles.leftAccessory,
+            Platform.OS === 'web' ? styles.leftAccessoryWeb : null,
+          ]}
+        >
+          {leftAccessory}
+        </View>
       ) : null}
     </View>
   );
@@ -74,6 +86,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
+  },
+  containerWeb: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 8,
   },
   titleRow: {
     flex: 1,
@@ -101,5 +118,9 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  leftAccessoryWeb: {
+    width: '100%',
+    alignItems: 'stretch',
   },
 });

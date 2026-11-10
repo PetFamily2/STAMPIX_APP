@@ -1,8 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
-
-import { deleteMyAccountHardImpl } from '../users';
 import { materializeApprovedRunInternal } from '../smartManagerExecution';
+import { deleteMyAccountHardImpl } from '../users';
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
@@ -25,7 +24,9 @@ class FakeQuery {
     };
     builder(q);
     return new FakeQuery(
-      this.docs.filter((doc) => predicates.every((predicate) => predicate(doc))),
+      this.docs.filter((doc) =>
+        predicates.every((predicate) => predicate(doc))
+      ),
       this.meta
     );
   }
@@ -151,6 +152,30 @@ function buildCtx(tables, userId = 'u_customer') {
 }
 
 describe('deleteMyAccountHardImpl', () => {
+  test('deletes own new receipt and Push rows while preserving other accounts', async () => {
+    const ctx = buildCtx({
+      users: [{ _id: 'u_customer', email: 'synthetic@example.invalid' }],
+      scannerCommandReceipts: [
+        { _id: 'own_receipt', actorId: 'u_customer' },
+        { _id: 'customer_receipt', actorId: 'other', customerId: 'u_customer' },
+        { _id: 'other_receipt', actorId: 'other', customerId: 'someone_else' },
+      ],
+      webPushSubscriptions: [
+        { _id: 'own_push', userId: 'u_customer' },
+        { _id: 'other_push', userId: 'other' },
+      ],
+    });
+    const result = await deleteMyAccountHardImpl(ctx);
+    expect(result.deleted.scannerCommandReceipts).toBe(2);
+    expect(result.deleted.webPushSubscriptions).toBe(1);
+    expect(ctx.db.rows('scannerCommandReceipts').map((r) => r._id)).toEqual([
+      'other_receipt',
+    ]);
+    expect(ctx.db.rows('webPushSubscriptions').map((r) => r._id)).toEqual([
+      'other_push',
+    ]);
+  });
+
   test('prepares independent Apple and Google revocation jobs before deleting provider credentials', async () => {
     const ctx = buildCtx({
       users: [{ _id: 'u_customer', email: 'customer@example.com' }],
@@ -212,10 +237,9 @@ describe('deleteMyAccountHardImpl', () => {
     expect(result.deleted.providerRevocationCredentials).toBe(2);
     expect(ctx.db.rows('providerRevocationCredentials')).toEqual([]);
     expect(ctx.db.rows('providerRevocationJobs')).toHaveLength(2);
-    expect(ctx.db.rows('providerRevocationJobs').map((job) => job.status)).toEqual([
-      'queued',
-      'queued',
-    ]);
+    expect(
+      ctx.db.rows('providerRevocationJobs').map((job) => job.status)
+    ).toEqual(['queued', 'queued']);
     expect(ctx.db.rows('userIdentities')).toEqual([]);
     expect(ctx.db.rows('authAccounts')).toEqual([]);
     expect(ctx.scheduled).toHaveLength(2);
@@ -1134,10 +1158,12 @@ describe('deleteMyAccountHardImpl', () => {
       lastClosedAt: 500,
       lastRestoredAt: 400,
     });
-    expect(ctx.db.rows('users').map((row) => row._id).sort()).toEqual([
-      'u_manager',
-      'u_other_owner',
-    ]);
+    expect(
+      ctx.db
+        .rows('users')
+        .map((row) => row._id)
+        .sort()
+    ).toEqual(['u_manager', 'u_other_owner']);
     expect(
       ctx.db
         .rows('businessStaff')
@@ -1386,12 +1412,12 @@ describe('deleteMyAccountHardImpl', () => {
     const result = await deleteMyAccountHardImpl(ctx);
 
     expect(result.success).toBe(true);
-    expect(ctx.db.rows('recommendationInteractions').map((row) => row._id)).toEqual([
-      'interaction_owner',
-    ]);
-    expect(ctx.db.rows('recommendationGuideSessions').map((row) => row._id)).toEqual([
-      'guide_owner',
-    ]);
+    expect(
+      ctx.db.rows('recommendationInteractions').map((row) => row._id)
+    ).toEqual(['interaction_owner']);
+    expect(
+      ctx.db.rows('recommendationGuideSessions').map((row) => row._id)
+    ).toEqual(['guide_owner']);
     expect(ctx.db.rows('smartManagerFactSnapshots')).toHaveLength(1);
     expect(ctx.db.rows('smartManagerEvaluationStates')[0]).toMatchObject({
       businessId: 'b_keep',
@@ -1508,7 +1534,9 @@ describe('deleteMyAccountHardImpl', () => {
         },
       ],
     });
-    const copyBefore = clone(ctx.db.rows('smartManagerPreparedActionCopies')[0]);
+    const copyBefore = clone(
+      ctx.db.rows('smartManagerPreparedActionCopies')[0]
+    );
 
     const result = await deleteMyAccountHardImpl(ctx);
 

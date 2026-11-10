@@ -1,14 +1,11 @@
-# Local jsQR 1.4.0 patch
+# jsQR 1.4.0 — unmodified upstream distribution
 
-The vendored Apache-2.0 distribution is from the npm jsqr 1.4.0 tarball.
-Upstream and modified SHA-256 values, npm integrity and source are recorded in
-`docs/qr-decoder-provenance.json`. Export checks the modified SHA-256.
+Phase 3 removed the Phase 2 version-23 alignment patch. No reproducible
+standard fixture was found where upstream fails and that patch succeeds.
+The clean version-23 fixture and all forty standard-version fixtures decode
+with upstream too. A table-coordinate assertion was not evidence of a
+decoder failure.
 
-Local change: the version-23 alignment centers are corrected from
-`[6, 30, 54, 74, 102]` to `[6, 30, 54, 78, 102]`.
-Report: https://github.com/cozmo/jsQR/issues/251.
-The change is independently exercised by generated QR fixtures for all forty
-standard QR versions, using the existing qrcode encoder dependency. This is
-not a claimed upstream release, nor a physical camera/optics verification.
-
-No other decoder behavior is changed. The original license is retained.
+The distribution now exactly matches the upstream npm SHA-256 recorded in
+`docs/qr-decoder-provenance.json`. No local decoder fork remains.
+The Apache-2.0 license is retained.

@@ -1,28 +1,30 @@
-import {
-  useAuthActions } from '@convex-dev/auth/react';
+import { useAuthActions } from '@convex-dev/auth/react';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams,
-  useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert,
-  Platform,
-  StyleSheet,
-  View,
-} from 'react-native';
-
-import { AppText as Text } from '@/components/ui/AppText';
+import { Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-
 import { ContinueButton } from '@/components/ContinueButton';
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
+import { AppText as Text } from '@/components/ui/AppText';
 import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
+import { Alert } from '@/lib/alert';
 import { signInWithApple, signInWithGoogle } from '@/lib/auth/googleOAuth';
+import { useWebAuthAvailability } from '@/lib/auth/useWebAuthAvailability';
 import {
   showsAppleOAuthOnSignUp,
   showsGoogleOAuthOnSignUp,
 } from '@/lib/auth/webAuthEntry';
+import {
+  productAccent,
+  webAccentSoft,
+  webAccentText,
+  webBody,
+  webPage,
+  webTitle,
+} from '@/lib/design/webProductChrome';
 import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
@@ -83,6 +85,9 @@ function GoogleLogo({ size = 20 }: { size?: number }) {
 
 export default function SignUpScreen() {
   const { signIn } = useAuthActions();
+  const webAuth = useWebAuthAvailability();
+  const providerEnabled = (method: AuthMethod) =>
+    Platform.OS !== 'web' || webAuth.providers?.[method] === true;
   const router = useRouter();
   const { preview, map } = useLocalSearchParams<{
     preview?: string;
@@ -104,11 +109,23 @@ export default function SignUpScreen() {
   };
 
   const handleSelect = (method: AuthMethod) => {
+    if (!providerEnabled(method)) return;
     setSelectedMethod(method);
     trackChoice('auth_method', method, { method });
   };
 
   const handleEmailOptionPress = async () => {
+    if (Platform.OS === 'web') {
+      try {
+        await webAuth.requireProvider('email');
+      } catch {
+        Alert.alert(
+          TEXT.authErrorTitle,
+          'ההתחברות באימייל אינה זמינה כרגע. נסו מאוחר יותר.'
+        );
+        return;
+      }
+    }
     trackChoice('auth_method', 'email', { method: 'email' });
     router.push('/(auth)/sign-up-email');
   };
@@ -122,6 +139,12 @@ export default function SignUpScreen() {
       provider === 'google' ? TEXT.googleFailed : TEXT.appleFailed;
     if (!(value instanceof Error)) {
       return failedText;
+    }
+
+    if (Platform.OS === 'web' && value.message.startsWith('WEB_AUTH_')) {
+      return value.message === 'WEB_AUTH_CONFIGURATION_UNAVAILABLE'
+        ? 'לא הצלחנו לבדוק את אפשרויות ההתחברות. נסו שוב.'
+        : `ההתחברות דרך ${provider === 'google' ? 'Google' : 'Apple'} אינה זמינה כרגע. נסו מאוחר יותר.`;
     }
 
     if (
@@ -148,6 +171,7 @@ export default function SignUpScreen() {
 
     setOauthLoadingMethod(provider);
     try {
+      if (Platform.OS === 'web') await webAuth.requireProvider(provider);
       const result =
         provider === 'google'
           ? await signInWithGoogle(signIn, null)
@@ -172,7 +196,7 @@ export default function SignUpScreen() {
   };
 
   const handleContinue = () => {
-    if (!selectedMethod) {
+    if (!selectedMethod || !providerEnabled(selectedMethod)) {
       return;
     }
 
@@ -199,13 +223,48 @@ export default function SignUpScreen() {
           titleNumberOfLines={2}
         />
 
+        {Platform.OS === 'web' &&
+        (webAuth.failed ||
+          !webAuth.providers ||
+          !Object.values(webAuth.providers).some(Boolean)) ? (
+          <View>
+            <Text
+              style={{ textAlign: 'right', color: '#334155', marginBottom: 12 }}
+              accessibilityRole="alert"
+            >
+              {webAuth.failed
+                ? 'לא הצלחנו לבדוק את אפשרויות ההתחברות. נסו שוב.'
+                : !webAuth.providers
+                  ? 'בודקים את אפשרויות ההתחברות…'
+                  : process.env.EXPO_PUBLIC_APP_ENV === 'preview'
+                    ? 'הכניסה בסביבת הבדיקה עדיין לא הוגדרה. אפשר לחזור ולנסות בהמשך.'
+                    : 'אין כרגע אפשרות התחברות זמינה. נסו מאוחר יותר.'}
+            </Text>
+            {webAuth.failed ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="בדיקה מחדש"
+                onPress={webAuth.retry}
+              >
+                <Text style={{ textAlign: 'right', color: productAccent }}>
+                  בדיקה מחדש
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
+
         <View style={styles.optionsContainer}>
           {showAppleOAuth ? (
             <Pressable
               onPress={() => handleSelect('apple')}
+              disabled={!providerEnabled('apple')}
               accessibilityRole="button"
               accessibilityLabel={TEXT.apple}
-              accessibilityState={{ selected: selectedMethod === 'apple' }}
+              accessibilityState={{
+                selected: selectedMethod === 'apple',
+                disabled: !providerEnabled('apple'),
+              }}
             >
               <View
                 style={
@@ -217,7 +276,7 @@ export default function SignUpScreen() {
                 <Ionicons
                   name="logo-apple"
                   size={18}
-                  color={selectedMethod === 'apple' ? '#2563eb' : '#111827'}
+                  color={selectedMethod === 'apple' ? productAccent : '#111827'}
                 />
                 <Text
                   style={
@@ -235,9 +294,13 @@ export default function SignUpScreen() {
           {showGoogleOAuth ? (
             <Pressable
               onPress={() => handleSelect('google')}
+              disabled={!providerEnabled('google')}
               accessibilityRole="button"
               accessibilityLabel={TEXT.google}
-              accessibilityState={{ selected: selectedMethod === 'google' }}
+              accessibilityState={{
+                selected: selectedMethod === 'google',
+                disabled: !providerEnabled('google'),
+              }}
             >
               <View
                 style={
@@ -274,6 +337,8 @@ export default function SignUpScreen() {
             }}
             accessibilityRole="button"
             accessibilityLabel={TEXT.email}
+            disabled={!providerEnabled('email')}
+            accessibilityState={{ disabled: !providerEnabled('email') }}
           >
             <View
               style={
@@ -285,7 +350,7 @@ export default function SignUpScreen() {
               <Ionicons
                 name="mail-outline"
                 size={20}
-                color={selectedMethod === 'email' ? '#2563eb' : '#111827'}
+                color={selectedMethod === 'email' ? productAccent : '#111827'}
               />
               <Text
                 style={
@@ -303,7 +368,11 @@ export default function SignUpScreen() {
         <View style={styles.footer}>
           <ContinueButton
             onPress={handleContinue}
-            disabled={!selectedMethod || oauthLoadingMethod !== null}
+            disabled={
+              !selectedMethod ||
+              !providerEnabled(selectedMethod) ||
+              oauthLoadingMethod !== null
+            }
             label={
               oauthLoadingMethod === 'google'
                 ? TEXT.connectingToGoogle
@@ -333,6 +402,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F7F4',
+    ...webPage,
   },
   content: {
     flex: 1,
@@ -354,6 +424,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
     lineHeight: 30,
     includeFontPadding: false,
+    ...webTitle,
   },
   subtitle: {
     marginTop: 8,
@@ -362,6 +433,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'right',
     writingDirection: 'rtl',
+    ...webBody,
   },
   optionsContainer: {
     marginTop: 20,
@@ -380,6 +452,7 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     borderWidth: 1,
     borderColor: '#93c5fd',
+    ...webAccentSoft,
   },
   optionUnselected: {
     flexDirection: flexDirection.row,
@@ -399,6 +472,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#2563eb',
+    ...webAccentText,
     textAlign: 'center',
   },
   optionTextUnselected: {
@@ -436,6 +510,7 @@ const styles = StyleSheet.create({
   },
   termsLink: {
     color: '#2563eb',
+    ...webAccentText,
     textDecorationLine: 'underline',
     fontWeight: '700',
   },

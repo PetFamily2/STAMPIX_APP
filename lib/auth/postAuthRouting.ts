@@ -201,6 +201,16 @@ export function resolveAuthGroupDisposition({
   return { status: 'redirect', href: postAuthResolution.href };
 }
 
+export function resolveBusinessModeHomeHref(
+  platform: string
+):
+  | typeof WEB_BUSINESS_PROOF_HREF
+  | (typeof POST_AUTH_ROUTES)['businessDashboard'] {
+  return platform === 'web'
+    ? WEB_BUSINESS_PROOF_HREF
+    : POST_AUTH_ROUTES.businessDashboard;
+}
+
 export function resolvePlatformPostAuthHref(
   platform: string,
   nativeResolution: PostAuthResolution,

@@ -248,6 +248,8 @@ async function findUserByExternalId(ctx: any, externalId: string) {
 const DELETE_BATCH_SIZE = 100;
 const SMART_MANAGER_AUDIT_RETENTION_MS = AI_AUDIT_RETENTION_MS;
 const WIPE_ALL_TABLE_ORDER = [
+  'scannerCommandReceipts',
+  'webPushSubscriptions',
   'apiKeys',
   'apiClients',
   'providerRevocationJobs',
@@ -325,6 +327,8 @@ type DeleteStats = {
   loyaltyPrograms: number;
   memberships: number;
   events: number;
+  scannerCommandReceipts: number;
+  webPushSubscriptions: number;
   scanTokenEvents: number;
   scanSessions: number;
   campaigns: number;
@@ -396,6 +400,8 @@ function emptyDeleteStats(): DeleteStats {
     loyaltyPrograms: 0,
     memberships: 0,
     events: 0,
+    scannerCommandReceipts: 0,
+    webPushSubscriptions: 0,
     scanTokenEvents: 0,
     scanSessions: 0,
     campaigns: 0,
@@ -472,6 +478,8 @@ function emptyWipeAllDataHardCounts(): WipeAllDataHardCounts {
     campaigns: 0,
     subscriptions: 0,
     scanSessions: 0,
+    scannerCommandReceipts: 0,
+    webPushSubscriptions: 0,
     scanTokenEvents: 0,
     events: 0,
     memberships: 0,
@@ -1734,6 +1742,27 @@ export async function deleteMyAccountHardImpl(
   deleted.providerRevocationCredentials +=
     providerRevocation.deletedCredentials;
 
+  deleted.scannerCommandReceipts += await deleteByIndexInBatches(
+    ctx,
+    'scannerCommandReceipts',
+    'by_actor_operation',
+    'actorId',
+    user._id
+  );
+  deleted.scannerCommandReceipts += await deleteByIndexInBatches(
+    ctx,
+    'scannerCommandReceipts',
+    'by_customer',
+    'customerId',
+    user._id
+  );
+  deleted.webPushSubscriptions += await deleteByIndexInBatches(
+    ctx,
+    'webPushSubscriptions',
+    'by_user_active',
+    'userId',
+    user._id
+  );
   await deleteUserScopedBusinessData(
     ctx,
     user._id,

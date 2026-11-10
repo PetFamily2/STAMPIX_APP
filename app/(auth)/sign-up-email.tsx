@@ -1,9 +1,6 @@
-import {
-  useAuthActions } from '@convex-dev/auth/react';
-import { useLocalSearchParams,
-  useRouter } from 'expo-router';
-import { useMemo,
-  useState } from 'react';
+import { useAuthActions } from '@convex-dev/auth/react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -12,12 +9,20 @@ import {
   TextInput,
   View,
 } from 'react-native';
-
-import { AppText as Text } from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { PreviewModeBanner } from '@/components/PreviewModeBanner';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
+import { AppText as Text } from '@/components/ui/AppText';
+import { useWebAuthAvailability } from '@/lib/auth/useWebAuthAvailability';
+import {
+  webAccentFill,
+  webAccentText,
+  webBody,
+  webField,
+  webLabel,
+  webPage,
+  webTitle,
+} from '@/lib/design/webProductChrome';
 import { safeBack } from '@/lib/navigation';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 
@@ -43,6 +48,7 @@ function isValidEmail(value: string) {
 export default function SignUpEmailScreen() {
   const router = useRouter();
   const { signIn } = useAuthActions();
+  const webAuth = useWebAuthAvailability();
   const { preview, map, entry } = useLocalSearchParams<{
     preview?: string;
     map?: string;
@@ -53,7 +59,12 @@ export default function SignUpEmailScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const canSubmit = useMemo(() => isValidEmail(email), [email]);
+  const emailEnabled =
+    Platform.OS !== 'web' || webAuth.providers?.email === true;
+  const canSubmit = useMemo(
+    () => isValidEmail(email) && emailEnabled,
+    [email, emailEnabled]
+  );
 
   const handleBack = () => {
     if (entry === 'sign-in') {
@@ -95,6 +106,7 @@ export default function SignUpEmailScreen() {
     setBusy(true);
 
     try {
+      if (Platform.OS === 'web') await webAuth.requireProvider('email');
       await signIn('email', {
         email: normalizedEmail,
       });
@@ -145,6 +157,13 @@ export default function SignUpEmailScreen() {
         </View>
 
         <View style={styles.footer}>
+          {Platform.OS === 'web' && !emailEnabled ? (
+            <Text style={styles.errorText} accessibilityRole="alert">
+              {webAuth.providers === null && !webAuth.failed
+                ? 'בודקים את זמינות ההתחברות…'
+                : 'התחברות באימייל אינה זמינה כרגע. יש להגדיר את ספק האימייל לפני הרשמה.'}
+            </Text>
+          ) : null}
           <Pressable
             onPress={() => {
               void handleSendCode();
@@ -199,6 +218,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F7F4',
+    ...webPage,
   },
   content: {
     flex: 1,
@@ -219,6 +239,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
     lineHeight: 32,
+    ...webTitle,
   },
   subtitle: {
     marginTop: 8,
@@ -227,6 +248,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'right',
     writingDirection: 'rtl',
+    ...webBody,
   },
   form: {
     marginTop: 20,
@@ -239,6 +261,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
     marginBottom: 8,
+    ...webLabel,
   },
   input: {
     backgroundColor: '#ffffff',
@@ -251,6 +274,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#111827',
     writingDirection: 'ltr',
+    ...webField,
   },
   footer: {
     marginTop: 'auto',
@@ -263,11 +287,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonPressed: {
-    opacity: 0.84,
-    transform: [{ scale: 0.99 }],
+    opacity: Platform.OS === 'web' ? 0.92 : 0.84,
+    ...(Platform.OS === 'web' ? null : { transform: [{ scale: 0.99 }] }),
   },
   buttonActive: {
     backgroundColor: '#2563eb',
+    ...webAccentFill,
   },
   buttonInactive: {
     backgroundColor: '#d8dce2',
@@ -293,6 +318,7 @@ const styles = StyleSheet.create({
   },
   backText: {
     color: '#1d4ed8',
+    ...webAccentText,
     fontSize: 15,
     fontWeight: '700',
     textAlign: 'center',

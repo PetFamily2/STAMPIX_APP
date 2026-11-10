@@ -2,7 +2,6 @@ import { useMutation, useQuery } from 'convex/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -24,6 +23,7 @@ import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOve
 import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { Alert } from '@/lib/alert';
 import {
   areBusinessAddressesEqual,
   isValidSelectedBusinessAddress,

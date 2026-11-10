@@ -43,6 +43,7 @@ export type LoyaltyCardProps = {
   stampShape?: StampShape;
   selected?: boolean;
   compactManagement?: boolean;
+  density?: 'full' | 'compact';
   onPress?: () => void;
 };
 

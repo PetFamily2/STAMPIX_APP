@@ -8,11 +8,13 @@ import {
   assertBusinessOnboardingReady,
   closeBusinessAccount,
   createOrResumeBusinessOnboarding,
+  generateBusinessLogoUploadUrl,
   getBusinessesNearby,
   getBusinessSettings,
   listMyClosedBusinesses,
   restoreBusinessAccount,
   saveBusinessOnboardingSnapshot,
+  setBusinessLogo,
   updateBusinessAddress,
   updateBusinessProfile,
 } from '../business';
@@ -199,6 +201,40 @@ function createMockCtx({
         scheduled.push({ delayMs, functionReference, args });
         return `_scheduled_${scheduled.length}`;
       },
+    },
+    storage: {
+      generateUploadUrl: async () => 'https://upload.example/business-logo',
+      getMetadata: async (storageId) => {
+        if (storageId === 'storage_logo') {
+          return {
+            storageId,
+            sha256: 'abc',
+            size: 1200,
+            contentType: 'image/jpeg',
+          };
+        }
+        if (storageId === 'storage_logo_big') {
+          return {
+            storageId,
+            sha256: 'abc',
+            size: 3 * 1024 * 1024,
+            contentType: 'image/jpeg',
+          };
+        }
+        if (storageId === 'storage_logo_text') {
+          return {
+            storageId,
+            sha256: 'abc',
+            size: 40,
+            contentType: 'text/plain',
+          };
+        }
+        return null;
+      },
+      getUrl: async (storageId) =>
+        storageId === 'storage_logo'
+          ? 'https://files.example/business-logo.jpg'
+          : null,
     },
   };
 
@@ -521,6 +557,86 @@ describe('business profile settings and discovery filters', () => {
     expect(updatedBusiness.businessPhone).toBe('+972 (50) 123-4567');
     expect(updatedBusiness.serviceTypes).toEqual(['beauty', 'retail']);
     expect(updatedBusiness.serviceTags).toEqual(['טיפוח', 'שיער']);
+    expect(updatedBusiness.logoUrl).toBeUndefined();
+  });
+
+  test('business logo upload saves logoUrl without changing the rest of the profile', async () => {
+    const { ctx, state } = createMockCtx({
+      businesses: [buildBusiness({ logoUrl: 'https://files.example/old.jpg' })],
+    });
+
+    const upload = await generateBusinessLogoUploadUrl._handler(ctx, {
+      businessId: 'business_1',
+    });
+    expect(upload.uploadUrl).toBe('https://upload.example/business-logo');
+
+    const saved = await setBusinessLogo._handler(ctx, {
+      businessId: 'business_1',
+      storageId: 'storage_logo',
+    });
+    const updated = state.businesses.get('business_1');
+    expect(saved.logoUrl).toBe('https://files.example/business-logo.jpg');
+    expect(updated.logoUrl).toBe('https://files.example/business-logo.jpg');
+    expect(updated.name).toBe('Test Business');
+    expect(updated.formattedAddress).toBe('Test Address');
+
+    const removed = await setBusinessLogo._handler(ctx, {
+      businessId: 'business_1',
+      expectedUpdatedAt: saved.updatedAt,
+      remove: true,
+    });
+    expect(removed.logoUrl).toBeNull();
+    expect(state.businesses.get('business_1').logoUrl).toBeUndefined();
+    expect(state.businesses.get('business_1').name).toBe('Test Business');
+  });
+
+  test('business logo changes require profile edit permission', async () => {
+    const staff = createMockCtx({
+      currentUserId: 'user_staff',
+      users: [buildUser({ _id: 'user_staff' })],
+      businessStaff: [
+        buildStaff({
+          _id: 'staff_logo',
+          userId: 'user_staff',
+          staffRole: 'staff',
+        }),
+      ],
+    });
+
+    await expect(
+      generateBusinessLogoUploadUrl._handler(staff.ctx, {
+        businessId: 'business_1',
+      })
+    ).rejects.toThrow('NOT_AUTHORIZED');
+    await expect(
+      setBusinessLogo._handler(staff.ctx, {
+        businessId: 'business_1',
+        storageId: 'storage_logo',
+      })
+    ).rejects.toThrow('NOT_AUTHORIZED');
+    expect(staff.state.businesses.get('business_1').logoUrl).toBeUndefined();
+  });
+
+  test('business logo rejects an unsupported type or an oversized file', async () => {
+    const { ctx, state } = createMockCtx({
+      businesses: [buildBusiness({ logoUrl: 'https://files.example/old.jpg' })],
+    });
+
+    await expect(
+      setBusinessLogo._handler(ctx, {
+        businessId: 'business_1',
+        storageId: 'storage_logo_text',
+      })
+    ).rejects.toThrow('LOGO_FILE_TYPE');
+    await expect(
+      setBusinessLogo._handler(ctx, {
+        businessId: 'business_1',
+        storageId: 'storage_logo_big',
+      })
+    ).rejects.toThrow('LOGO_FILE_TOO_LARGE');
+    expect(state.businesses.get('business_1').logoUrl).toBe(
+      'https://files.example/old.jpg'
+    );
   });
 
   test('updateBusinessProfile rejects invalid input', async () => {

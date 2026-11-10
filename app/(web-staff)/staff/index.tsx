@@ -1,11 +1,16 @@
 import { useAuthActions } from '@convex-dev/auth/react';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { PaintedPressable } from '@/components/ui/PaintedPressable';
+import { Platform, StyleSheet, View } from 'react-native';
+import { PwaButton } from '@/components/pwa-ui/PwaButton';
+import { StaffWebFrame } from '@/components/pwa-ui/StaffWebFrame';
+import { AppText as Text } from '@/components/ui/AppText';
 import { useSessionContext } from '@/contexts/UserContext';
+import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
 
 export default function WebStaffLanding() {
   const { signOut } = useAuthActions();
+  const router = useRouter();
   const session = useSessionContext();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [error, setError] = useState('');
@@ -28,40 +33,59 @@ export default function WebStaffLanding() {
   };
 
   return (
-    <View style={styles.screen}>
+    <StaffWebFrame>
+    <View
+      style={styles.screen}
+      {...(Platform.OS === 'web' ? { role: 'main' as const } : {})}
+    >
       <View style={styles.card}>
-        <Text accessibilityRole="header" style={styles.title}>
-          אזור הצוות
+        <Text
+          accessibilityRole="header"
+          {...(Platform.OS === 'web' ? { 'aria-level': 1 } : {})}
+          style={styles.title}
+        >
+          {business?.name ?? 'צוות'}
         </Text>
-        {business ? <Text style={styles.business}>{business.name}</Text> : null}
         <Text style={styles.body}>
-          הסורק אינו זמין בדפדפן כרגע. אפשר להמשיך להשתמש באפליקציה.
+          {process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS === 'true'
+            ? 'סרקו את קוד הלקוח כדי להוסיף חותמת או לממש הטבה.'
+            : 'אפשר להמשיך לסרוק באפליקציה.'}
         </Text>
+        {process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS === 'true' ? (
+          <PwaButton
+            fullWidth={true}
+            label="סריקה"
+            onPress={() => router.push('/staff/scanner-preview')}
+          />
+        ) : null}
+        <PwaButton
+          fullWidth={true}
+          label="תיבת הודעות"
+          onPress={() => router.push('/inbox')}
+          variant="secondary"
+        />
         {error ? (
           <Text accessibilityRole="alert" style={styles.error}>
             {error}
           </Text>
         ) : null}
-        <PaintedPressable
-          accessibilityLabel="יציאה מהחשבון"
-          accessibilityRole="button"
+        <PwaButton
           disabled={isSigningOut}
+          fullWidth={true}
+          label={isSigningOut ? 'יוצאים מהחשבון' : 'יציאה מהחשבון'}
           onPress={handleLogout}
-          style={styles.button}
-        >
-          <Text style={styles.buttonText}>
-            {isSigningOut ? 'יוצאים מהחשבון…' : 'יציאה מהחשבון'}
-          </Text>
-        </PaintedPressable>
+          variant="quiet"
+        />
       </View>
     </View>
+    </StaffWebFrame>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F8FAFF',
+    backgroundColor: TOKENS.colors.pageBackground,
     padding: 20,
     justifyContent: 'center',
     alignItems: 'center',
@@ -69,50 +93,31 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 480,
-    backgroundColor: '#FFFFFF',
-    borderColor: '#D5E3FF',
-    borderWidth: 1,
-    borderRadius: 20,
-    padding: 24,
     gap: 16,
+    backgroundColor: TOKENS.colors.elevatedSurface,
+    borderColor: TOKENS.colors.border,
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 24,
   },
   title: {
-    color: '#0F172A',
-    fontSize: 28,
-    fontWeight: '700',
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  business: {
-    color: '#0F172A',
-    fontSize: 20,
+    color: TOKENS.colors.textPrimary,
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: '600',
     textAlign: 'right',
     writingDirection: 'rtl',
   },
   body: {
-    color: '#475569',
-    fontSize: 17,
-    lineHeight: 26,
+    color: TOKENS.colors.textSecondary,
+    fontSize: 16,
+    lineHeight: 24,
     textAlign: 'right',
     writingDirection: 'rtl',
   },
   error: {
-    color: '#B91C1C',
+    color: TOKENS.colors.danger,
     textAlign: 'right',
     writingDirection: 'rtl',
-  },
-  button: {
-    minHeight: 48,
-    borderRadius: 12,
-    backgroundColor: '#2F6BFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
   },
 });
