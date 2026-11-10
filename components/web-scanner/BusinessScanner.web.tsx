@@ -18,6 +18,7 @@ import {
 } from '../../lib/web-scanner/presentation';
 import { createRawWorkerDecoder } from '../../lib/web-scanner/rawWorker';
 import { recoveryIdentity } from '../../lib/web-scanner/recovery';
+import { readSavedScannerCamera, saveScannerCamera } from '../../lib/web-scanner/savedCamera';
 import { initialScannerState } from '../../lib/web-scanner/state';
 import {
   scannerErrorLabel,
@@ -45,6 +46,13 @@ export default function BusinessScanner(props: {
   const lockLease = useRef<Promise<void>>(Promise.resolve());
   const recentQr = useRef<{ value: string; until: number } | null>(null);
   const autoStamp = useRef<string | null>(null);
+  const [cameraSaved, setCameraSaved] = useState(() =>
+    Boolean(
+      readSavedScannerCamera(
+        typeof localStorage === 'undefined' ? null : localStorage
+      )
+    )
+  );
   const [state, setState] = useState(initialCommand);
   const [cameraState, setCameraState] = useState(initialScannerState);
   const [blocked, setBlocked] = useState<string | null>('מכינים את הסורק');
@@ -206,7 +214,11 @@ export default function BusinessScanner(props: {
             window.addEventListener('offline', onNetwork);
             window.addEventListener('pagehide', onPageHide);
             window.addEventListener('pageshow', onPageShow);
-            void capture.start();
+            void capture.start(
+              readSavedScannerCamera(
+                typeof localStorage === 'undefined' ? null : localStorage
+              )
+            );
             await new Promise<void>((resolve) => {
               releaseLock = resolve;
               if (disposed) resolve();
@@ -304,6 +316,34 @@ export default function BusinessScanner(props: {
         />
         {cameraActive ? <div className="sx-target" aria-hidden="true" /> : null}
       </div>
+      {!cameraSaved && cameraState.cameras.length > 1 ? (
+        <label>
+          מצלמה
+          <select
+            aria-label="בחירת מצלמה"
+            disabled={!!blocked || requestingCamera}
+            value={cameraState.selectedCamera}
+            onChange={(event) =>
+              void camera.current?.start(event.target.value)
+            }
+          >
+            {cameraState.cameras.map((c, index) => (
+              <option value={c.id} key={c.id}>
+                {cameraDisplayName(c.label, index)}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => {
+              saveScannerCamera(cameraState.selectedCamera, localStorage);
+              setCameraSaved(true);
+            }}
+          >
+            אישור
+          </button>
+        </label>
+      ) : null}
       {showPanel ? <section className="sx-copy">
         {blocked ? <p role="alert">{blocked}</p> : null}
         {cameraError ? (
@@ -380,28 +420,6 @@ export default function BusinessScanner(props: {
             </button>
           ) : null}
         </div>
-        {cameraState.cameras.length > 1 &&
-        props.canStartScan !== false &&
-        !busy &&
-        !ready &&
-        !success ? (
-          <label>
-            מצלמה{' '}
-            <select
-              disabled={!!blocked || requestingCamera}
-              value={cameraState.selectedCamera}
-              onChange={(event) =>
-                void camera.current?.start(event.target.value)
-              }
-            >
-              {cameraState.cameras.map((c, index) => (
-                <option value={c.id} key={c.id}>
-                  {cameraDisplayName(c.label, index)}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
       </section> : null}
     </main>
   );
@@ -411,13 +429,13 @@ const SCANNER_CHROME = `
 .sx-scan{width:100%;display:flex;flex-direction:column;gap:16px;box-sizing:border-box;padding:16px 0;font-family:Heebo,Arial,sans-serif;color:${TOKENS.colors.textPrimary}}
 .sx-scan h2{margin:0;font-size:18px;line-height:26px;font-weight:600;text-align:right}
 .sx-scan p{margin:0;text-align:right;color:${TOKENS.colors.textSecondary};line-height:1.6;overflow-wrap:anywhere}
-.sx-camera{position:relative;overflow:hidden;border-radius:${TOKENS.radii.lg}px;background:${TOKENS.colors.subtleSurface};width:100%;aspect-ratio:4/3;max-height:360px}
+.sx-camera{position:relative;overflow:hidden;border-radius:${TOKENS.radii.lg}px;background:${TOKENS.colors.subtleSurface};width:min(100%,420px);aspect-ratio:3/2;max-height:min(34vh,240px);margin-inline:auto}
 .sx-camera video{width:100%;height:100%;object-fit:cover;background:#0B1220}
 .sx-name{color:${TOKENS.colors.textPrimary};font-weight:600}
 .sx-progress{font-size:22px;font-weight:600;color:${TOKENS.colors.textPrimary}}
 .sx-camera-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;box-sizing:border-box;color:${TOKENS.colors.textSecondary}}
 .sx-camera-placeholder strong{color:${TOKENS.colors.textPrimary};font-size:18px}
-.sx-target{position:absolute;inset:18%;border:2px dashed ${TOKENS.colors.elevatedSurface};border-radius:${TOKENS.radii.md}px;pointer-events:none}
+.sx-target{position:absolute;inset:6% 4%;border:2px dashed ${TOKENS.colors.elevatedSurface};border-radius:${TOKENS.radii.md}px;pointer-events:none}
 .sx-copy{display:flex;flex-direction:column;gap:12px}
 .sx-actions{display:flex;flex-direction:column;gap:8px}
 .sx-scan button{min-height:${TOKENS.control.height}px;padding:12px;border-radius:${TOKENS.radii.md}px;border:1px solid ${TOKENS.colors.borderStrong};background:${TOKENS.colors.elevatedSurface};color:${TOKENS.colors.primary};font:600 16px/1.4 Heebo,Arial,sans-serif;cursor:pointer}

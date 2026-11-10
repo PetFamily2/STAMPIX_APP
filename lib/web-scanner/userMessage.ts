@@ -2,7 +2,7 @@ import type { Phase, Receipt } from './command';
 import type { ScannerStatus } from './state';
 
 const ERROR_LABELS: Record<string, string> = {
-  SUBSCRIPTION_INACTIVE: 'המנוי לא פעיל',
+  SUBSCRIPTION_INACTIVE: 'המנוי לא פעיל. רכישת טסט לא עובדת.',
   PLAN_LIMIT_REACHED: 'המכסה מלאה',
   FEATURE_NOT_AVAILABLE: 'לא כלול במסלול',
   RATE_LIMITED: 'כבר נוספה חותמת',

@@ -23,6 +23,7 @@ import { validateProfileFields } from '@/components/business-settings';
 import { BusinessLogoField } from '@/components/business-web/BusinessLogoField';
 import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
 import { AppText as Text } from '@/components/ui/AppText';
+import { ScannerCameraSettings } from '@/components/web-scanner/ScannerCameraSettings';
 import WebPushSettings from '@/components/WebPushSettings';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import {
@@ -378,6 +379,7 @@ export function BusinessWebSettings() {
   return (
     <View style={styles.page}>
       <WebPushSettings />
+      <ScannerCameraSettings />
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="קוד הצטרפות לעסק"
