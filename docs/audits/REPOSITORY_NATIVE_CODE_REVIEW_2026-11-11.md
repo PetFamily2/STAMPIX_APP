@@ -44,3 +44,9 @@
 
 ## 6. Review gaps / non-claims
 This is a focused repository/route/CI inspection, **not** an exhaustive inspection of all 1,017 tracked source files, a complete AST reference analysis, a full security penetration test, or a successful Native build. No live Convex data were inspected or changed. No code was executed or deployed as part of this review.
+
+## 7. Additional dependency inspection (same day)
+- Searched the complete set of **48 tracked `scripts/` files** and **34 top-level active `docs/*.md` files** for exact names of the six archived docs and seven removed artifacts. The active handoff was the only non-archived document outside the old phase files referencing the superseded release-candidate path; it was updated in this branch.
+- Legacy `scripts/lib/phase3c1-preview-guard.mjs` hardcodes paths to the former `docs/PWA_RELEASE_CANDIDATE.md` and `docs/PREVIEW_GOOGLE_AUTH.md`; `scripts/verify-web-phase2-boundaries.mjs` names the old PWA_PHASE2 path; `scripts/reuse-existing-preview-providers.mjs` names the retired workflow/doc. These are historical tooling references; **do not claim the old isolated QA scripts still operate after archiving**. They should be retired/archived as a coordinated group after confirming no manual workflow needs them.
+- No references to the removed one-off patch/helper filenames were found in the scanned active scripts/docs. This is stronger than filename-only inference but does **not** prove full absence from dynamic calls, local tools or undiscovered external CI jobs.
+- CI evidence from 2026-11-10: PWA run **42871684918** had a green verify job and a failed shared-web deploy; exact failure includes `SHARED_NODE_FAILED` at `BACKEND_DRY_RUN`, diagnostic word `WebSocket`. Launch run **42859723770** had 2,599 passing / 2 failing tests.
