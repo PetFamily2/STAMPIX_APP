@@ -6,11 +6,17 @@ import { parseEnv } from 'node:util';
 import { ConvexHttpClient } from 'convex/browser';
 import { makeFunctionReference } from 'convex/server';
 import { requireProjectPreviewKey } from './lib/phase3c1-preview-guard.mjs';
+import { requireSharedWebMode } from './lib/shared-web-mode.mjs';
 
 const URL = 'https://utmost-fennec-280.convex.cloud';
 const NAME = 'utmost-fennec-280';
+const dryRunOnly = process.env.SHARED_DRY_RUN_ONLY === 'true';
+const diagnosticCli =
+  dryRunOnly && process.env.SHARED_DIAGNOSTIC_CLI === '1.49.0';
 const report = {
   status: 'RUNNING',
+  dryRunOnly,
+  cliVersion: diagnosticCli ? '1.49.0' : '1.31.5',
   backendUrl: URL,
   fixturesUsed: false,
   databaseCreated: false,
@@ -43,6 +49,8 @@ const run = (command, args, env = process.env, timeout = 180000) => {
         /deployment.*not found|does not exist|cannot find.*deployment|deployment.*mismatch/i,
       networkFailure:
         /fetch failed|ECONN|ENOTFOUND|timeout|timed out|network error/i,
+      webSocketOperationUnsupported:
+        /(?:operation|system)[^\n]{0,150}(?:not supported|unsupported)[^\n]{0,100}WebSocket|WebSocket[^\n]{0,150}(?:not supported|unsupported)/i,
       moduleFailure: /Cannot find module|Cannot find package|MODULE_NOT_FOUND/i,
       convexSelection:
         /CONVEX_DEPLOYMENT|CONVEX_DEPLOY_KEY|configure.*project/i,
@@ -157,16 +165,7 @@ try {
     encoding: 'utf8',
   }).trim();
   report.sourceSha = sha;
-  if (
-    process.env.GITHUB_ACTIONS !== 'true' ||
-    process.env.GITHUB_REPOSITORY !== 'PetFamily2/STAMPIX_APP' ||
-    ![
-      'pwa/phase-3-scanner-commands-20261005',
-      'agent/launch-completion-20261028',
-    ].includes(process.env.GITHUB_HEAD_REF) ||
-    process.env.VERIFIED_HEAD_SHA !== sha
-  )
-    fail('SHARED_VERIFIED_REVISION_REQUIRED');
+  const mode = requireSharedWebMode(process.env, sha);
   report.stage = 'EXISTING_DEPLOY_ACCESS';
   // Existing deployment keys only; reject all keys scoped to another database.
   let key = [
@@ -175,7 +174,7 @@ try {
   ].find((value) => /^dev:utmost-fennec-280\|[^\s]+$/.test(value ?? ''));
   const privateDir = mkdtempSync(join(tmpdir(), 'stampaix-shared-'));
   chmodSync(privateDir, 0o700);
-  if (!key) {
+  if (!key && !dryRunOnly) {
     for (const environment of ['preview', 'development']) {
       const path = join(privateDir, `${environment}.env`);
       const pulled = spawnSync(
@@ -245,9 +244,9 @@ try {
   // Additive schema compatibility is validated against existing records; no
   // import, seed, auth key or provider configuration change is performed.
   run(
-    'node',
+    diagnosticCli ? 'bunx' : 'node',
     [
-      'node_modules/convex/bin/main.js',
+      diagnosticCli ? 'convex@1.49.0' : 'node_modules/convex/bin/main.js',
       'deploy',
       '--url',
       URL,
@@ -264,130 +263,142 @@ try {
     600000
   );
   report.backendDryRun = 'PASS';
-  report.stage = 'BACKEND_SYNC';
-  run(
-    'node',
-    [
-      'node_modules/convex/bin/main.js',
-      'deploy',
-      '--url',
-      URL,
-      '--admin-key',
-      key,
-      '--yes',
-      '--typecheck',
-      'disable',
-      '--codegen',
-      'disable',
-    ],
-    { ...clean, CONVEX_DEPLOY_KEY: key },
-    600000
-  );
-  report.backendDeployed = true;
-  // No import, seed, reset, table clear or record mutation is performed. Exact
-  // wallet/history preservation is verified via ordinary sign-in after hosting.
-  report.existingDataAcceptance = 'ORDINARY_SIGN_IN_PENDING';
-  report.stage = 'AUTH_AVAILABILITY';
-  report.auth = await new ConvexHttpClient(URL, { logger: false }).query(
-    makeFunctionReference('webAuth:getProviderAvailability'),
-    {}
-  );
-  const publicEnv = {
-    EXPO_PUBLIC_APP_ENV: 'preview',
-    EXPO_PUBLIC_CONVEX_URL: URL,
-    EXPO_PUBLIC_CONVEX_URL_DEV: URL,
-    EXPO_PUBLIC_STAMPAIX_SHARED_BACKEND: 'true',
-    EXPO_PUBLIC_PWA_ENABLED: 'true',
-    EXPO_PUBLIC_WEB_ROLE_ROUTING: 'true',
-    EXPO_PUBLIC_MANUAL_QA_ENABLED: 'false',
-    EXPO_PUBLIC_WEB_QR_LAB: 'false',
-    EXPO_PUBLIC_SCANNER_RECEIPTS: 'true',
-    EXPO_PUBLIC_WEB_SCANNER_COMMANDS: 'true',
-    EXPO_PUBLIC_WEB_SCANNER_BACKEND: 'existing-shared',
-    EXPO_PUBLIC_PAYMENT_SYSTEM_ENABLED: 'false',
-    EXPO_PUBLIC_MOCK_PAYMENTS: 'false',
-  };
-  const clientEnv = { ...clean, ...publicEnv };
-  writeFileSync(
-    '.env.local',
-    Object.entries(publicEnv)
-      .map(([name, value]) => `${name}=${value}`)
-      .join('\n') + '\n',
-    { mode: 0o600 }
-  );
-  report.stage = 'WEB_EXPORT';
-  run(
-    'bunx',
-    [
-      'expo',
-      'export',
-      '--platform',
-      'web',
-      '--clear',
-      '--output-dir',
-      'dist',
-      '--max-workers',
-      '2',
-    ],
-    clientEnv,
-    600000
-  );
-  run('bun', ['scripts/export-web-scanner-business.mjs', 'dist'], clientEnv);
-  run('node', ['scripts/finalize-web-pwa-export.mjs', 'dist'], clientEnv);
-  run('node', ['scripts/verify-client-secret-patterns.mjs', 'dist'], clientEnv);
-  report.stage = 'WEB_HOSTING';
-  const hosted = JSON.parse(
+  if (dryRunOnly) {
+    report.status = 'BACKEND_DRY_RUN_PASSED_NO_DEPLOYMENT';
+    report.backendDeployed = false;
+  } else {
+    if (!mode.canDeploy) fail('SHARED_DEPLOYMENT_NOT_AUTHORIZED');
+    report.stage = 'BACKEND_SYNC';
     run(
-      'eas',
+      'node',
       [
+        'node_modules/convex/bin/main.js',
         'deploy',
-        '--environment',
-        'preview',
-        '--non-interactive',
-        '--dev-domain',
-        'stampaix-business',
-        '--export-dir',
+        '--url',
+        URL,
+        '--admin-key',
+        key,
+        '--yes',
+        '--typecheck',
+        'disable',
+        '--codegen',
+        'disable',
+      ],
+      { ...clean, CONVEX_DEPLOY_KEY: key },
+      600000
+    );
+    report.backendDeployed = true;
+    // No import, seed, reset, table clear or record mutation is performed. Exact
+    // wallet/history preservation is verified via ordinary sign-in after hosting.
+    report.existingDataAcceptance = 'ORDINARY_SIGN_IN_PENDING';
+    report.stage = 'AUTH_AVAILABILITY';
+    report.auth = await new ConvexHttpClient(URL, { logger: false }).query(
+      makeFunctionReference('webAuth:getProviderAvailability'),
+      {}
+    );
+    const publicEnv = {
+      EXPO_PUBLIC_APP_ENV: 'preview',
+      EXPO_PUBLIC_CONVEX_URL: URL,
+      EXPO_PUBLIC_CONVEX_URL_DEV: URL,
+      EXPO_PUBLIC_STAMPAIX_SHARED_BACKEND: 'true',
+      EXPO_PUBLIC_PWA_ENABLED: 'true',
+      EXPO_PUBLIC_WEB_ROLE_ROUTING: 'true',
+      EXPO_PUBLIC_MANUAL_QA_ENABLED: 'false',
+      EXPO_PUBLIC_WEB_QR_LAB: 'false',
+      EXPO_PUBLIC_SCANNER_RECEIPTS: 'true',
+      EXPO_PUBLIC_WEB_SCANNER_COMMANDS: 'true',
+      EXPO_PUBLIC_WEB_SCANNER_BACKEND: 'existing-shared',
+      EXPO_PUBLIC_PAYMENT_SYSTEM_ENABLED: 'false',
+      EXPO_PUBLIC_MOCK_PAYMENTS: 'false',
+    };
+    const clientEnv = { ...clean, ...publicEnv };
+    writeFileSync(
+      '.env.local',
+      Object.entries(publicEnv)
+        .map(([name, value]) => `${name}=${value}`)
+        .join('\n') + '\n',
+      { mode: 0o600 }
+    );
+    report.stage = 'WEB_EXPORT';
+    run(
+      'bunx',
+      [
+        'expo',
+        'export',
+        '--platform',
+        'web',
+        '--clear',
+        '--output-dir',
         'dist',
-        '--json',
+        '--max-workers',
+        '2',
       ],
       clientEnv,
-      240000
-    )
-  );
-  const url = (Array.isArray(hosted) ? hosted : [hosted])
-    .flatMap((r) => [
-      r.url,
-      r.deploymentUrl,
-      r.previewUrl,
-      r.deployment?.url,
-      r.deployment?.previewUrl,
-      r.metadata?.url,
-    ])
-    .find((value) =>
-      /^https:\/\/stampaix-business--[a-z0-9]+\.expo\.app\/?$/.test(value ?? '')
+      600000
     );
-  if (!url) fail('SHARED_HOSTED_URL_NOT_PROVEN');
-  report.webPreviewUrl = url;
-  for (const path of [
-    '/welcome',
-    '/sign-in',
-    '/pwa/install.js',
-    '/manifest.webmanifest',
-  ]) {
-    const response = await fetch(`${url}${path}`, {
-      redirect: 'error',
-      signal: AbortSignal.timeout(45000),
-    });
-    if (!response.ok) fail('SHARED_HOSTED_RESOURCE_UNAVAILABLE');
-    const text = await response.text();
-    if (
-      path === '/welcome' &&
-      (!text.includes('/pwa/install.js') || text.includes('כניסה לבדיקות'))
-    )
-      fail('SHARED_PUBLIC_ENTRY_INVALID');
+    run('bun', ['scripts/export-web-scanner-business.mjs', 'dist'], clientEnv);
+    run('node', ['scripts/finalize-web-pwa-export.mjs', 'dist'], clientEnv);
+    run(
+      'node',
+      ['scripts/verify-client-secret-patterns.mjs', 'dist'],
+      clientEnv
+    );
+    report.stage = 'WEB_HOSTING';
+    const hosted = JSON.parse(
+      run(
+        'eas',
+        [
+          'deploy',
+          '--environment',
+          'preview',
+          '--non-interactive',
+          '--dev-domain',
+          'stampaix-business',
+          '--export-dir',
+          'dist',
+          '--json',
+        ],
+        clientEnv,
+        240000
+      )
+    );
+    const url = (Array.isArray(hosted) ? hosted : [hosted])
+      .flatMap((r) => [
+        r.url,
+        r.deploymentUrl,
+        r.previewUrl,
+        r.deployment?.url,
+        r.deployment?.previewUrl,
+        r.metadata?.url,
+      ])
+      .find((value) =>
+        /^https:\/\/stampaix-business--[a-z0-9]+\.expo\.app\/?$/.test(
+          value ?? ''
+        )
+      );
+    if (!url) fail('SHARED_HOSTED_URL_NOT_PROVEN');
+    report.webPreviewUrl = url;
+    for (const path of [
+      '/welcome',
+      '/sign-in',
+      '/pwa/install.js',
+      '/manifest.webmanifest',
+    ]) {
+      const response = await fetch(`${url}${path}`, {
+        redirect: 'error',
+        signal: AbortSignal.timeout(45000),
+      });
+      if (!response.ok) fail('SHARED_HOSTED_RESOURCE_UNAVAILABLE');
+      const text = await response.text();
+      if (
+        path === '/welcome' &&
+        (!text.includes('/pwa/install.js') || text.includes('כניסה לבדיקות'))
+      )
+        fail('SHARED_PUBLIC_ENTRY_INVALID');
+    }
+    report.status = 'SHARED_WEB_DEPLOYED_ORDINARY_ACCEPTANCE_PENDING';
+    // This result is deployment evidence, never synthetic-flow acceptance.
   }
-  report.status = 'SHARED_WEB_DEPLOYED_ORDINARY_ACCEPTANCE_PENDING';
-  // This result is deployment evidence, never synthetic-flow acceptance.
 } catch (error) {
   report.status = 'FAILED';
   report.failureKind = /ArgumentValidationError/.test(error.message ?? '')

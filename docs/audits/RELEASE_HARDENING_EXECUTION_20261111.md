@@ -2,6 +2,21 @@
 
 Status: IN PROGRESS. No Production approval, merge, real charge or real business deletion.
 
+## Integrated milestone (11 November)
+
+- Draft integration PR: https://github.com/PetFamily2/STAMPIX_APP/pull/16 (base main). Initial safety commit `7fda7a2` passed GitHub verification run `43078848906`; later changes require their own CI.
+- `e239d19` merged the reviewed two PWA commits. Conflicts were resolved semantically: retain program tiles, saved-permission-only camera startup, current empty/error guidance and recovery locks; add bounded camera restart/decoder recycling, short subscription guidance and explicit reward/undo confirmation. Confirmation is cleared when command state changes. Unknown success receipts no longer claim a stamp was added. Billing navigation is injected by the route, keeping the scanner independent of Expo routing.
+- `497e465` integrated PR #14 without redoing its cleanup: seven removed artifacts and six unchanged archived documents. Remaining historical script path strings are historical change allowlists, not reads of missing documents; do not rewrite their authorization history or execute their synthetic provisioning flows.
+- Complete static route inventory: 144 files, 89 ACTIVE, 46 COMPATIBILITY, nine UNKNOWN. This is not physical-device acceptance and authorizes no screen removal. Merchant onboarding is retained.
+- Latest full local regression after integrated PWA, cleanup, scoped quality fixes and compact settings: **2,626 PASS / zero FAIL**, 198 files, 13,009 assertions. TypeScript PASS. Later dry-run mode tests: **17 PASS / zero FAIL** across three focused files, including existing permission and icon boundary tests. Full exact-candidate CI remains required.
+- Address resolution callbacks now have complete dependencies; delayed work still uses generation and address-selection checks. Address input validation retains the same C0/C1 control-character rejection with Unicode Cc. Recommendation own-property checks avoid inherited keys; test-only assignment expressions and implicit Bun global were corrected.
+- Safe formatting/import cleanup applied to 125 reviewed candidate files. No formatter was applied to the protected Cursor paths or frozen Native camera/billing/push files. The icon dependency test now parses named exports with TypeScript AST rather than assuming single-line exports; upstream glyph, symbol-set and barrel restrictions remain enforced.
+- Business profile groups and browser permissions now start collapsed, preserving mounted form state. The account Push subscription is a real accessible switch. Camera/location still reflect browser-owned permissions and are not represented by a fake revocation toggle. Deletion entry points were not expanded before backend acceptance.
+- Global Biome has **four retained baseline errors in three frozen files** (`config/appConfig.ts`, `contexts/PushNotificationsContext.tsx`, `convex/scanner.ts`), plus existing warnings. The global lint gate is not claimed PASS. No rule was disabled to hide them.
+- Added an exact-revision, same-repository integration CI dry-run for Convex CLI 1.31.5 and isolated 1.49.0. Both use existing DEV deployment access without added permissions; neither can enter backend sync, hosting, EAS private-env pull or Production. The application SDK/lockfile are unchanged. This comparison is diagnostic, not evidence that an upgrade fixes WebSocket transport.
+
+No live backend deployment, real payment, business deletion, Production/DNS action or main merge occurred. Issue #15 remains open until exact-candidate backend and provider verification.
+
 ## Verified starting state
 
 - Main: e7c2e2d4835115cc88ce2b2ea4f673933ac511d5.

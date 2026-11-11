@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-
-import { resolveRevenueCatPlanMapping } from '../lib/billing/productMap';
 import { REVENUECAT_CANONICAL_ENTITLEMENT } from '../lib/billing/productionContract';
+import { resolveRevenueCatPlanMapping } from '../lib/billing/productMap';
 
 describe('RevenueCat product map', () => {
   test('maps all six logical products to plan and period', () => {
@@ -15,12 +14,12 @@ describe('RevenueCat product map', () => {
     expect(
       resolveRevenueCatPlanMapping({ productId: 'starter_yearly' }).plan
     ).toBe('starter');
-    expect(resolveRevenueCatPlanMapping({ productId: 'pro_monthly' }).plan).toBe(
-      'pro'
-    );
-    expect(resolveRevenueCatPlanMapping({ productId: 'pro_yearly' }).period).toBe(
-      'yearly'
-    );
+    expect(
+      resolveRevenueCatPlanMapping({ productId: 'pro_monthly' }).plan
+    ).toBe('pro');
+    expect(
+      resolveRevenueCatPlanMapping({ productId: 'pro_yearly' }).period
+    ).toBe('yearly');
     expect(
       resolveRevenueCatPlanMapping({ productId: 'premium_monthly' }).plan
     ).toBe('premium');

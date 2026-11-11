@@ -17,26 +17,33 @@ export const getOverview = query({
   handler: async (ctx) => {
     const admin = await requireSystemAdmin(ctx);
 
-    const [businesses, billingAccounts, newSupport, newDeletions, reviewDeletions] =
-      await Promise.all([
-        ctx.db.query('businesses').order('desc').take(LIST_LIMIT),
-        ctx.db.query('businessBillingAccounts').order('desc').take(LIST_LIMIT),
-        ctx.db
-          .query('supportRequests')
-          .withIndex('by_status', (q: any) => q.eq('status', 'new'))
-          .order('desc')
-          .take(LIST_LIMIT + 1),
-        ctx.db
-          .query('accountDeletionRequests')
-          .withIndex('by_status_createdAt', (q: any) => q.eq('status', 'new'))
-          .order('desc')
-          .take(LIST_LIMIT + 1),
-        ctx.db
-          .query('accountDeletionRequests')
-          .withIndex('by_status_createdAt', (q: any) => q.eq('status', 'in_review'))
-          .order('desc')
-          .take(LIST_LIMIT + 1),
-      ]);
+    const [
+      businesses,
+      billingAccounts,
+      newSupport,
+      newDeletions,
+      reviewDeletions,
+    ] = await Promise.all([
+      ctx.db.query('businesses').order('desc').take(LIST_LIMIT),
+      ctx.db.query('businessBillingAccounts').order('desc').take(LIST_LIMIT),
+      ctx.db
+        .query('supportRequests')
+        .withIndex('by_status', (q: any) => q.eq('status', 'new'))
+        .order('desc')
+        .take(LIST_LIMIT + 1),
+      ctx.db
+        .query('accountDeletionRequests')
+        .withIndex('by_status_createdAt', (q: any) => q.eq('status', 'new'))
+        .order('desc')
+        .take(LIST_LIMIT + 1),
+      ctx.db
+        .query('accountDeletionRequests')
+        .withIndex('by_status_createdAt', (q: any) =>
+          q.eq('status', 'in_review')
+        )
+        .order('desc')
+        .take(LIST_LIMIT + 1),
+    ]);
 
     const businessNames = new Map(
       businesses.map((business: any) => [String(business._id), business.name])
@@ -113,7 +120,6 @@ export const getOverview = query({
     };
   },
 });
-
 
 function normalizeAdminSearchTerm(value: string) {
   return value.trim().replace(/\s+/g, ' ').slice(0, 120);
@@ -359,7 +365,6 @@ export const getBusinessDetail = query({
     };
   },
 });
-
 
 export const getBillingAttention = query({
   args: {},

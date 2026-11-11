@@ -139,7 +139,8 @@ async function encryptedJob(provider, options = {}) {
     providerAccountId,
     {
       access_token: `${provider}-access-token`,
-      refresh_token: options.refresh === false ? undefined : `${provider}-refresh-token`,
+      refresh_token:
+        options.refresh === false ? undefined : `${provider}-refresh-token`,
       id_token: `${provider}-id-token`,
       expires_at: 2_000_000_000,
       token_type: 'Bearer',
@@ -447,9 +448,7 @@ describe('provider reauthorization overlap guard', () => {
     for (const profile of malformedProfiles) {
       const providerIssuedAt = resolveOAuthProviderIssuedAt(profile);
       expect(providerIssuedAt).toBeNull();
-      await expect(
-        requiresRetry([], { providerIssuedAt })
-      ).resolves.toBe(true);
+      await expect(requiresRetry([], { providerIssuedAt })).resolves.toBe(true);
     }
   });
 
@@ -457,14 +456,12 @@ describe('provider reauthorization overlap guard', () => {
     const provablyBefore = await buildFingerprintJob({
       id: 'completed_provably_before',
       status: 'completed',
-      completedAt:
-        PROVIDER_ISSUED_AT - OIDC_ISSUANCE_CLOCK_TOLERANCE_MS - 1,
+      completedAt: PROVIDER_ISSUED_AT - OIDC_ISSUANCE_CLOCK_TOLERANCE_MS - 1,
     });
     const skewAmbiguousBefore = await buildFingerprintJob({
       id: 'completed_skew_ambiguous',
       status: 'completed',
-      completedAt:
-        PROVIDER_ISSUED_AT - OIDC_ISSUANCE_CLOCK_TOLERANCE_MS,
+      completedAt: PROVIDER_ISSUED_AT - OIDC_ISSUANCE_CLOCK_TOLERANCE_MS,
     });
     const completedEqual = await buildFingerprintJob({
       id: 'completed_equal',
@@ -808,7 +805,11 @@ describe('provider revocation execution', () => {
 
   test('transient failures retry with bounded scheduling and terminal attempts purge tokens', async () => {
     const retryable = await encryptedJob('google');
-    const terminal = { ...(await encryptedJob('apple')), _id: 'terminal_job', attemptCount: 3 };
+    const terminal = {
+      ...(await encryptedJob('apple')),
+      _id: 'terminal_job',
+      attemptCount: 3,
+    };
     const ctx = buildCtx({ providerRevocationJobs: [retryable, terminal] });
 
     const retryResult = await retryProviderRevocationJobImpl(ctx, {

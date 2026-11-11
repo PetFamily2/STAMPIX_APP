@@ -278,17 +278,22 @@ describe('Smart Manager decision authority', () => {
     expect(result.authorityBindingHash).toMatch(/^sm_sha256_/);
     expect(ctx.reads.some((read) => read.kind === 'collect')).toBe(false);
     expect(
-      ctx.reads.filter((read) => read.kind === 'take').every((read) => read.limit === 2)
+      ctx.reads
+        .filter((read) => read.kind === 'take')
+        .every((read) => read.limit === 2)
     ).toBe(true);
   });
 
   test('dirty domains immediately produce reevaluation_pending', async () => {
     const tables = buildAuthorityFixture();
     tables.smartManagerEvaluationStates[0].dirtyDomains = ['campaigns'];
-    const result = await resolveSmartManagerDecisionAuthority(buildCtx(tables), {
-      businessId: 'business_1',
-      now: NOW,
-    });
+    const result = await resolveSmartManagerDecisionAuthority(
+      buildCtx(tables),
+      {
+        businessId: 'business_1',
+        now: NOW,
+      }
+    );
 
     expect(result.currentness).toBe('reevaluation_pending');
     expect(result.blockers).toContain('REEVALUATION_PENDING');
@@ -297,11 +302,14 @@ describe('Smart Manager decision authority', () => {
   test('fails closed when parity or expected evidence changes', async () => {
     const tables = buildAuthorityFixture();
     tables.smartManagerShadowComparisons[0].status = 'mismatch';
-    const result = await resolveSmartManagerDecisionAuthority(buildCtx(tables), {
-      businessId: 'business_1',
-      expectedEvidenceFingerprint: 'different_evidence',
-      now: NOW,
-    });
+    const result = await resolveSmartManagerDecisionAuthority(
+      buildCtx(tables),
+      {
+        businessId: 'business_1',
+        expectedEvidenceFingerprint: 'different_evidence',
+        now: NOW,
+      }
+    );
 
     expect(result.currentness).toBe('stale');
     expect(result.blockers).toContain('COMPARISON_NOT_PARITY');
@@ -351,13 +359,15 @@ describe('Smart Manager decision authority', () => {
 
   test('fails closed on a recomputed fact-hash mismatch', async () => {
     const tables = buildAuthorityFixture();
-    tables.smartManagerFactSnapshots[0].facts.facts.customerLifecycleSegments.inactive.value.count =
-      2;
+    tables.smartManagerFactSnapshots[0].facts.facts.customerLifecycleSegments.inactive.value.count = 2;
 
-    const result = await resolveSmartManagerDecisionAuthority(buildCtx(tables), {
-      businessId: 'business_1',
-      now: NOW,
-    });
+    const result = await resolveSmartManagerDecisionAuthority(
+      buildCtx(tables),
+      {
+        businessId: 'business_1',
+        now: NOW,
+      }
+    );
 
     expect(result.currentness).toBe('stale');
     expect(result.blockers).toContain('FACT_SNAPSHOT_BINDING_MISMATCH');
@@ -367,10 +377,13 @@ describe('Smart Manager decision authority', () => {
     const tables = buildAuthorityFixture();
     tables.smartManagerDecisions[0].decisionHash = 'tampered_decision_hash';
 
-    const result = await resolveSmartManagerDecisionAuthority(buildCtx(tables), {
-      businessId: 'business_1',
-      now: NOW,
-    });
+    const result = await resolveSmartManagerDecisionAuthority(
+      buildCtx(tables),
+      {
+        businessId: 'business_1',
+        now: NOW,
+      }
+    );
 
     expect(result.currentness).toBe('stale');
     expect(result.blockers).toContain('DECISION_HASH_MISMATCH');
@@ -382,10 +395,13 @@ describe('Smart Manager decision authority', () => {
       'tampered_comparison_hash';
     tables.smartManagerShadowComparisons[0].sourceGeneration = 6;
 
-    const result = await resolveSmartManagerDecisionAuthority(buildCtx(tables), {
-      businessId: 'business_1',
-      now: NOW,
-    });
+    const result = await resolveSmartManagerDecisionAuthority(
+      buildCtx(tables),
+      {
+        businessId: 'business_1',
+        now: NOW,
+      }
+    );
 
     expect(result.currentness).toBe('stale');
     expect(result.blockers).toContain('COMPARISON_HASH_MISMATCH');
@@ -396,10 +412,13 @@ describe('Smart Manager decision authority', () => {
     const tables = buildAuthorityFixture();
     tables.smartManagerEvaluationStates[0].generation = 8;
 
-    const result = await resolveSmartManagerDecisionAuthority(buildCtx(tables), {
-      businessId: 'business_1',
-      now: NOW,
-    });
+    const result = await resolveSmartManagerDecisionAuthority(
+      buildCtx(tables),
+      {
+        businessId: 'business_1',
+        now: NOW,
+      }
+    );
 
     expect(result.currentness).toBe('stale');
     expect(result.blockers).toContain('EVALUATION_GENERATION_MISMATCH');
@@ -410,10 +429,13 @@ describe('Smart Manager decision authority', () => {
     tables.smartManagerDecisions[0].policyVersion = 'smart-manager-policy-v0';
     tables.smartManagerDecisions[0].policyHash = 'old_policy_hash';
 
-    const result = await resolveSmartManagerDecisionAuthority(buildCtx(tables), {
-      businessId: 'business_1',
-      now: NOW,
-    });
+    const result = await resolveSmartManagerDecisionAuthority(
+      buildCtx(tables),
+      {
+        businessId: 'business_1',
+        now: NOW,
+      }
+    );
 
     expect(result.currentness).toBe('stale');
     expect(result.blockers).toContain('POLICY_BINDING_MISMATCH');
@@ -428,10 +450,13 @@ describe('Smart Manager decision authority', () => {
       };
     rebindFixtureHashes(tables);
 
-    const result = await resolveSmartManagerDecisionAuthority(buildCtx(tables), {
-      businessId: 'business_1',
-      now: NOW,
-    });
+    const result = await resolveSmartManagerDecisionAuthority(
+      buildCtx(tables),
+      {
+        businessId: 'business_1',
+        now: NOW,
+      }
+    );
 
     expect(result.currentness).toBe('stale');
     expect(result.blockers).toContain('LIFECYCLE_EVIDENCE_UNAVAILABLE');
@@ -439,15 +464,17 @@ describe('Smart Manager decision authority', () => {
 
   test('fails closed when the inactive audience count is zero', async () => {
     const tables = buildAuthorityFixture();
-    tables.smartManagerFactSnapshots[0].facts.facts.customerLifecycleSegments.inactive.value.count =
-      0;
+    tables.smartManagerFactSnapshots[0].facts.facts.customerLifecycleSegments.inactive.value.count = 0;
     tables.smartManagerDecisions[0].decision.count = 0;
     rebindFixtureHashes(tables);
 
-    const result = await resolveSmartManagerDecisionAuthority(buildCtx(tables), {
-      businessId: 'business_1',
-      now: NOW,
-    });
+    const result = await resolveSmartManagerDecisionAuthority(
+      buildCtx(tables),
+      {
+        businessId: 'business_1',
+        now: NOW,
+      }
+    );
 
     expect(result.currentness).toBe('stale');
     expect(result.blockers).toContain('LIFECYCLE_AUDIENCE_INVALID');

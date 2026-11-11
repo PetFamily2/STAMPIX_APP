@@ -18,6 +18,12 @@ export const PERMISSION_STYLES = `
   .sx-permissions .permission-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
   .sx-permissions button,.sx-permissions a.permission-link{font:inherit;font-weight:600;min-height:44px;border:1px solid ${TOKENS.colors.primary};border-radius:12px;background:${TOKENS.colors.primary};color:${TOKENS.colors.elevatedSurface};padding:10px 16px;cursor:pointer;text-decoration:none;box-sizing:border-box;max-width:100%;white-space:normal}
   .sx-permissions button.secondary{background:${TOKENS.colors.elevatedSurface};color:${TOKENS.colors.primary}}
+  .sx-permissions button[role=switch]{display:inline-flex;align-items:center;gap:12px;background:transparent;color:inherit;border:0;padding-inline:0}
+  .sx-permissions button[role=switch]::before{content:"";width:46px;height:28px;border-radius:20px;background:#CBD5E1;box-shadow:inset 0 0 0 1px #64748B}
+  .sx-permissions button[role=switch]::after{content:"";position:absolute;width:20px;height:20px;border-radius:50%;background:white;right:4px;top:50%;transform:translateY(-50%);pointer-events:none}
+  .sx-permissions button[role=switch]{position:relative}
+  .sx-permissions button[role=switch][aria-checked=true]::before{background:${TOKENS.colors.primary}}
+  .sx-permissions button[role=switch][aria-checked=true]::after{right:22px}
   .sx-permissions button:disabled{opacity:.55;cursor:default}
   .sx-permissions button:focus-visible,.sx-permissions a:focus-visible,.sx-permissions summary:focus-visible{outline:3px solid ${TOKENS.colors.primary};outline-offset:3px}
   .sx-permissions output{display:block;margin-top:12px;color:${TOKENS.colors.textSecondary}}
@@ -139,8 +145,8 @@ function DevicePermission({ kind }: { kind: 'camera' | 'geolocation' }) {
       </output>
       <p>
         {camera
-          ? 'לסריקת קוד לקוח. בדיקת ההרשאה פותחת את המצלמה לרגע וסוגרת אותה מיד, ללא צילום או הקלטה וללא מיקרופון.'
-          : 'למציאת עסקים בסביבה. בדיקת הגישה כאן אינה שומרת מיקום ואינה שולחת אותו לשרת.'}
+          ? 'לסריקת קוד לקוח. בדיקת הגישה אינה מצלמת או מקליטה.'
+          : 'למציאת עסקים בסביבה. בדיקת הגישה אינה שומרת או שולחת מיקום.'}
       </p>
       {state === 'denied' ? (
         <p>
@@ -174,36 +180,39 @@ export function BrowserPermissionsPanel({ children }: { children: ReactNode }) {
       dir="rtl"
     >
       <style>{PERMISSION_STYLES}</style>
-      <h2>הרשאות והתקנה</h2>
-      <p>
-        ההרשאות נפרדות ונשמרות לפי כתובת האתר, המכשיר והדפדפן. הכניסה למסך אינה
-        מבקשת הרשאות. אפשר לשנות או לבטל אותן בהגדרות האתר בדפדפן.
-      </p>
-      {children}
-      <DevicePermission kind="camera" />
-      <DevicePermission kind="geolocation" />
-      <WebInstallSettings />
       <details>
-        <summary>איך משנים או מבטלים הרשאה?</summary>
+        <summary>הרשאות והתקנה</summary>
         <p>
-          בדפדפן: פתחו את פרטי האתר ליד שורת הכתובת, בחרו הרשאות או הגדרות אתר
-          ושנו את ההרשאה הרצויה. באפליקציה שהותקנה למסך הבית, בדקו גם את הגדרות
-          המכשיר עבור האפליקציה או הדפדפן. חזרו למסך הזה כדי לרענן את המצב.
+          בחרו מה להפעיל. שינוי או ביטול הרשאת מצלמה ומיקום נעשים בהגדרות האתר
+          בדפדפן.
         </p>
+        {children}
+        <DevicePermission kind="camera" />
+        <DevicePermission kind="geolocation" />
+        <WebInstallSettings />
+        <details>
+          <summary>איך משנים או מבטלים הרשאה?</summary>
+          <p>
+            בדפדפן: פתחו את פרטי האתר ליד שורת הכתובת, בחרו הרשאות או הגדרות אתר
+            ושנו את ההרשאה הרצויה. באפליקציה שהותקנה למסך הבית, בדקו גם את
+            הגדרות המכשיר עבור האפליקציה או הדפדפן. חזרו למסך הזה כדי לרענן את
+            המצב.
+          </p>
+          <p>
+            אישור התראות אינו אישור לדיוור שיווקי. העדפת הדיוור מנוהלת בנפרד
+            בהגדרות החשבון.
+          </p>
+        </details>
         <p>
-          אישור התראות אינו אישור לדיוור שיווקי. העדפת הדיוור מנוהלת בנפרד
-          בהגדרות החשבון.
+          <a
+            href="/legal?document=privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            מדיניות הפרטיות (נפתחת בחלון חדש)
+          </a>
         </p>
       </details>
-      <p>
-        <a
-          href="/legal?document=privacy"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          מדיניות הפרטיות (נפתחת בחלון חדש)
-        </a>
-      </p>
     </section>
   );
 }

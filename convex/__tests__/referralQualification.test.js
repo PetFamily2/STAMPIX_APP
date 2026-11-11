@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-
+import { REFERRAL_CONTRACT } from '../lib/billing/productionContract';
+import { REFERRAL_COPY } from '../lib/referrals/copy';
 import {
   buildRewardIdempotencyKey,
   canAcceptMoreWalletMonths,
@@ -11,8 +12,6 @@ import {
   resolveRewardEligibility,
   walletMonthsFromRewards,
 } from '../lib/referrals/qualification';
-import { REFERRAL_COPY } from '../lib/referrals/copy';
-import { REFERRAL_CONTRACT } from '../lib/billing/productionContract';
 
 const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
 

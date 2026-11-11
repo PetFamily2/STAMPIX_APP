@@ -4,8 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '@/convex/_generated/api';
 import {
   createPlacesSessionToken,
-  normalizePlacesActionError,
   type GooglePlacesAutocompleteMode,
+  normalizePlacesActionError,
   type PlaceSuggestion,
 } from '@/lib/googlePlaces';
 
@@ -71,29 +71,20 @@ export function useGooglePlaceAutocomplete(
               : {}),
           });
 
-          if (
-            !isActive ||
-            requestGeneration !== requestGenerationRef.current
-          ) {
+          if (!isActive || requestGeneration !== requestGenerationRef.current) {
             return;
           }
 
           setSuggestions(nextSuggestions);
         } catch (fetchError) {
-          if (
-            !isActive ||
-            requestGeneration !== requestGenerationRef.current
-          ) {
+          if (!isActive || requestGeneration !== requestGenerationRef.current) {
             return;
           }
 
           setSuggestions([]);
           setError(normalizePlacesActionError(fetchError));
         } finally {
-          if (
-            isActive &&
-            requestGeneration === requestGenerationRef.current
-          ) {
+          if (isActive && requestGeneration === requestGenerationRef.current) {
             setIsLoading(false);
           }
         }

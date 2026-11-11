@@ -47,7 +47,7 @@ import {
 } from '@/lib/loyalty/classicWizard';
 import { loyaltyWriteErrorToHebrewMessage } from '@/lib/loyalty/programErrors';
 import { businessHref } from '@/lib/navigation/businessHref';
-import { rtlBaseView, tw, justifyContent } from '@/lib/rtl';
+import { justifyContent, rtlBaseView, tw } from '@/lib/rtl';
 
 const STEPS = [
   { id: 1, label: 'פרטים' },

@@ -27,7 +27,10 @@ export function StampShapePicker({
       VISUAL_PICKER_COLUMNS
   );
   return (
-    <View style={styles.grid} onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
+    <View
+      style={styles.grid}
+      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+    >
       {STAMP_SHAPE_OPTIONS.map((option) => (
         <VisualSelectionTile
           key={option.id}

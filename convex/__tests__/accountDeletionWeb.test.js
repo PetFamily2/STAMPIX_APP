@@ -65,11 +65,7 @@ class FakeQuery {
     const docs = this.db
       .rows(this.tableName)
       .filter((doc) => this.predicates.every((predicate) => predicate(doc)));
-    docs.sort(
-      (a, b) =>
-        (a[this.sortField] ?? 0) -
-        (b[this.sortField] ?? 0)
-    );
+    docs.sort((a, b) => (a[this.sortField] ?? 0) - (b[this.sortField] ?? 0));
     return this.direction === 'desc' ? docs.reverse() : docs;
   }
 
@@ -350,15 +346,11 @@ describe('account deletion request abuse protection', () => {
   test('resets the exact normalized per-email limiter key with sanitized failures', async () => {
     const ctx = {};
     const calls = [];
-    await resetAccountDeletionEmailRateLimit(
-      ctx,
-      ' Person@Example.com ',
-      {
-        reset: async (receivedCtx, name, args) => {
-          calls.push({ receivedCtx, name, args });
-        },
-      }
-    );
+    await resetAccountDeletionEmailRateLimit(ctx, ' Person@Example.com ', {
+      reset: async (receivedCtx, name, args) => {
+        calls.push({ receivedCtx, name, args });
+      },
+    });
 
     expect(calls).toEqual([
       {
@@ -370,15 +362,11 @@ describe('account deletion request abuse protection', () => {
 
     let caught;
     try {
-      await resetAccountDeletionEmailRateLimit(
-        ctx,
-        'private@example.com',
-        {
-          reset: async () => {
-            throw new Error('private@example.com');
-          },
-        }
-      );
+      await resetAccountDeletionEmailRateLimit(ctx, 'private@example.com', {
+        reset: async () => {
+          throw new Error('private@example.com');
+        },
+      });
     } catch (error) {
       caught = error;
     }
@@ -585,9 +573,7 @@ describe('account deletion request admin and retention', () => {
     expect(result.resetEmailLimits).toBe(
       ACCOUNT_DELETION_CLEANUP_BATCH_SIZE - 1
     );
-    expect(resetEmails).toHaveLength(
-      ACCOUNT_DELETION_CLEANUP_BATCH_SIZE - 1
-    );
+    expect(resetEmails).toHaveLength(ACCOUNT_DELETION_CLEANUP_BATCH_SIZE - 1);
     expect(resetEmails).not.toContain('handled-49@example.com');
     expect(
       db
@@ -599,8 +585,9 @@ describe('account deletion request admin and retention', () => {
     expect(
       db
         .rows('accountDeletionRequests')
-        .filter((request) => request.status === 'handled' && request.purgeAfter <= now)
-        .length
+        .filter(
+          (request) => request.status === 'handled' && request.purgeAfter <= now
+        ).length
     ).toBeGreaterThan(0);
   });
 

@@ -5,6 +5,7 @@ import {
   OPENROUTER_JSON_MODEL,
   OPENROUTER_JSON_TIMEOUT_MS,
 } from '../lib/aiJsonGeneration';
+import { SMART_MANAGER_POLICY_V1 } from '../lib/smartManagerPolicy';
 import {
   bucketSmartManagerAudience,
   buildSmartManagerAiCacheKey,
@@ -17,7 +18,6 @@ import {
   SMART_MANAGER_AI_PROMPT_VERSION,
   validateSmartManagerWinbackOutput,
 } from '../lib/smartManagerPreparedActions';
-import { SMART_MANAGER_POLICY_V1 } from '../lib/smartManagerPolicy';
 import {
   buildGenerationReservation,
   generationRequestMatches,
@@ -63,9 +63,7 @@ class FakeQuery {
   async take(limit) {
     this.reads.push({ kind: 'take', limit });
     return this.sourceRows
-      .filter((row) =>
-        this.predicates.every((predicate) => predicate(row))
-      )
+      .filter((row) => this.predicates.every((predicate) => predicate(row)))
       .slice(0, limit);
   }
 
@@ -575,8 +573,7 @@ describe('bounded Smart Manager cache, quota, and rate evidence', () => {
         .smartManagerExplicitRegenerationActorBusinessV1.rate
     ).toBe(3);
     expect(
-      SMART_MANAGER_RATE_LIMIT_DEFINITIONS.smartManagerGenerationBusinessV1
-        .rate
+      SMART_MANAGER_RATE_LIMIT_DEFINITIONS.smartManagerGenerationBusinessV1.rate
     ).toBe(10);
     const calls = [];
     const limiter = {
@@ -631,7 +628,11 @@ describe('bounded Smart Manager cache, quota, and rate evidence', () => {
           actorUserId: 'user_1',
           explicitRegeneration: false,
         },
-        { async limit() { return { ok: false, retryAfter: 10_000 }; } }
+        {
+          async limit() {
+            return { ok: false, retryAfter: 10_000 };
+          },
+        }
       );
     } catch (error) {
       failure = error;

@@ -132,11 +132,8 @@ export function resolveExactMissingProfileGuideField(
   missingFields: readonly unknown[]
 ) {
   const requested = resolveProfileGuideField(requestedField);
-  const firstMissing =
-    missingFields.find(isApprovedProfileGuideField) ?? null;
-  return requested !== null && requested === firstMissing
-    ? requested
-    : null;
+  const firstMissing = missingFields.find(isApprovedProfileGuideField) ?? null;
+  return requested !== null && requested === firstMissing ? requested : null;
 }
 
 export const TEXT_PROFILE_GUIDE_FIELDS = [
@@ -181,8 +178,7 @@ export function resolveProfileGuideTarget(input: {
 }
 
 export const GUIDE_INSTRUCTIONS: Record<RecommendationGuideId, string> = {
-  'subscription-recover':
-    'בדקו מה נדרש כדי להחזיר את המנוי לפעילות',
+  'subscription-recover': 'בדקו מה נדרש כדי להחזיר את המנוי לפעילות',
   'address-resolve': 'השלימו ובחרו כתובת מאומתת',
   'profile-complete': 'השלימו את הפרטים החסרים ושמרו',
   'program-create': 'צרו כרטיסייה ראשונה ללקוחות',
@@ -238,7 +234,8 @@ export function isApprovedRecommendationStableId(
 ): value is RecommendationStableId {
   return (
     typeof value === 'string' &&
-    Object.prototype.hasOwnProperty.call(RECOMMENDATION_GUIDE_IDS, value)
+    Object.getOwnPropertyDescriptor(RECOMMENDATION_GUIDE_IDS, value) !==
+      undefined
   );
 }
 
@@ -250,9 +247,7 @@ export function recommendationRequiresExactEntity(
 
 function validBoundId(value: unknown): value is string {
   return (
-    typeof value === 'string' &&
-    value.length > 0 &&
-    value === value.trim()
+    typeof value === 'string' && value.length > 0 && value === value.trim()
   );
 }
 
@@ -291,9 +286,7 @@ export function canActivateGuidedTarget(
 }
 
 type GuidedTargetActivationEffects = {
-  activate: (
-    context: GuidedActivationTransitionContext
-  ) => void | (() => void);
+  activate: (context: GuidedActivationTransitionContext) => void | (() => void);
   deactivate?: () => void;
 };
 
@@ -353,8 +346,7 @@ export function createGuidedActivationTransitionController() {
           identity: activationKey,
           generation: activationGeneration,
           isCurrent: () =>
-            activeKey === activationKey &&
-            generation === activationGeneration,
+            activeKey === activationKey && generation === activationGeneration,
         }) ?? null;
       return true;
     },
@@ -379,7 +371,9 @@ export type ObservableGuidedTargetRef<T> = {
   isCurrent: (node: T | null, candidateGeneration: number) => boolean;
 };
 
-export function createObservableGuidedTargetRef<T>(): ObservableGuidedTargetRef<T> {
+export function createObservableGuidedTargetRef<
+  T,
+>(): ObservableGuidedTargetRef<T> {
   let current: T | null = null;
   let generation = 0;
   const listeners = new Set<(node: T | null) => void>();
@@ -554,10 +548,7 @@ export function createGuidedTargetPreparationController() {
 }
 
 export function createGuidedStatusRetryController(maxAttempts = 3) {
-  const boundedMaxAttempts = Math.max(
-    1,
-    Math.min(5, Math.floor(maxAttempts))
-  );
+  const boundedMaxAttempts = Math.max(1, Math.min(5, Math.floor(maxAttempts)));
   let identity: string | null = null;
   let generation = 0;
   let attempts = 0;
@@ -629,10 +620,7 @@ export function createGuidedMeasurementSequence(input?: {
   let scrollRequested = input?.canScroll !== true;
 
   return {
-    next(measurement?: {
-      available: boolean;
-      visible?: boolean;
-    }) {
+    next(measurement?: { available: boolean; visible?: boolean }) {
       if (!measurement?.available) {
         return ['retry'] as const;
       }
@@ -715,8 +703,7 @@ export function validateGuideBinding(input: {
   ) {
     return { ok: false as const, reasonCode: 'ROUTE_MISMATCH' as const };
   }
-  const expectedEntityKind =
-    RECOMMENDATION_GUIDE_ENTITY_KINDS[input.stableId];
+  const expectedEntityKind = RECOMMENDATION_GUIDE_ENTITY_KINDS[input.stableId];
   if (expectedEntityKind) {
     if (
       !validBoundId(input.guideEntityId) ||
@@ -738,9 +725,7 @@ export function validateGuideBinding(input: {
     }
   }
   const routeBusinessId = String(input.routeBusinessId ?? '');
-  const recommendationBusinessId = String(
-    input.recommendationBusinessId ?? ''
-  );
+  const recommendationBusinessId = String(input.recommendationBusinessId ?? '');
   const activeBusinessId = String(input.activeBusinessId ?? '');
   if (
     !routeBusinessId ||
@@ -816,10 +801,7 @@ export function getGuidedSpotlightGeometry(
   const overlayY = finiteNonNegative(viewport.overlayY);
   const localViewportWidth = Math.max(0, viewportWidth - overlayX);
   const localViewportHeight = Math.max(0, viewportHeight - overlayY);
-  const safeTop = Math.max(
-    0,
-    finiteNonNegative(viewport.safeTop) - overlayY
-  );
+  const safeTop = Math.max(0, finiteNonNegative(viewport.safeTop) - overlayY);
   const padding = Math.max(0, Math.min(12, finiteNonNegative(visualPadding)));
   const usableBottom = Math.max(
     safeTop,
@@ -839,10 +821,7 @@ export function getGuidedSpotlightGeometry(
     padding;
   const left = Math.min(localViewportWidth, Math.max(0, rawLeft));
   const top = Math.min(usableBottom, Math.max(safeTop, rawTop));
-  const right = Math.min(
-    localViewportWidth,
-    Math.max(left, rawRight)
-  );
+  const right = Math.min(localViewportWidth, Math.max(left, rawRight));
   const bottom = Math.min(usableBottom, Math.max(top, rawBottom));
 
   return {
@@ -885,7 +864,10 @@ export function getGuideOverlayLayout(viewport: GuideViewport) {
     height - safeTop - safeBottom - keyboardHeight - 24
   );
   return {
-    maxWidth: Math.min(620, Math.max(0, finiteNonNegative(viewport.width) - 24)),
+    maxWidth: Math.min(
+      620,
+      Math.max(0, finiteNonNegative(viewport.width) - 24)
+    ),
     maxHeight: Math.min(420, availableHeight),
     bottom: Math.max(safeBottom, 12) + keyboardHeight,
   };
@@ -953,13 +935,8 @@ export function extractBoundedGuidePublicErrorCode(
   if (!error || typeof error !== 'object') {
     return null;
   }
-  const directCode = readBoundedObjectCode(
-    'data' in error ? error.data : null
-  );
-  if (
-    directCode &&
-    PERMANENT_GUIDE_QUERY_ERROR_CODES.has(directCode)
-  ) {
+  const directCode = readBoundedObjectCode('data' in error ? error.data : null);
+  if (directCode && PERMANENT_GUIDE_QUERY_ERROR_CODES.has(directCode)) {
     return directCode as PermanentGuidePublicErrorCode;
   }
   const cause =
@@ -969,10 +946,7 @@ export function extractBoundedGuidePublicErrorCode(
   const nestedCode = readBoundedObjectCode(
     cause && 'data' in cause ? cause.data : null
   );
-  if (
-    nestedCode &&
-    PERMANENT_GUIDE_QUERY_ERROR_CODES.has(nestedCode)
-  ) {
+  if (nestedCode && PERMANENT_GUIDE_QUERY_ERROR_CODES.has(nestedCode)) {
     return nestedCode as PermanentGuidePublicErrorCode;
   }
   const messageCode = extractAllowlistedCodeFromMessage(
@@ -1011,9 +985,7 @@ export function hasGuideLikeRouteMetadata(input: {
     input.stableId,
     input.evidenceFingerprint,
     input.recommendationBusinessId,
-  ].some(
-    (value) => typeof value === 'string' && value.trim().length > 0
-  );
+  ].some((value) => typeof value === 'string' && value.trim().length > 0);
 }
 
 /**
@@ -1069,8 +1041,9 @@ export function resolveGuidedClientPresence(input: {
  * Passing a fresh `{}` every render causes useSubscription to setState during
  * render and infinite-loop ("Too many re-renders").
  */
-export const EMPTY_GUIDED_STATUS_QUERIES: Record<string, never> =
-  Object.freeze({});
+export const EMPTY_GUIDED_STATUS_QUERIES: Record<string, never> = Object.freeze(
+  {}
+);
 
 export type GuidedStatusQueryRequestArgs = {
   guideSessionId: string;
@@ -1203,8 +1176,7 @@ export type GuidedStatusPanelMode =
   | 'lifecycle'
   | 'rejected_cleanup';
 
-export const REJECTED_GUIDE_CLEANUP_MESSAGE =
-  'ההדרכה הזו אינה זמינה יותר';
+export const REJECTED_GUIDE_CLEANUP_MESSAGE = 'ההדרכה הזו אינה זמינה יותר';
 
 export function shouldRenderGuidedStatusPanel(input: {
   hasGuideMetadata: boolean;
@@ -1316,9 +1288,7 @@ export type SubscriptionGuideTarget =
 
 export function isSubscriptionRecoveryStatus(status: unknown) {
   return (
-    status === 'past_due' ||
-    status === 'canceled' ||
-    status === 'inactive'
+    status === 'past_due' || status === 'canceled' || status === 'inactive'
   );
 }
 
@@ -1336,10 +1306,7 @@ export function resolveSubscriptionGuideTarget(input: {
       action: 'restore_purchases',
     };
   }
-  if (
-    input.guideId === 'quota-review' &&
-    input.limitKey === 'campaigns'
-  ) {
+  if (input.guideId === 'quota-review' && input.limitKey === 'campaigns') {
     return {
       targetId: 'quota-review-target',
       action: 'review_campaigns_quota',
@@ -1547,7 +1514,10 @@ export function createGuidedActionRuntimeCoordinator(options?: {
       identity: string;
       isCurrent: () => boolean;
       canScroll?: boolean;
-      measure: () => GuidedRuntimeMeasurement | null | Promise<GuidedRuntimeMeasurement | null>;
+      measure: () =>
+        | GuidedRuntimeMeasurement
+        | null
+        | Promise<GuidedRuntimeMeasurement | null>;
       scroll?: () => void;
       focus?: () => void;
       onSpotlight?: (rect: GuideWindowRect) => void;
@@ -1608,7 +1578,12 @@ export function createGuidedActionRuntimeCoordinator(options?: {
       getCurrent: () => unknown | null;
       subscribe: (listener: (node: unknown | null) => void) => () => void;
       register: (node: unknown) => (() => void) | void;
-      measure: (node: unknown) => GuidedRuntimeMeasurement | null | Promise<GuidedRuntimeMeasurement | null>;
+      measure: (
+        node: unknown
+      ) =>
+        | GuidedRuntimeMeasurement
+        | null
+        | Promise<GuidedRuntimeMeasurement | null>;
       scroll?: () => void;
       focus?: () => void;
       onSpotlight?: (rect: GuideWindowRect) => void;

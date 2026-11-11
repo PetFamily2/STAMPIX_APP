@@ -2,9 +2,7 @@ import { useAction } from 'convex/react';
 import { useCallback } from 'react';
 
 import { api } from '@/convex/_generated/api';
-import {
-  normalizePlacesActionError,
-} from '@/lib/googlePlaces';
+import { normalizePlacesActionError } from '@/lib/googlePlaces';
 
 export function useGoogleAddressResolution() {
   const resolveGoogleAddress = useAction(api.googlePlaces.resolveAddress);

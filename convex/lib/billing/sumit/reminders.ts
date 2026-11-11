@@ -22,8 +22,7 @@ export function resolveBillingReminderStage(args: {
   now: number;
   sentStages?: BillingReminderStageDay[];
 }): BillingReminderStageDay | null {
-  const graceStartAt =
-    args.gracePeriodEndAt - DIRECT_PROVIDER_RENEWAL_GRACE_MS;
+  const graceStartAt = args.gracePeriodEndAt - DIRECT_PROVIDER_RENEWAL_GRACE_MS;
 
   if (args.now < graceStartAt || args.now >= args.gracePeriodEndAt) {
     return null;

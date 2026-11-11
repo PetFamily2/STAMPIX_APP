@@ -356,6 +356,9 @@ export function BrowserPushControl({
         <div className="permission-actions">
           <button
             type="button"
+            role="switch"
+            aria-label="התראות לחשבון"
+            aria-checked={enabled}
             disabled={
               busy ||
               checking ||

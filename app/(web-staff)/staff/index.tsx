@@ -34,50 +34,50 @@ export default function WebStaffLanding() {
 
   return (
     <StaffWebFrame>
-    <View
-      style={styles.screen}
-      {...(Platform.OS === 'web' ? { role: 'main' as const } : {})}
-    >
-      <View style={styles.card}>
-        <Text
-          accessibilityRole="header"
-          {...(Platform.OS === 'web' ? { 'aria-level': 1 } : {})}
-          style={styles.title}
-        >
-          {business?.name ?? 'צוות'}
-        </Text>
-        <Text style={styles.body}>
-          {process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS === 'true'
-            ? 'סרקו את קוד הלקוח כדי להוסיף חותמת או לממש הטבה.'
-            : 'אפשר להמשיך לסרוק באפליקציה.'}
-        </Text>
-        {process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS === 'true' ? (
+      <View
+        style={styles.screen}
+        {...(Platform.OS === 'web' ? { role: 'main' as const } : {})}
+      >
+        <View style={styles.card}>
+          <Text
+            accessibilityRole="header"
+            {...(Platform.OS === 'web' ? { 'aria-level': 1 } : {})}
+            style={styles.title}
+          >
+            {business?.name ?? 'צוות'}
+          </Text>
+          <Text style={styles.body}>
+            {process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS === 'true'
+              ? 'סרקו את קוד הלקוח כדי להוסיף חותמת או לממש הטבה.'
+              : 'אפשר להמשיך לסרוק באפליקציה.'}
+          </Text>
+          {process.env.EXPO_PUBLIC_WEB_SCANNER_COMMANDS === 'true' ? (
+            <PwaButton
+              fullWidth={true}
+              label="סריקה"
+              onPress={() => router.push('/staff/scanner-preview')}
+            />
+          ) : null}
           <PwaButton
             fullWidth={true}
-            label="סריקה"
-            onPress={() => router.push('/staff/scanner-preview')}
+            label="תיבת הודעות"
+            onPress={() => router.push('/inbox')}
+            variant="secondary"
           />
-        ) : null}
-        <PwaButton
-          fullWidth={true}
-          label="תיבת הודעות"
-          onPress={() => router.push('/inbox')}
-          variant="secondary"
-        />
-        {error ? (
-          <Text accessibilityRole="alert" style={styles.error}>
-            {error}
-          </Text>
-        ) : null}
-        <PwaButton
-          disabled={isSigningOut}
-          fullWidth={true}
-          label={isSigningOut ? 'יוצאים מהחשבון' : 'יציאה מהחשבון'}
-          onPress={handleLogout}
-          variant="quiet"
-        />
+          {error ? (
+            <Text accessibilityRole="alert" style={styles.error}>
+              {error}
+            </Text>
+          ) : null}
+          <PwaButton
+            disabled={isSigningOut}
+            fullWidth={true}
+            label={isSigningOut ? 'יוצאים מהחשבון' : 'יציאה מהחשבון'}
+            onPress={handleLogout}
+            variant="quiet"
+          />
+        </View>
       </View>
-    </View>
     </StaffWebFrame>
   );
 }

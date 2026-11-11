@@ -1,5 +1,5 @@
-import { Alert, Share } from 'react-native';
 import * as Sharing from 'expo-sharing';
+import { Alert, Share } from 'react-native';
 
 import { REFERRAL_COPY } from '@/lib/referrals/copy';
 

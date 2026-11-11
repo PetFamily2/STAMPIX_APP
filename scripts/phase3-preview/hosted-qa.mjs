@@ -586,7 +586,8 @@ try {
         response.headers()['retry-after'] ?? null
       );
       if (delay !== null) {
-        (report.documentReadRetries ??= []).push({ status, delayMs: delay });
+        report.documentReadRetries ??= [];
+        report.documentReadRetries.push({ status, delayMs: delay });
         await page.waitForTimeout(delay);
         response = await page.goto(`${url}${path}`, {
           waitUntil: 'domcontentloaded',

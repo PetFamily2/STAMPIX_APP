@@ -1,15 +1,6 @@
-import {
-  X } from 'lucide-react-native';
-import { type ReactNode,
-  useEffect,
-  useId,
-  useRef } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { X } from 'lucide-react-native';
+import { type ReactNode, useEffect, useId, useRef } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText as Text } from '@/components/ui/AppText';
 

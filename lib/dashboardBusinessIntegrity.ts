@@ -55,8 +55,7 @@ export function getDashboardDayAtRiskCustomersForActiveBusiness(input: {
   }
 
   const atRiskCustomers = input.dashboardDay?.kpis?.atRiskCustomers;
-  return typeof atRiskCustomers === 'number' &&
-    Number.isFinite(atRiskCustomers)
+  return typeof atRiskCustomers === 'number' && Number.isFinite(atRiskCustomers)
     ? atRiskCustomers
     : null;
 }

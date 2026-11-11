@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
-
+import {
+  SMART_MANAGER_POLICY_SCHEMA_VERSION,
+  SMART_MANAGER_POLICY_V1,
+  SMART_MANAGER_POLICY_V1_HASH,
+  SMART_MANAGER_POLICY_V1_VERSION,
+} from '../lib/smartManagerPolicy';
 import {
   getSmartManagerBatch1MigrationStatusInternal,
   processSmartManagerBatch1MigrationPageInternal,
@@ -9,12 +14,6 @@ import {
   SMART_MANAGER_MIGRATION_MAX_BUSINESSES_PER_PAGE,
   startSmartManagerBatch1MigrationInternal,
 } from '../smartManagerMigration';
-import {
-  SMART_MANAGER_POLICY_SCHEMA_VERSION,
-  SMART_MANAGER_POLICY_V1,
-  SMART_MANAGER_POLICY_V1_HASH,
-  SMART_MANAGER_POLICY_V1_VERSION,
-} from '../lib/smartManagerPolicy';
 
 const NOW = 1_900_000_000_000;
 
@@ -250,67 +249,61 @@ describe('Smart Manager Batch 1 migration orchestration', () => {
     expect(migrationContinuations(ctx)).toHaveLength(1);
   });
 
-  test(
-    'loads an indexed bounded business page and rejects a replayed continuation',
-    async () => {
-      const state = migrationState({ pageSize: 25 });
-      const businesses = Array.from({ length: 40 }, (_, index) => ({
-        _id: `business_${index}`,
-        isActive: true,
-      }));
-      const ctx = buildCtx({
-        businesses,
-        smartManagerMigrations: [state],
-      });
-      const args = runnerArgs(state);
-      const first = await fixedNow(() =>
-        processSmartManagerBatch1MigrationPageInternal._handler(ctx, args)
-      );
-      const replay = await fixedNow(() =>
-        processSmartManagerBatch1MigrationPageInternal._handler(ctx, args)
-      );
+  test('loads an indexed bounded business page and rejects a replayed continuation', async () => {
+    const state = migrationState({ pageSize: 25 });
+    const businesses = Array.from({ length: 40 }, (_, index) => ({
+      _id: `business_${index}`,
+      isActive: true,
+    }));
+    const ctx = buildCtx({
+      businesses,
+      smartManagerMigrations: [state],
+    });
+    const args = runnerArgs(state);
+    const first = await fixedNow(() =>
+      processSmartManagerBatch1MigrationPageInternal._handler(ctx, args)
+    );
+    const replay = await fixedNow(() =>
+      processSmartManagerBatch1MigrationPageInternal._handler(ctx, args)
+    );
 
-      expect(first).toMatchObject({ status: 'continued', loaded: 25 });
-      expect(replay).toEqual({ status: 'stale_runner' });
-      expect(ctx.paginations).toEqual([
-        { tableName: 'businesses', cursor: null, numItems: 25 },
-      ]);
-      expect(
-        ctx.tables.smartManagerMigrations[0].pendingBusinessIds
-      ).toHaveLength(25);
-      expect(migrationContinuations(ctx)).toHaveLength(1);
-    }
-  );
+    expect(first).toMatchObject({ status: 'continued', loaded: 25 });
+    expect(replay).toEqual({ status: 'stale_runner' });
+    expect(ctx.paginations).toEqual([
+      { tableName: 'businesses', cursor: null, numItems: 25 },
+    ]);
+    expect(
+      ctx.tables.smartManagerMigrations[0].pendingBusinessIds
+    ).toHaveLength(25);
+    expect(migrationContinuations(ctx)).toHaveLength(1);
+  });
 
-  test(
-    'advances the cursor only after committed business work and schedules one continuation',
-    async () => {
-      const state = migrationState({
-        phase: 'initialize_business',
-        pendingBusinessIds: ['business_1'],
-        pendingPageCursor: '25',
-        pendingPageIsDone: false,
-      });
-      const ctx = buildCtx({
-        businesses: [{ _id: 'business_1', isActive: true }],
-        smartManagerMigrations: [state],
-        smartManagerEvaluationStates: [evaluationState()],
-      });
-      await fixedNow(() =>
-        processSmartManagerBatch1MigrationPageInternal._handler(
-          ctx,
-          runnerArgs(state)
-        )
-      );
+  test('advances the cursor only after committed business work and schedules one continuation', async () => {
+    const state = migrationState({
+      phase: 'initialize_business',
+      pendingBusinessIds: ['business_1'],
+      pendingPageCursor: '25',
+      pendingPageIsDone: false,
+    });
+    const ctx = buildCtx({
+      businesses: [{ _id: 'business_1', isActive: true }],
+      smartManagerMigrations: [state],
+      smartManagerEvaluationStates: [evaluationState()],
+    });
+    await fixedNow(() =>
+      processSmartManagerBatch1MigrationPageInternal._handler(
+        ctx,
+        runnerArgs(state)
+      )
+    );
 
-      expect(ctx.tables.smartManagerMigrations[0]).toMatchObject({
-        phase: 'load_business_page',
-        businessCursor: '25',
-        processedCount: 1,
-      });
-      expect(migrationContinuations(ctx)).toHaveLength(1);
-    }
-  );
+    expect(ctx.tables.smartManagerMigrations[0]).toMatchObject({
+      phase: 'load_business_page',
+      businessCursor: '25',
+      processedCount: 1,
+    });
+    expect(migrationContinuations(ctx)).toHaveLength(1);
+  });
 
   test('recovers a stale lease with a new claim and rejects the old worker', async () => {
     const state = migrationState({ leaseExpiresAt: NOW - 1 });
@@ -330,99 +323,94 @@ describe('Smart Manager Batch 1 migration orchestration', () => {
     expect(stale).toEqual({ status: 'stale_runner' });
   });
 
-  test(
-    'resumes a failed checkpoint without resetting counters or accepting the failed worker',
-    async () => {
-      const state = migrationState({
-        processedCount: 7,
-        initializedCount: 3,
-        reconciledCount: 9,
-      });
-      const supersededRunnerArgs = runnerArgs(state);
-      const ctx = buildCtx({ smartManagerMigrations: [state] });
-      await fixedNow(() =>
-        recordSmartManagerBatch1MigrationFailureInternal._handler(ctx, {
-          ...supersededRunnerArgs,
-          failureCode: 'INJECTED',
-          failureDetail: 'interrupted after the previous committed page',
-        })
-      );
-      await fixedNow(() =>
-        startSmartManagerBatch1MigrationInternal._handler(ctx, {})
-      );
-      const resumed = ctx.tables.smartManagerMigrations[0];
-      expect(resumed).toMatchObject({
-        status: 'running',
-        processedCount: 7,
-        initializedCount: 3,
-        reconciledCount: 9,
-        failureCount: 1,
-        checkpointVersion: 5,
-      });
-      expect(migrationContinuations(ctx)).toHaveLength(1);
-      const writesBeforeStaleFailure = ctx.tables.smartManagerMigrations[0].updatedAt;
-      const staleFailure = await fixedNow(() =>
-        recordSmartManagerBatch1MigrationFailureInternal._handler(ctx, {
-          ...supersededRunnerArgs,
-          failureCode: 'LATE_FAILURE',
-          failureDetail: 'stale worker response',
-        })
-      );
-      expect(staleFailure).toEqual({ status: 'stale_runner' });
-      expect(resumed.failureCount).toBe(1);
-      expect(resumed.checkpointVersion).toBe(5);
-      expect(resumed.updatedAt).toBe(writesBeforeStaleFailure);
-    }
-  );
+  test('resumes a failed checkpoint without resetting counters or accepting the failed worker', async () => {
+    const state = migrationState({
+      processedCount: 7,
+      initializedCount: 3,
+      reconciledCount: 9,
+    });
+    const supersededRunnerArgs = runnerArgs(state);
+    const ctx = buildCtx({ smartManagerMigrations: [state] });
+    await fixedNow(() =>
+      recordSmartManagerBatch1MigrationFailureInternal._handler(ctx, {
+        ...supersededRunnerArgs,
+        failureCode: 'INJECTED',
+        failureDetail: 'interrupted after the previous committed page',
+      })
+    );
+    await fixedNow(() =>
+      startSmartManagerBatch1MigrationInternal._handler(ctx, {})
+    );
+    const resumed = ctx.tables.smartManagerMigrations[0];
+    expect(resumed).toMatchObject({
+      status: 'running',
+      processedCount: 7,
+      initializedCount: 3,
+      reconciledCount: 9,
+      failureCount: 1,
+      checkpointVersion: 5,
+    });
+    expect(migrationContinuations(ctx)).toHaveLength(1);
+    const writesBeforeStaleFailure =
+      ctx.tables.smartManagerMigrations[0].updatedAt;
+    const staleFailure = await fixedNow(() =>
+      recordSmartManagerBatch1MigrationFailureInternal._handler(ctx, {
+        ...supersededRunnerArgs,
+        failureCode: 'LATE_FAILURE',
+        failureDetail: 'stale worker response',
+      })
+    );
+    expect(staleFailure).toEqual({ status: 'stale_runner' });
+    expect(resumed.failureCount).toBe(1);
+    expect(resumed.checkpointVersion).toBe(5);
+    expect(resumed.updatedAt).toBe(writesBeforeStaleFailure);
+  });
 
-  test(
-    'initializes and audits a new business exactly once without loading fact sources',
-    async () => {
-      const state = migrationState({
-        phase: 'initialize_business',
-        pendingBusinessIds: ['business_1'],
-        pendingPageCursor: '1',
-        pendingPageIsDone: true,
-      });
-      const ctx = buildCtx({
-        businesses: [{ _id: 'business_1', isActive: true }],
-        smartManagerMigrations: [state],
-      });
-      const args = runnerArgs(state);
-      const result = await fixedNow(() =>
-        processSmartManagerBatch1MigrationPageInternal._handler(ctx, args)
-      );
-      const replay = await fixedNow(() =>
-        processSmartManagerBatch1MigrationPageInternal._handler(ctx, args)
-      );
+  test('initializes and audits a new business exactly once without loading fact sources', async () => {
+    const state = migrationState({
+      phase: 'initialize_business',
+      pendingBusinessIds: ['business_1'],
+      pendingPageCursor: '1',
+      pendingPageIsDone: true,
+    });
+    const ctx = buildCtx({
+      businesses: [{ _id: 'business_1', isActive: true }],
+      smartManagerMigrations: [state],
+    });
+    const args = runnerArgs(state);
+    const result = await fixedNow(() =>
+      processSmartManagerBatch1MigrationPageInternal._handler(ctx, args)
+    );
+    const replay = await fixedNow(() =>
+      processSmartManagerBatch1MigrationPageInternal._handler(ctx, args)
+    );
 
-      expect(result).toEqual({ status: 'completed' });
-      expect(replay).toEqual({ status: 'stale_runner' });
-      expect(ctx.tables.smartManagerEvaluationStates).toHaveLength(1);
-      expect(ctx.tables.smartManagerAuditEvents).toHaveLength(1);
-      expect(ctx.tables.smartManagerAuditEvents[0]).toMatchObject({
-        businessId: 'business_1',
-        eventType: 'migration_initialized',
-        detail: {
-          migrationKey: SMART_MANAGER_BATCH_1_MIGRATION_KEY,
-          migrationVersion: 1,
-        },
-      });
-      expect(ctx.tables.smartManagerMigrations[0]).toMatchObject({
-        status: 'completed',
-        processedCount: 1,
-        initializedCount: 1,
-      });
-      expect(ctx.queried).not.toEqual(
-        expect.arrayContaining([
-          'loyaltyPrograms',
-          'memberships',
-          'events',
-          'campaigns',
-        ])
-      );
-    }
-  );
+    expect(result).toEqual({ status: 'completed' });
+    expect(replay).toEqual({ status: 'stale_runner' });
+    expect(ctx.tables.smartManagerEvaluationStates).toHaveLength(1);
+    expect(ctx.tables.smartManagerAuditEvents).toHaveLength(1);
+    expect(ctx.tables.smartManagerAuditEvents[0]).toMatchObject({
+      businessId: 'business_1',
+      eventType: 'migration_initialized',
+      detail: {
+        migrationKey: SMART_MANAGER_BATCH_1_MIGRATION_KEY,
+        migrationVersion: 1,
+      },
+    });
+    expect(ctx.tables.smartManagerMigrations[0]).toMatchObject({
+      status: 'completed',
+      processedCount: 1,
+      initializedCount: 1,
+    });
+    expect(ctx.queried).not.toEqual(
+      expect.arrayContaining([
+        'loyaltyPrograms',
+        'memberships',
+        'events',
+        'campaigns',
+      ])
+    );
+  });
 
   test('dirties an already initialized business without a migration audit', async () => {
     const state = migrationState({
@@ -499,10 +487,7 @@ describe('Smart Manager Batch 1 migration orchestration', () => {
     expect(ctx.tables.smartManagerEvaluationStates).toHaveLength(6);
     expect(ctx.tables.smartManagerMigrations[0].phase).toBe('evaluation_state');
     await fixedNow(() =>
-      processSmartManagerBatch1MigrationPageInternal._handler(
-        ctx,
-        continuation
-      )
+      processSmartManagerBatch1MigrationPageInternal._handler(ctx, continuation)
     );
     expect(ctx.tables.smartManagerEvaluationStates).toEqual([
       expect.objectContaining({ generation: 30 }),
@@ -516,42 +501,39 @@ describe('Smart Manager Batch 1 migration orchestration', () => {
   test.each([
     ['fact_snapshot', 'smartManagerFactSnapshots'],
     ['shadow_comparison', 'smartManagerShadowComparisons'],
-  ])(
-    'converges duplicate %s rows on freshest semantic state',
-    async (phase, table) => {
-      const state = migrationState({
-        phase,
-        pendingBusinessIds: ['business_1'],
-      });
-      const ctx = buildCtx({
-        businesses: [{ _id: 'business_1', isActive: true }],
-        smartManagerMigrations: [state],
-        [table]: [
-          {
-            _id: 'old',
-            businessId: 'business_1',
-            sourceGeneration: 2,
-            updatedAt: NOW - 100,
-          },
-          {
-            _id: 'new',
-            businessId: 'business_1',
-            sourceGeneration: 5,
-            updatedAt: NOW - 10,
-          },
-        ],
-      });
-      await fixedNow(() =>
-        processSmartManagerBatch1MigrationPageInternal._handler(
-          ctx,
-          runnerArgs(state)
-        )
-      );
-      expect(ctx.tables[table]).toEqual([
-        expect.objectContaining({ _id: 'new', sourceGeneration: 5 }),
-      ]);
-    }
-  );
+  ])('converges duplicate %s rows on freshest semantic state', async (phase, table) => {
+    const state = migrationState({
+      phase,
+      pendingBusinessIds: ['business_1'],
+    });
+    const ctx = buildCtx({
+      businesses: [{ _id: 'business_1', isActive: true }],
+      smartManagerMigrations: [state],
+      [table]: [
+        {
+          _id: 'old',
+          businessId: 'business_1',
+          sourceGeneration: 2,
+          updatedAt: NOW - 100,
+        },
+        {
+          _id: 'new',
+          businessId: 'business_1',
+          sourceGeneration: 5,
+          updatedAt: NOW - 10,
+        },
+      ],
+    });
+    await fixedNow(() =>
+      processSmartManagerBatch1MigrationPageInternal._handler(
+        ctx,
+        runnerArgs(state)
+      )
+    );
+    expect(ctx.tables[table]).toEqual([
+      expect.objectContaining({ _id: 'new', sourceGeneration: 5 }),
+    ]);
+  });
 
   test('converges duplicate decisions per business and stableId', async () => {
     const state = migrationState({
@@ -657,23 +639,18 @@ describe('Smart Manager Batch 1 migration orchestration', () => {
     expect(ctx.tables.smartManagerMigrations).toHaveLength(0);
   });
 
-  test(
-    'runner source has no unbounded fleet collect and does not cut over live recommendations',
-    () => {
-      const migrationSource = readFileSync(
-        new URL('../smartManagerMigration.ts', import.meta.url),
-        'utf8'
-      );
-      const recommendationSource = readFileSync(
-        new URL('../recommendations.ts', import.meta.url),
-        'utf8'
-      );
-      expect(migrationSource).not.toContain("query('businesses').collect(");
-      expect(migrationSource).not.toContain('loadBusinessRecommendationFacts');
-      expect(migrationSource).not.toContain("from './recommendations'");
-      expect(recommendationSource).toContain(
-        'loadBusinessRecommendationFacts'
-      );
-    }
-  );
+  test('runner source has no unbounded fleet collect and does not cut over live recommendations', () => {
+    const migrationSource = readFileSync(
+      new URL('../smartManagerMigration.ts', import.meta.url),
+      'utf8'
+    );
+    const recommendationSource = readFileSync(
+      new URL('../recommendations.ts', import.meta.url),
+      'utf8'
+    );
+    expect(migrationSource).not.toContain("query('businesses').collect(");
+    expect(migrationSource).not.toContain('loadBusinessRecommendationFacts');
+    expect(migrationSource).not.toContain("from './recommendations'");
+    expect(recommendationSource).toContain('loadBusinessRecommendationFacts');
+  });
 });

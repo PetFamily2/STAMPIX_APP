@@ -12,8 +12,8 @@ import {
   requireActorIsStaffForBusiness,
 } from './guards';
 import {
-  loadBusinessRecommendationFacts,
   type CampaignLifecycleFactValue,
+  loadBusinessRecommendationFacts,
 } from './recommendations';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -484,12 +484,7 @@ export const getBusinessDashboardSummary = query({
           }),
         null
       ),
-      loadBusinessRecommendationFacts(
-        ctx,
-        businessId,
-        authorization,
-        now
-      ),
+      loadBusinessRecommendationFacts(ctx, businessId, authorization, now),
       ctx.db
         .query('events')
         .withIndex('by_businessId_createdAt', (q: any) =>

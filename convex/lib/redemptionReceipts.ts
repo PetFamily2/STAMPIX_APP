@@ -40,22 +40,22 @@ export function shouldContinueRedemptionReceiptCleanup(args: {
 }
 
 function cleanSnapshotText(value: unknown, fallback: string, limit: number) {
-  const normalized = typeof value === 'string'
-    ? value.replace(/\s+/g, ' ').trim()
-    : '';
+  const normalized =
+    typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
   return (normalized || fallback).slice(0, limit);
 }
 
 function cleanOptionalSnapshotText(value: unknown, limit: number) {
-  const normalized = typeof value === 'string'
-    ? value.replace(/\s+/g, ' ').trim()
-    : '';
+  const normalized =
+    typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
   return normalized ? normalized.slice(0, limit) : undefined;
 }
 
 function cleanPublicLogoUrl(value: unknown) {
   const normalized = typeof value === 'string' ? value.trim() : '';
-  return /^https:\/\//i.test(normalized) ? normalized.slice(0, 2048) : undefined;
+  return /^https:\/\//i.test(normalized)
+    ? normalized.slice(0, 2048)
+    : undefined;
 }
 
 async function generateUniqueReceiptToken(ctx: any) {
@@ -127,10 +127,7 @@ export async function createRedemptionCelebrationReceipt(
     status: 'available',
     businessName: cleanSnapshotText(args.businessName, 'בית העסק', 80),
     businessLogoUrl: cleanPublicLogoUrl(args.businessLogoUrl),
-    programDisplayName: cleanOptionalSnapshotText(
-      args.programDisplayName,
-      100
-    ),
+    programDisplayName: cleanOptionalSnapshotText(args.programDisplayName, 100),
     rewardDisplayName: cleanSnapshotText(
       args.rewardDisplayName,
       'הטבה מיוחדת',

@@ -1,33 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-
-import {
-  getCurrentPreparedWinbackReview,
-  getPreparedWinbackReview,
-  cleanupPreparedActionRetentionInternal,
-  finalizePreparedWinbackGenerationInternal,
-  hashSmartManagerWinbackPrompt,
-  prepareWinbackAction,
-  regeneratePreparedWinbackCopy,
-} from '../smartManagerActions';
-import { reconcileCurrentPreparedWinbackAfterEvaluation } from '../smartManager';
+import { OPENROUTER_JSON_MODEL } from '../lib/aiJsonGeneration';
+import { monthKeyFromTimestamp } from '../lib/recommendationUtils';
 import {
   buildAuthorityComparisonHash,
   buildAuthorityDecisionHash,
   buildAuthorityFactHash,
 } from '../lib/smartManagerAuthority';
-import {
-  selectSmartManagerAccessCurrentnessBlockers,
-  SMART_MANAGER_FALLBACK_GENERATION_VERSION,
-  SMART_MANAGER_MAX_COPY_REVISION_SLOTS,
-  SMART_MANAGER_WINBACK_FALLBACK_COPY,
-  buildSmartManagerAiCacheKey,
-  buildSmartManagerStructuredInputHash,
-  buildSmartManagerWinbackPrompt,
-  buildSmartManagerWinbackStructuredInput,
-} from '../lib/smartManagerPreparedActions';
-import { OPENROUTER_JSON_MODEL } from '../lib/aiJsonGeneration';
-import { monthKeyFromTimestamp } from '../lib/recommendationUtils';
-import { buildCanonicalBusinessBillingAccount } from './helpers/businessBillingFixtures';
 import {
   hashSmartManagerValue,
   SMART_MANAGER_POLICY_SCHEMA_VERSION,
@@ -35,6 +13,27 @@ import {
   SMART_MANAGER_POLICY_V1_HASH,
   SMART_MANAGER_POLICY_V1_VERSION,
 } from '../lib/smartManagerPolicy';
+import {
+  buildSmartManagerAiCacheKey,
+  buildSmartManagerStructuredInputHash,
+  buildSmartManagerWinbackPrompt,
+  buildSmartManagerWinbackStructuredInput,
+  SMART_MANAGER_FALLBACK_GENERATION_VERSION,
+  SMART_MANAGER_MAX_COPY_REVISION_SLOTS,
+  SMART_MANAGER_WINBACK_FALLBACK_COPY,
+  selectSmartManagerAccessCurrentnessBlockers,
+} from '../lib/smartManagerPreparedActions';
+import { reconcileCurrentPreparedWinbackAfterEvaluation } from '../smartManager';
+import {
+  cleanupPreparedActionRetentionInternal,
+  finalizePreparedWinbackGenerationInternal,
+  getCurrentPreparedWinbackReview,
+  getPreparedWinbackReview,
+  hashSmartManagerWinbackPrompt,
+  prepareWinbackAction,
+  regeneratePreparedWinbackCopy,
+} from '../smartManagerActions';
+import { buildCanonicalBusinessBillingAccount } from './helpers/businessBillingFixtures';
 
 const OBSERVED_AT = Date.now();
 
@@ -192,9 +191,7 @@ function buildFixture({
     differences: [],
   });
   const tables = {
-    users: [
-      { _id: currentUserId, isActive: true },
-    ],
+    users: [{ _id: currentUserId, isActive: true }],
     businesses: [
       {
         _id: 'business_1',
@@ -799,13 +796,10 @@ describe('Smart Manager prepared win-back actions', () => {
     const inactive = buildCtx(
       buildFixture({ subscriptionPlan: 'pro', audienceCount: 12 })
     );
-    const inactivePrepared = await prepareWinbackAction._handler(
-      inactive.ctx,
-      {
-        businessId: 'business_1',
-        expectedEvidenceFingerprint: 'decision_evidence_v1',
-      }
-    );
+    const inactivePrepared = await prepareWinbackAction._handler(inactive.ctx, {
+      businessId: 'business_1',
+      expectedEvidenceFingerprint: 'decision_evidence_v1',
+    });
     markFixtureSubscriptionInactive(inactive.state);
     await expect(
       regeneratePreparedWinbackCopy._handler(inactive.ctx, {
@@ -1040,9 +1034,9 @@ describe('Smart Manager prepared win-back actions', () => {
     });
     expect(state.aiUsageLedger.size).toBe(0);
     expect(state.smartManagerPreparedActionCopies.size).toBe(3);
-    expect(
-      typeof state.aiGenerationCache.get('cache_1').lastUsedAt
-    ).toBe('number');
+    expect(typeof state.aiGenerationCache.get('cache_1').lastUsedAt).toBe(
+      'number'
+    );
   });
 
   test('late selected-copy drift is stale-discarded without inserting the reserved revision', async () => {
@@ -1114,9 +1108,8 @@ describe('Smart Manager prepared win-back actions', () => {
         prepared.preparedActionId
       );
       if (drift === 'authority_generation') {
-        const evaluation = state.smartManagerEvaluationStates.get(
-          'evaluation_1'
-        );
+        const evaluation =
+          state.smartManagerEvaluationStates.get('evaluation_1');
         state.smartManagerEvaluationStates.set('evaluation_1', {
           ...evaluation,
           generation: 8,
@@ -1133,8 +1126,9 @@ describe('Smart Manager prepared win-back actions', () => {
         });
       }
 
-      const result =
-        await finalizePreparedWinbackGenerationInternal._handler(ctx, {
+      const result = await finalizePreparedWinbackGenerationInternal._handler(
+        ctx,
+        {
           preparedActionId: reserved._id,
           requestToken: reserved.generationRequestToken,
           requestBindingHash: reserved.generationRequestBindingHash,
@@ -1144,7 +1138,8 @@ describe('Smart Manager prepared win-back actions', () => {
           title: 'שמחים לראות אתכם',
           body: 'התגעגענו אליכם ונשמח לקבל את פניכם בביקור הבא',
           providerAttempted: true,
-        });
+        }
+      );
 
       expect(result).toEqual({ status: 'stale_discarded' });
       expect(
@@ -1363,7 +1358,9 @@ describe('Smart Manager prepared win-back actions', () => {
       expectedEvidenceFingerprint: 'decision_evidence_v1',
     };
     const created = await prepareWinbackAction._handler(ctx, args);
-    const first = state.smartManagerPreparedActions.get(created.preparedActionId);
+    const first = state.smartManagerPreparedActions.get(
+      created.preparedActionId
+    );
     expect(created.reused).toBe(false);
     expect(first.generationState).toBe('queued');
     expect(first.generationReservedCopyRevision).toBe(2);
@@ -1662,9 +1659,8 @@ describe('Smart Manager prepared win-back actions', () => {
     ).toEqual({ status: 'current' });
     expect(owner.state.smartManagerAuditEvents.size).toBe(auditCount);
 
-    const evaluationState = owner.state.smartManagerEvaluationStates.get(
-      'evaluation_1'
-    );
+    const evaluationState =
+      owner.state.smartManagerEvaluationStates.get('evaluation_1');
     owner.state.smartManagerEvaluationStates.set('evaluation_1', {
       ...evaluationState,
       generation: 8,
@@ -1683,9 +1679,8 @@ describe('Smart Manager prepared win-back actions', () => {
       ...decision,
       sourceGeneration: 8,
     });
-    const comparison = owner.state.smartManagerShadowComparisons.get(
-      'comparison_1'
-    );
+    const comparison =
+      owner.state.smartManagerShadowComparisons.get('comparison_1');
     owner.state.smartManagerShadowComparisons.set('comparison_1', {
       ...comparison,
       sourceGeneration: 8,
@@ -1700,7 +1695,9 @@ describe('Smart Manager prepared win-back actions', () => {
       reason: 'ACTION_AUTHORITY_BINDING_CHANGED',
       generationRequestDiscarded: true,
     });
-    expect(owner.state.smartManagerPreparedActions.get(action._id)).toMatchObject({
+    expect(
+      owner.state.smartManagerPreparedActions.get(action._id)
+    ).toMatchObject({
       state: 'stale',
       generationState: 'stale_discarded',
       generationFailureCode: 'ACTION_STALE',
@@ -1757,19 +1754,23 @@ describe('Smart Manager prepared win-back actions', () => {
         expectedEvidenceFingerprint: 'decision_evidence_v1',
       }
     );
-    const audienceAction = audienceChanged.state.smartManagerPreparedActions.get(
-      audiencePrepared.preparedActionId
-    );
+    const audienceAction =
+      audienceChanged.state.smartManagerPreparedActions.get(
+        audiencePrepared.preparedActionId
+      );
     audienceChanged.state.smartManagerPreparedActions.set(audienceAction._id, {
       ...audienceAction,
       audienceCount: audienceAction.audienceCount + 1,
       lifecycleSourceFingerprint: 'lifecycle_source_old',
     });
     expect(
-      await reconcileCurrentPreparedWinbackAfterEvaluation(audienceChanged.ctx, {
-        businessId: 'business_1',
-        now: OBSERVED_AT + 1,
-      })
+      await reconcileCurrentPreparedWinbackAfterEvaluation(
+        audienceChanged.ctx,
+        {
+          businessId: 'business_1',
+          now: OBSERVED_AT + 1,
+        }
+      )
     ).toMatchObject({
       status: 'staled',
       reason: 'ACTION_AUDIENCE_BINDING_CHANGED',
@@ -1820,12 +1821,14 @@ describe('Smart Manager prepared win-back actions', () => {
       }
     };
 
-    const copiesResult =
-      await cleanupPreparedActionRetentionInternal._handler(ctx, {
+    const copiesResult = await cleanupPreparedActionRetentionInternal._handler(
+      ctx,
+      {
         limit: 100,
         phase: 'copies',
         cursor: null,
-      });
+      }
+    );
 
     expect(copiesResult).toMatchObject({
       phase: 'copies',
@@ -1835,9 +1838,9 @@ describe('Smart Manager prepared win-back actions', () => {
       continuationScheduled: true,
     });
     expect(state.smartManagerPreparedActions.has('parent_retained')).toBe(true);
-    expect(state.smartManagerPreparedActionCopies.has('selected_retained')).toBe(
-      true
-    );
+    expect(
+      state.smartManagerPreparedActionCopies.has('selected_retained')
+    ).toBe(true);
     expect(state.smartManagerPreparedActionCopies.has('orphan_expired')).toBe(
       false
     );
@@ -1851,11 +1854,10 @@ describe('Smart Manager prepared win-back actions', () => {
       (job) => job.args.phase === 'actions'
     );
     expect(actionContinuation).toBeDefined();
-    const actionsResult =
-      await cleanupPreparedActionRetentionInternal._handler(
-        ctx,
-        actionContinuation.args
-      );
+    const actionsResult = await cleanupPreparedActionRetentionInternal._handler(
+      ctx,
+      actionContinuation.args
+    );
 
     expect(actionsResult).toMatchObject({
       phase: 'actions',
@@ -1867,9 +1869,9 @@ describe('Smart Manager prepared win-back actions', () => {
       false
     );
     expect(state.smartManagerPreparedActions.has('parent_retained')).toBe(true);
-    expect(state.smartManagerPreparedActionCopies.has('selected_retained')).toBe(
-      true
-    );
+    expect(
+      state.smartManagerPreparedActionCopies.has('selected_retained')
+    ).toBe(true);
     assertSelectedCopiesResolve();
   });
 
@@ -1998,7 +2000,9 @@ describe('Smart Manager prepared win-back actions', () => {
     });
 
     expect(result).toMatchObject({ actionsDeleted: 1, copiesDeleted: 1 });
-    expect(state.smartManagerPreparedActions.has('action_terminal')).toBe(false);
+    expect(state.smartManagerPreparedActions.has('action_terminal')).toBe(
+      false
+    );
     expect(state.smartManagerPreparedActionCopies.has('copy_terminal')).toBe(
       false
     );
@@ -2071,9 +2075,7 @@ describe('Smart Manager prepared win-back actions', () => {
     });
     expect(first).toMatchObject({ phase: 'copies', examined: 100 });
     expect(
-      reads.some(
-        (read) => read.kind === 'paginate' && read.limit === 100
-      )
+      reads.some((read) => read.kind === 'paginate' && read.limit === 100)
     ).toBe(true);
     expect(state.smartManagerPreparedActionCopies.size).toBe(2);
 
@@ -2082,8 +2084,12 @@ describe('Smart Manager prepared win-back actions', () => {
       phase: 'copies',
       cursor: null,
     });
-    expect(state.smartManagerPreparedActionCopies.has('copy_expired')).toBe(false);
-    expect(state.smartManagerPreparedActionCopies.has('copy_retained')).toBe(true);
+    expect(state.smartManagerPreparedActionCopies.has('copy_expired')).toBe(
+      false
+    );
+    expect(state.smartManagerPreparedActionCopies.has('copy_retained')).toBe(
+      true
+    );
 
     const actions = await cleanupPreparedActionRetentionInternal._handler(ctx, {
       limit: 100,

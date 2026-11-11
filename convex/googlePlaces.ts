@@ -72,7 +72,7 @@ const MAX_ADDRESS_FIELD_LENGTH = 120;
 const MAX_STREET_NUMBER_LENGTH = 16;
 const MAX_GEOCODING_RESULTS_TO_INSPECT = 10;
 const MAX_ACCEPTED_GEOCODING_CANDIDATES = 3;
-const RAW_CONTROL_CHARACTER_PATTERN = /[\u0000-\u001F\u007F-\u009F]/;
+const RAW_CONTROL_CHARACTER_PATTERN = /\p{Cc}/u;
 const hasLiveUserForPlacesRef = makeFunctionReference<
   'query',
   Record<string, never>,

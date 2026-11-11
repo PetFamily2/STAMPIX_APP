@@ -22,9 +22,7 @@ const evaluateDirtyBusinessRef = makeFunctionReference<
 
 function normalizeDirtyReasons(existing: string[], incoming: string[]) {
   return [
-    ...new Set(
-      [...existing, ...incoming].map((reason) => reason.slice(0, 80))
-    ),
+    ...new Set([...existing, ...incoming].map((reason) => reason.slice(0, 80))),
   ]
     .sort()
     .slice(-MAX_DIRTY_REASONS);
@@ -38,11 +36,13 @@ function normalizeDirtyDomains(
 }
 
 function selectDeterministicState(rows: any[]) {
-  return [...rows].sort(
-    (left, right) =>
-      Number(left._creationTime ?? 0) - Number(right._creationTime ?? 0) ||
-      String(left._id).localeCompare(String(right._id))
-  )[0] ?? null;
+  return (
+    [...rows].sort(
+      (left, right) =>
+        Number(left._creationTime ?? 0) - Number(right._creationTime ?? 0) ||
+        String(left._id).localeCompare(String(right._id))
+    )[0] ?? null
+  );
 }
 
 export async function scheduleSmartManagerEvaluation(
@@ -75,9 +75,7 @@ export async function markSmartManagerDirty(
   }
   const existingRows = await ctx.db
     .query('smartManagerEvaluationStates')
-    .withIndex('by_businessId', (q: any) =>
-      q.eq('businessId', args.businessId)
-    )
+    .withIndex('by_businessId', (q: any) => q.eq('businessId', args.businessId))
     .take(MAX_SINGLETON_RECONCILIATION_ROWS);
   const existing = selectDeterministicState(existingRows);
 

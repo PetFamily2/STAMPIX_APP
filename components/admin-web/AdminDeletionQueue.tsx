@@ -36,9 +36,12 @@ export function AdminDeletionQueue() {
         ) : (
           rows.map((row) => (
             <View key={String(row.requestId)} style={styles.row}>
-              <Text selectable={true} style={styles.email}>{row.email}</Text>
+              <Text selectable={true} style={styles.email}>
+                {row.email}
+              </Text>
               <Text selectable={true} style={styles.meta}>
-                {row.requestReference} · {row.status} · {formatDate(row.createdAt)}
+                {row.requestReference} · {row.status} ·{' '}
+                {formatDate(row.createdAt)}
               </Text>
             </View>
           ))
@@ -51,13 +54,58 @@ export function AdminDeletionQueue() {
 const styles = StyleSheet.create({
   page: { gap: 10, padding: 36 },
   eyebrow: { color: TOKENS.colors.primary, fontSize: 11, fontWeight: '800' },
-  title: { ...rtlBaseText, color: TOKENS.colors.textPrimary, fontSize: 32, fontWeight: '900' },
-  subtitle: { ...rtlBaseText, color: TOKENS.colors.textSecondary, fontSize: 15, lineHeight: 24 },
-  card: { backgroundColor: TOKENS.colors.elevatedSurface, borderColor: TOKENS.colors.border, borderRadius: TOKENS.radii.lg, borderWidth: 1, marginTop: TOKENS.space.lg, padding: TOKENS.space.xl },
-  header: { alignItems: 'center', flexDirection: flexDirection.row, gap: TOKENS.space.sm },
-  cardTitle: { ...rtlBaseText, color: TOKENS.colors.textPrimary, fontSize: 18, fontWeight: '800' },
-  row: { borderTopColor: TOKENS.colors.border, borderTopWidth: 1, paddingVertical: TOKENS.space.lg },
-  email: { ...ltrIslandText, color: TOKENS.colors.textPrimary, fontSize: 14, fontWeight: '800' },
-  meta: { ...rtlBaseText, color: TOKENS.colors.textMuted, fontSize: 12, marginTop: 5 },
-  empty: { ...rtlBaseText, color: TOKENS.colors.textMuted, paddingVertical: 24, textAlign: 'center' },
+  title: {
+    ...rtlBaseText,
+    color: TOKENS.colors.textPrimary,
+    fontSize: 32,
+    fontWeight: '900',
+  },
+  subtitle: {
+    ...rtlBaseText,
+    color: TOKENS.colors.textSecondary,
+    fontSize: 15,
+    lineHeight: 24,
+  },
+  card: {
+    backgroundColor: TOKENS.colors.elevatedSurface,
+    borderColor: TOKENS.colors.border,
+    borderRadius: TOKENS.radii.lg,
+    borderWidth: 1,
+    marginTop: TOKENS.space.lg,
+    padding: TOKENS.space.xl,
+  },
+  header: {
+    alignItems: 'center',
+    flexDirection: flexDirection.row,
+    gap: TOKENS.space.sm,
+  },
+  cardTitle: {
+    ...rtlBaseText,
+    color: TOKENS.colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  row: {
+    borderTopColor: TOKENS.colors.border,
+    borderTopWidth: 1,
+    paddingVertical: TOKENS.space.lg,
+  },
+  email: {
+    ...ltrIslandText,
+    color: TOKENS.colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  meta: {
+    ...rtlBaseText,
+    color: TOKENS.colors.textMuted,
+    fontSize: 12,
+    marginTop: 5,
+  },
+  empty: {
+    ...rtlBaseText,
+    color: TOKENS.colors.textMuted,
+    paddingVertical: 24,
+    textAlign: 'center',
+  },
 });

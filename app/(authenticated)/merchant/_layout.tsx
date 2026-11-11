@@ -1,8 +1,8 @@
 import { Redirect, Slot, useLocalSearchParams, useSegments } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
-import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { BUSINESS_ROLES, useRoleGuard } from '@/lib/hooks/useRoleGuard';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { rtlRouteContainerStyle } from '@/lib/rtl';
 
 export default function MerchantLayout() {

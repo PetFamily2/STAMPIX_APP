@@ -1,5 +1,5 @@
-import { calculateRateLimit, DAY, MINUTE } from '@convex-dev/rate-limiter';
 import { describe, expect, test } from 'bun:test';
+import { calculateRateLimit, DAY, MINUTE } from '@convex-dev/rate-limiter';
 import { ConvexError } from 'convex/values';
 
 import {

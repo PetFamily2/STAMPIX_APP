@@ -728,16 +728,22 @@ function SettingsCard({
 }) {
   return (
     <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={styles.cardIcon}>
-          <Icon color={TOKENS.colors.primary} size={21} />
-        </View>
-        <View style={styles.cardHeaderCopy}>
-          <Text style={styles.cardTitle}>{title}</Text>
+      <details>
+        <summary style={{ cursor: 'pointer', minHeight: 48 }}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardIcon}>
+              <Icon color={TOKENS.colors.primary} size={21} />
+            </View>
+            <View style={styles.cardHeaderCopy}>
+              <Text style={styles.cardTitle}>{title}</Text>
+            </View>
+          </View>
+        </summary>
+        <View style={styles.cardBody}>
           <Text style={styles.cardDescription}>{description}</Text>
+          {children}
         </View>
-      </View>
-      <View style={styles.cardBody}>{children}</View>
+      </details>
     </View>
   );
 }

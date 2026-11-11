@@ -37,9 +37,7 @@ describe('server-observed recommendation completion predicates', () => {
       { campaignQuotaUsage: 8, campaignQuotaLimit: 20 },
     ],
   ])('%s completes only from authoritative facts', (stableId, snapshot) => {
-    expect(
-      isRecommendationCompletionSatisfied(stableId, snapshot)
-    ).toBe(true);
+    expect(isRecommendationCompletionSatisfied(stableId, snapshot)).toBe(true);
   });
 
   test.each([
@@ -63,8 +61,6 @@ describe('server-observed recommendation completion predicates', () => {
       { campaignQuotaUsage: 8, campaignQuotaLimit: 10 },
     ],
   ])('%s does not complete from an unfinished state', (stableId, snapshot) => {
-    expect(
-      isRecommendationCompletionSatisfied(stableId, snapshot)
-    ).toBe(false);
+    expect(isRecommendationCompletionSatisfied(stableId, snapshot)).toBe(false);
   });
 });

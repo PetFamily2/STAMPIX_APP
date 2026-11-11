@@ -69,7 +69,10 @@ export function referralStatusLabel(status: string): string {
   }
 }
 
-export function qualificationProgressLabel(completed: number, required: number) {
+export function qualificationProgressLabel(
+  completed: number,
+  required: number
+) {
   return `השלים ${completed} מתוך ${required} חודשי זכאות`;
 }
 

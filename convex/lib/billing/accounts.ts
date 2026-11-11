@@ -2,8 +2,8 @@ import type { Id } from '../../_generated/dataModel';
 import { createProviderAppUserId, isUsableProviderAppUserId } from './identity';
 import {
   GENERAL_FREE_TRIAL_PLAN,
-  MVP_FEATURE_FLAGS,
   getGeneralFreeTrialEnd,
+  MVP_FEATURE_FLAGS,
 } from './productionContract';
 
 export async function getBillingAccountForBusiness(

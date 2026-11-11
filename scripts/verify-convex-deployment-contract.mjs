@@ -1,15 +1,15 @@
 #!/usr/bin/env bun
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
-  ConvexContractError,
   assertFunctionSpecArgsSafe,
   assertPreviewTargetIsolation,
   assertProductionTargetIsolation,
   assertSchemaCompatibility,
   buildFunctionSpecArgs,
+  ConvexContractError,
   classifyDeploymentKind,
   collectClientConsumedFunctions,
   collectLocalPublicFunctions,
@@ -51,7 +51,11 @@ function resolveConvexNode(projectRoot) {
       .sort();
     const latest = versions.at(-1);
     if (latest) {
-      const exe = join(toolsDir, latest, process.platform === 'win32' ? 'node.exe' : 'bin/node');
+      const exe = join(
+        toolsDir,
+        latest,
+        process.platform === 'win32' ? 'node.exe' : 'bin/node'
+      );
       if (existsSync(exe)) return exe;
     }
   }
@@ -66,11 +70,7 @@ function applyEnv(env) {
   }
 }
 
-function readRemoteSpec({
-  projectRoot,
-  specArgs,
-  nodeExe,
-}) {
+function readRemoteSpec({ projectRoot, specArgs, nodeExe }) {
   const injectedSpec = process.env.STAMPAIX_CONVEX_CONTRACT_SPEC_FILE;
   if (injectedSpec) {
     if (!existsSync(injectedSpec)) {
@@ -83,7 +83,13 @@ function readRemoteSpec({
     throw new ConvexContractError('Remote verification failure');
   }
 
-  const convexBin = join(projectRoot, 'node_modules', 'convex', 'bin', 'main.js');
+  const convexBin = join(
+    projectRoot,
+    'node_modules',
+    'convex',
+    'bin',
+    'main.js'
+  );
   if (!existsSync(convexBin)) {
     throw new ConvexContractError('Convex CLI is MISSING');
   }
@@ -132,7 +138,10 @@ try {
 
   const env = resolveConvexEnvFromProject(projectRoot);
 
-  const schemaSource = readFileSync(join(projectRoot, 'convex/schema.ts'), 'utf8');
+  const schemaSource = readFileSync(
+    join(projectRoot, 'convex/schema.ts'),
+    'utf8'
+  );
   assertSchemaCompatibility(schemaSource);
 
   const { appEnv, url } = resolveProfileConvexUrl(profile, env);

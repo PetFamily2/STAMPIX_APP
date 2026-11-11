@@ -73,8 +73,7 @@ export function normalizeSmartManagerOutcomeCounters(
     returnedAfterCampaignCount: Math.max(
       0,
       Number(
-        counters?.returnedAfterCampaignCount ??
-          empty.returnedAfterCampaignCount
+        counters?.returnedAfterCampaignCount ?? empty.returnedAfterCampaignCount
       )
     ),
     windowExpiredCount: Math.max(
@@ -151,10 +150,7 @@ export async function transitionSmartManagerOutcomeState(
   return true;
 }
 
-async function loadOutcomeWindowDaysForRun(
-  ctx: any,
-  run: Doc<'campaignRuns'>
-) {
+async function loadOutcomeWindowDaysForRun(ctx: any, run: Doc<'campaignRuns'>) {
   if (!run.policyVersion || !run.policyHash) {
     return null;
   }
@@ -266,8 +262,7 @@ export async function ensureSmartManagerOutcomeForContact(
     contactEvidenceKind: args.contactEvidenceKind,
     contactEvidenceAt: args.contactEvidenceAt,
     attributionTieBreaker: String(args.run._id),
-    outcomeWindowEndsAt:
-      args.contactEvidenceAt + outcomeWindowDays * DAY_MS,
+    outcomeWindowEndsAt: args.contactEvidenceAt + outcomeWindowDays * DAY_MS,
     attributionPolicyVersion: SMART_MANAGER_ATTRIBUTION_POLICY_VERSION,
     policyVersion: args.run.policyVersion as string,
     policyHash: args.run.policyHash as string,
@@ -275,7 +270,10 @@ export async function ensureSmartManagerOutcomeForContact(
     updatedAt: now,
   });
   const currentRun = await ctx.db.get(args.run._id);
-  if (!currentRun || currentRun.executionKind !== SMART_MANAGER_EXECUTION_KIND) {
+  if (
+    !currentRun ||
+    currentRun.executionKind !== SMART_MANAGER_EXECUTION_KIND
+  ) {
     throw new Error('SMART_MANAGER_OUTCOME_RUN_NOT_FOUND');
   }
   const counters = moveCounter(
@@ -299,13 +297,11 @@ export async function markSmartManagerOutcomeDirty(
   if (args.includeExpiredOutcomes !== true) {
     const awaitingOutcome = await ctx.db
       .query('smartManagerRecipientOutcomes')
-      .withIndex(
-        'by_businessId_userId_state_contactEvidenceAt',
-        (q: any) =>
-          q
-            .eq('businessId', args.businessId)
-            .eq('userId', args.userId)
-            .eq('state', 'awaiting_return')
+      .withIndex('by_businessId_userId_state_contactEvidenceAt', (q: any) =>
+        q
+          .eq('businessId', args.businessId)
+          .eq('userId', args.userId)
+          .eq('state', 'awaiting_return')
       )
       .first();
     if (!awaitingOutcome) {
@@ -392,9 +388,7 @@ export async function markSmartManagerOutcomeReversalDirty(
   });
 }
 
-export function isQualifyingSmartManagerReturnEvent(
-  event: Doc<'events'>
-) {
+export function isQualifyingSmartManagerReturnEvent(event: Doc<'events'>) {
   return (
     (event.type === 'STAMP_ADDED' ||
       event.type === 'REWARD_REDEEMED' ||

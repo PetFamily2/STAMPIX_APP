@@ -535,7 +535,11 @@ export const smartManagerRepresentativeFactSummaryValidator = v.object({
 export const smartManagerComparisonSummaryValidator = v.object({
   actorScope: v.optional(
     v.object({
-      role: v.union(v.literal('owner'), v.literal('manager'), v.literal('staff')),
+      role: v.union(
+        v.literal('owner'),
+        v.literal('manager'),
+        v.literal('staff')
+      ),
       capabilityScope: v.string(),
     })
   ),
@@ -543,9 +547,7 @@ export const smartManagerComparisonSummaryValidator = v.object({
   facts: smartManagerRepresentativeFactSummaryValidator,
 });
 
-export const smartManagerAuthorityModeValidator = v.literal(
-  'shadow_parity_v1'
-);
+export const smartManagerAuthorityModeValidator = v.literal('shadow_parity_v1');
 
 export const smartManagerPreparedActionStateValidator = v.union(
   v.literal('reviewable'),
@@ -733,9 +735,7 @@ export const smartManagerAuditEventDetailValidator = v.union(
     generationVersion: v.string(),
     promptVersion: v.string(),
     model: v.optional(v.string()),
-    provenance: v.optional(
-      smartManagerPreparedActionCopyProvenanceValidator
-    ),
+    provenance: v.optional(smartManagerPreparedActionCopyProvenanceValidator),
     failureCode: v.optional(smartManagerAiFailureCodeValidator),
     copyId: v.optional(v.id('smartManagerPreparedActionCopies')),
     selectedCopyRevision: v.optional(v.number()),

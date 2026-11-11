@@ -6,11 +6,7 @@ import {
 } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Dimensions,
-  type LayoutRectangle,
-  type View,
-} from 'react-native';
+import { Dimensions, type LayoutRectangle, type View } from 'react-native';
 
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -31,24 +27,24 @@ import {
   createGuidedActionRuntimeCoordinator,
   createGuidedFocusController,
   createGuidedMeasurementSequence,
-  getClearedGuideRouteParams,
   GUIDE_INSTRUCTIONS,
   GUIDE_TARGET_IDS,
-  isPermanentGuideQueryError,
+  type GuidedActionRuntimeCoordinator,
+  type GuidedFreshStatusQueryResult,
+  type GuidedTargetActivationInput,
+  type GuidedTargetServerStatus,
+  type GuideViewport,
+  getClearedGuideRouteParams,
   isGuideRectVisible,
+  isPermanentGuideQueryError,
   REJECTED_GUIDE_CLEANUP_MESSAGE,
+  type RecommendationGuideEntityKind,
   resolveGuidedActionStatus,
   resolveGuidedClientPresence,
   resolveProfileGuideField,
   shouldAutoClearBusinessMismatchGuide,
   shouldClearRejectedGuideRouteParams,
   shouldResetGuidedStatusRetryAfterSuccess,
-  type GuideViewport,
-  type GuidedActionRuntimeCoordinator,
-  type GuidedFreshStatusQueryResult,
-  type GuidedTargetActivationInput,
-  type GuidedTargetServerStatus,
-  type RecommendationGuideEntityKind,
   validateGuideBinding,
 } from '@/lib/recommendations/guidance';
 
@@ -97,9 +93,7 @@ export function useGuidedAction(input: {
   const router = useRouter();
   const params = useLocalSearchParams<GuideRouteParams>();
   const routeBusinessId = firstParam(params.businessId);
-  const recommendationBusinessId = firstParam(
-    params.recommendationBusinessId
-  );
+  const recommendationBusinessId = firstParam(params.recommendationBusinessId);
   const guideSessionId = firstParam(params.guideSessionId);
   const guideId = firstParam(params.guideId);
   const stableId = firstParam(params.stableId);
@@ -195,9 +189,7 @@ export function useGuidedAction(input: {
   const acknowledge = useMutation(
     api.recommendations.acknowledgeBusinessRecommendationGuideStatus
   );
-  const anchorsRef = useRef(
-    new Map<string, GuidedActionAnchorRegistration>()
-  );
+  const anchorsRef = useRef(new Map<string, GuidedActionAnchorRegistration>());
   const targetActivationAllowedRef = useRef(false);
   const targetActivationKeyRef = useRef('');
   const activeBusinessIdRef = useRef(input.activeBusinessId);
@@ -224,9 +216,7 @@ export function useGuidedAction(input: {
   const startedRef = useRef(createBoundedKeySet());
   const businessMismatchClearedKeyRef = useRef<string | null>(null);
   const rejectedFeedbackKeyRef = useRef<string | null>(null);
-  const [anchorRect, setAnchorRect] = useState<LayoutRectangle | null>(
-    null
-  );
+  const [anchorRect, setAnchorRect] = useState<LayoutRectangle | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [targetUnavailable, setTargetUnavailable] = useState(false);
@@ -294,8 +284,7 @@ export function useGuidedAction(input: {
         : reactiveStatusResult;
   const connectionUnavailable =
     !connectionState.isWebSocketConnected &&
-    (connectionState.hasEverConnected ||
-      connectionState.connectionRetries > 0);
+    (connectionState.hasEverConnected || connectionState.connectionRetries > 0);
   const serverStatus: GuidedTargetServerStatus = isInertVisit
     ? 'loading'
     : resolveGuidedActionStatus({
@@ -305,8 +294,7 @@ export function useGuidedAction(input: {
         queryResult: effectiveStatusResult,
       });
   const status =
-    effectiveStatusResult &&
-    !(effectiveStatusResult instanceof Error)
+    effectiveStatusResult && !(effectiveStatusResult instanceof Error)
       ? effectiveStatusResult
       : undefined;
   const businessMatches =
@@ -395,38 +383,41 @@ export function useGuidedAction(input: {
     getRuntimeCoordinator().cancelPreparation();
   }, [getRuntimeCoordinator]);
 
-  const runTargetPreparation = useCallback((force = false) => {
-    const prepare = prepareTargetRef.current;
-    const activationKey = targetActivationKeyRef.current;
-    if (!prepare || !targetActivationAllowedRef.current) {
-      return false;
-    }
-    const result = getRuntimeCoordinator().prepareTarget({
-      activation: {
-        bindingValid: true,
-        guideSessionId: guideSessionId ?? 'session',
-        serverStatus: 'active',
-        businessMatches: true,
-        isSwitchingBusiness: false,
-        isClosed: false,
-        routeAndEntityMatch: true,
-      },
-      identity: activationKey,
-      prepareTarget: prepare,
-      force,
-      onFailure: () => {
-        if (
-          targetActivationKeyRef.current !== activationKey ||
-          !targetActivationAllowedRef.current
-        ) {
-          return;
-        }
-        setTargetUnavailable(true);
-        setFeedback('לא הצלחנו להכין את יעד ההדרכה. נסו שוב.');
-      },
-    });
-    return result.ran;
-  }, [getRuntimeCoordinator, guideSessionId]);
+  const runTargetPreparation = useCallback(
+    (force = false) => {
+      const prepare = prepareTargetRef.current;
+      const activationKey = targetActivationKeyRef.current;
+      if (!prepare || !targetActivationAllowedRef.current) {
+        return false;
+      }
+      const result = getRuntimeCoordinator().prepareTarget({
+        activation: {
+          bindingValid: true,
+          guideSessionId: guideSessionId ?? 'session',
+          serverStatus: 'active',
+          businessMatches: true,
+          isSwitchingBusiness: false,
+          isClosed: false,
+          routeAndEntityMatch: true,
+        },
+        identity: activationKey,
+        prepareTarget: prepare,
+        force,
+        onFailure: () => {
+          if (
+            targetActivationKeyRef.current !== activationKey ||
+            !targetActivationAllowedRef.current
+          ) {
+            return;
+          }
+          setTargetUnavailable(true);
+          setFeedback('לא הצלחנו להכין את יעד ההדרכה. נסו שוב.');
+        },
+      });
+      return result.ran;
+    },
+    [getRuntimeCoordinator, guideSessionId]
+  );
 
   const deactivateGuidedTarget = useCallback(() => {
     targetActivationAllowedRef.current = false;
@@ -469,37 +460,50 @@ export function useGuidedAction(input: {
     syncStatusRetryState,
   ]);
 
-  const measureAnchor = useCallback(
-    (anchorId: string, _force = false) => {
-      if (!targetActivationAllowedRef.current) {
-        setAnchorRect((current) => (current === null ? current : null));
+  const measureAnchor = useCallback((anchorId: string, _force = false) => {
+    if (!targetActivationAllowedRef.current) {
+      setAnchorRect((current) => (current === null ? current : null));
+      return;
+    }
+    const registration = anchorsRef.current.get(anchorId);
+    if (!registration) {
+      setAnchorRect((current) => (current === null ? current : null));
+      return;
+    }
+    const activationKey = targetActivationKeyRef.current;
+    const measurementKey = `${activationKey}|${anchorId}`;
+    lastMeasurementKeyRef.current = measurementKey;
+    activeAnchorIdRef.current = anchorId;
+    setAnchorRect(null);
+    setTargetUnavailable(false);
+    const sequence = createGuidedMeasurementSequence({
+      canScroll: Boolean(registration.scrollIntoView),
+    });
+    const failOrRetry = (attempt: number, retry: () => void) => {
+      if (attempt >= measurementRetryRef.current.getMaxAttempts()) {
+        setAnchorRect(null);
+        setTargetUnavailable(true);
+        setFeedback('לא הצלחנו לאתר את היעד במסך. נסו שוב.');
         return;
       }
-      const registration = anchorsRef.current.get(anchorId);
-      if (!registration) {
-        setAnchorRect((current) => (current === null ? current : null));
-        return;
-      }
-      const activationKey = targetActivationKeyRef.current;
-      const measurementKey = `${activationKey}|${anchorId}`;
-      lastMeasurementKeyRef.current = measurementKey;
-      activeAnchorIdRef.current = anchorId;
-      setAnchorRect(null);
-      setTargetUnavailable(false);
-      const sequence = createGuidedMeasurementSequence({
-        canScroll: Boolean(registration.scrollIntoView),
-      });
-      const failOrRetry = (attempt: number, retry: () => void) => {
-        if (attempt >= measurementRetryRef.current.getMaxAttempts()) {
-          setAnchorRect(null);
-          setTargetUnavailable(true);
-          setFeedback('לא הצלחנו לאתר את היעד במסך. נסו שוב.');
-          return;
-        }
-        retry();
-      };
+      retry();
+    };
 
-      measurementRetryRef.current.start((attempt, retry) => {
+    measurementRetryRef.current.start((attempt, retry) => {
+      if (
+        !targetActivationAllowedRef.current ||
+        targetActivationKeyRef.current !== activationKey ||
+        anchorsRef.current.get(anchorId) !== registration
+      ) {
+        return;
+      }
+      const node = registration.getRef?.() ?? registration.ref;
+      if (!node || typeof node.measureInWindow !== 'function') {
+        sequence.next({ available: false });
+        failOrRetry(attempt, retry);
+        return;
+      }
+      node.measureInWindow((x, y, width, height) => {
         if (
           !targetActivationAllowedRef.current ||
           targetActivationKeyRef.current !== activationKey ||
@@ -507,57 +511,38 @@ export function useGuidedAction(input: {
         ) {
           return;
         }
-        const node = registration.getRef?.() ?? registration.ref;
-        if (!node || typeof node.measureInWindow !== 'function') {
+        if (width <= 0 || height <= 0) {
           sequence.next({ available: false });
           failOrRetry(attempt, retry);
           return;
         }
-        node.measureInWindow((x, y, width, height) => {
-          if (
-            !targetActivationAllowedRef.current ||
-            targetActivationKeyRef.current !== activationKey ||
-            anchorsRef.current.get(anchorId) !== registration
-          ) {
-            return;
-          }
-          if (width <= 0 || height <= 0) {
-            sequence.next({ available: false });
-            failOrRetry(attempt, retry);
-            return;
-          }
-          const rect = { x, y, width, height };
-          const window = Dimensions.get('window');
-          const viewport = measurementViewportRef.current ?? {
-            width: window.width,
-            height: window.height,
-          };
-          const actions = sequence.next({
-            available: true,
-            visible: isGuideRectVisible(rect, viewport),
-          });
-          if (
-            registration.scrollIntoView &&
-            actions[0] === 'scroll'
-          ) {
-            registration.scrollIntoView();
-            retry();
-            return;
-          }
-          if (actions[0] === 'retry') {
-            failOrRetry(attempt, retry);
-            return;
-          }
-          setFeedback(null);
-          setTargetUnavailable(false);
-          setAnchorRect(rect);
-          const focus = registration.getFocus?.() ?? registration.focus;
-          focusControllerRef.current.focusOnce(measurementKey, focus);
+        const rect = { x, y, width, height };
+        const window = Dimensions.get('window');
+        const viewport = measurementViewportRef.current ?? {
+          width: window.width,
+          height: window.height,
+        };
+        const actions = sequence.next({
+          available: true,
+          visible: isGuideRectVisible(rect, viewport),
         });
+        if (registration.scrollIntoView && actions[0] === 'scroll') {
+          registration.scrollIntoView();
+          retry();
+          return;
+        }
+        if (actions[0] === 'retry') {
+          failOrRetry(attempt, retry);
+          return;
+        }
+        setFeedback(null);
+        setTargetUnavailable(false);
+        setAnchorRect(rect);
+        const focus = registration.getFocus?.() ?? registration.focus;
+        focusControllerRef.current.focusOnce(measurementKey, focus);
       });
-    },
-    []
-  );
+    });
+  }, []);
 
   const registerAnchor = useCallback(
     (registration: GuidedActionAnchorRegistration) => {
@@ -642,7 +627,12 @@ export function useGuidedAction(input: {
   }, [canActivateTarget, deactivateGuidedTarget, isInertVisit]);
 
   useEffect(() => {
-    if (isInertVisit || !canActivateTarget || !prepareTargetRef.current) {
+    if (
+      isInertVisit ||
+      !canActivateTarget ||
+      !prepareTargetRef.current ||
+      targetActivationKeyRef.current !== targetActivationKey
+    ) {
       return;
     }
     runTargetPreparation();
@@ -847,8 +837,7 @@ export function useGuidedAction(input: {
       !bindingGuideSessionId ||
       !evidenceFingerprint ||
       !connectionState.isWebSocketConnected ||
-      (status?.state !== 'completed' &&
-        status?.state !== 'invalidated')
+      (status?.state !== 'completed' && status?.state !== 'invalidated')
     ) {
       return;
     }
@@ -921,10 +910,7 @@ export function useGuidedAction(input: {
     ) {
       return;
     }
-    const nextIndex = Math.min(
-      suppliedSteps.length - 1,
-      stepIndex + 1
-    );
+    const nextIndex = Math.min(suppliedSteps.length - 1, stepIndex + 1);
     safelyTrackRecommendationEvent(
       track,
       ANALYTICS_EVENTS.guidedStepCompleted,
@@ -1129,12 +1115,7 @@ export function useGuidedAction(input: {
         register: bindInput.register,
       });
     },
-    [
-      canActivateTarget,
-      getRuntimeCoordinator,
-      isInertVisit,
-      targetActivation,
-    ]
+    [canActivateTarget, getRuntimeCoordinator, isInertVisit, targetActivation]
   );
 
   return useMemo(

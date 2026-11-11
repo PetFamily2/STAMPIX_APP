@@ -1,6 +1,10 @@
 import { useQuery } from 'convex/react';
 import { useRouter } from 'expo-router';
-import { AlertTriangle, ChevronLeft, CircleDollarSign } from 'lucide-react-native';
+import {
+  AlertTriangle,
+  ChevronLeft,
+  CircleDollarSign,
+} from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { FullScreenLoading } from '@/components/FullScreenLoading';
@@ -65,7 +69,9 @@ export function AdminBillingQueue() {
                   {date(row.lastReconciledAt)}
                 </Text>
                 {row.lastReconciliationCode ? (
-                  <Text style={styles.warning}>{row.lastReconciliationCode}</Text>
+                  <Text style={styles.warning}>
+                    {row.lastReconciliationCode}
+                  </Text>
                 ) : null}
               </View>
               <ChevronLeft color={TOKENS.colors.textMuted} size={18} />
@@ -80,15 +86,62 @@ export function AdminBillingQueue() {
 const styles = StyleSheet.create({
   page: { gap: 10, padding: 36 },
   eyebrow: { color: TOKENS.colors.primary, fontSize: 11, fontWeight: '800' },
-  title: { ...rtlBaseText, color: TOKENS.colors.textPrimary, fontSize: 32, fontWeight: '900' },
-  subtitle: { ...rtlBaseText, color: TOKENS.colors.textSecondary, fontSize: 15, lineHeight: 24 },
-  card: { backgroundColor: TOKENS.colors.elevatedSurface, borderColor: TOKENS.colors.border, borderRadius: TOKENS.radii.lg, borderWidth: 1, marginTop: TOKENS.space.lg, paddingHorizontal: TOKENS.space.xl },
-  row: { alignItems: 'center', borderBottomColor: TOKENS.colors.border, borderBottomWidth: 1, flexDirection: flexDirection.row, gap: TOKENS.space.md, minHeight: 86, paddingVertical: TOKENS.space.md },
+  title: {
+    ...rtlBaseText,
+    color: TOKENS.colors.textPrimary,
+    fontSize: 32,
+    fontWeight: '900',
+  },
+  subtitle: {
+    ...rtlBaseText,
+    color: TOKENS.colors.textSecondary,
+    fontSize: 15,
+    lineHeight: 24,
+  },
+  card: {
+    backgroundColor: TOKENS.colors.elevatedSurface,
+    borderColor: TOKENS.colors.border,
+    borderRadius: TOKENS.radii.lg,
+    borderWidth: 1,
+    marginTop: TOKENS.space.lg,
+    paddingHorizontal: TOKENS.space.xl,
+  },
+  row: {
+    alignItems: 'center',
+    borderBottomColor: TOKENS.colors.border,
+    borderBottomWidth: 1,
+    flexDirection: flexDirection.row,
+    gap: TOKENS.space.md,
+    minHeight: 86,
+    paddingVertical: TOKENS.space.md,
+  },
   pressed: { opacity: 0.72 },
-  icon: { alignItems: 'center', backgroundColor: TOKENS.colors.subtleSurface, borderRadius: TOKENS.radii.md, height: 40, justifyContent: 'center', width: 40 },
+  icon: {
+    alignItems: 'center',
+    backgroundColor: TOKENS.colors.subtleSurface,
+    borderRadius: TOKENS.radii.md,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
   main: { flex: 1, minWidth: 0 },
-  name: { ...rtlBaseText, color: TOKENS.colors.textPrimary, fontSize: 15, fontWeight: '800' },
-  meta: { ...rtlBaseText, color: TOKENS.colors.textMuted, fontSize: 12, marginTop: 4 },
+  name: {
+    ...rtlBaseText,
+    color: TOKENS.colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  meta: {
+    ...rtlBaseText,
+    color: TOKENS.colors.textMuted,
+    fontSize: 12,
+    marginTop: 4,
+  },
   warning: { color: TOKENS.colors.warning, fontSize: 11, marginTop: 4 },
-  empty: { ...rtlBaseText, color: TOKENS.colors.textMuted, paddingVertical: 32, textAlign: 'center' },
+  empty: {
+    ...rtlBaseText,
+    color: TOKENS.colors.textMuted,
+    paddingVertical: 32,
+    textAlign: 'center',
+  },
 });

@@ -1,6 +1,4 @@
-import {
-  useMutation,
-  useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import {
   CalendarClock,
   Check,
@@ -12,10 +10,8 @@ import {
   UserPlus,
   Users,
   UserX,
-  } from 'lucide-react-native';
-import { useEffect,
-  useMemo,
-  useState } from 'react';
+} from 'lucide-react-native';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -24,13 +20,11 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-
-import { AppText as Text } from '@/components/ui/AppText';
-
 import {
   BusinessWebConfirmDialog,
   BusinessWebDialog,
 } from '@/components/business-web/BusinessWebDialog';
+import { AppText as Text } from '@/components/ui/AppText';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
@@ -573,9 +567,7 @@ export function BusinessWebTeam() {
       <View style={styles.pageHeader}>
         <View style={styles.pageHeaderCopy}>
           <Text style={styles.pageTitle}>צוות</Text>
-          <Text style={styles.pageSubtitle}>
-            עובדים, תפקידים והרשאות.
-          </Text>
+          <Text style={styles.pageSubtitle}>עובדים, תפקידים והרשאות.</Text>
         </View>
         {!seatLimitReached ? (
           <Pressable

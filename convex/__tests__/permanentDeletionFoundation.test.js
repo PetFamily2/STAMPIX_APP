@@ -186,11 +186,13 @@ describe('permanent deletion reference foundation', () => {
     });
     const ctx = { db };
 
-    const first =
-      await backfillBusinessOnboardingDraftImageStorageIds._handler(ctx, {
+    const first = await backfillBusinessOnboardingDraftImageStorageIds._handler(
+      ctx,
+      {
         cursor: null,
         batchSize: 2,
-      });
+      }
+    );
     expect(first).toMatchObject({
       isDone: false,
       scanned: 2,
@@ -206,11 +208,13 @@ describe('permanent deletion reference foundation', () => {
       });
     expect(second).toMatchObject({ isDone: true, scanned: 1, patched: 1 });
 
-    const retry =
-      await backfillBusinessOnboardingDraftImageStorageIds._handler(ctx, {
+    const retry = await backfillBusinessOnboardingDraftImageStorageIds._handler(
+      ctx,
+      {
         cursor: null,
         batchSize: 2,
-      });
+      }
+    );
     expect(retry.patched).toBe(0);
   });
 

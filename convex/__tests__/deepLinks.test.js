@@ -131,7 +131,10 @@ describe('Phase C2 OAuth redirect safety', () => {
       )
     ).toThrow('Invalid redirectTo');
     expect(() =>
-      resolveAuthRedirectUrl('https://evil.example/oauth-callback', productionEnv)
+      resolveAuthRedirectUrl(
+        'https://evil.example/oauth-callback',
+        productionEnv
+      )
     ).toThrow('Invalid redirectTo');
     expect(() =>
       resolveAuthRedirectUrl(
@@ -140,7 +143,10 @@ describe('Phase C2 OAuth redirect safety', () => {
       )
     ).toThrow('Invalid redirectTo');
     expect(() =>
-      resolveAuthRedirectUrl('https://business.stampaix.com/business', productionEnv)
+      resolveAuthRedirectUrl(
+        'https://business.stampaix.com/business',
+        productionEnv
+      )
     ).toThrow('Invalid redirectTo');
   });
 

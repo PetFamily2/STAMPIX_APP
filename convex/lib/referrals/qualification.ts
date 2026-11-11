@@ -1,9 +1,9 @@
 import {
+  type BillingPeriod,
+  getReferrerRewardMonths,
   REFERRAL_CONTRACT,
   REFERRAL_WALLET_CAP_STATES,
-  type BillingPeriod,
   type ReferralRewardState,
-  getReferrerRewardMonths,
 } from '../billing/productionContract';
 
 export type PaidPeriodRecord = {
@@ -24,7 +24,8 @@ export function countConfirmedPaidMonths(
       return false;
     }
     if (period.billingPeriod === 'yearly') {
-      const end = period.periodEndAt ?? period.periodStartAt + 365 * 24 * 60 * 60 * 1000;
+      const end =
+        period.periodEndAt ?? period.periodStartAt + 365 * 24 * 60 * 60 * 1000;
       return period.periodStartAt <= now && end >= now;
     }
     const end = period.periodEndAt ?? now;

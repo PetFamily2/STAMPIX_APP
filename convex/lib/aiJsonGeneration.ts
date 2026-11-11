@@ -32,10 +32,7 @@ export type AiJsonUsageMetadata = {
 };
 
 export type AiJsonGenerationResult<T> = AiJsonUsageMetadata &
-  (
-    | { ok: true; output: T }
-    | { ok: false; code: AiJsonFailureCode }
-  );
+  ({ ok: true; output: T } | { ok: false; code: AiJsonFailureCode });
 
 type FetchLike = (
   input: string | URL | Request,

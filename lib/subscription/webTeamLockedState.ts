@@ -1,10 +1,13 @@
 import {
+  type BusinessPlan,
   isBusinessPlan,
   REQUIRED_PLAN_BY_CANONICAL_FEATURE,
-  type BusinessPlan,
 } from '@/lib/billing/productionContract';
 
-export type WebTeamGateReason = 'feature_locked' | 'subscription_inactive' | null;
+export type WebTeamGateReason =
+  | 'feature_locked'
+  | 'subscription_inactive'
+  | null;
 
 const PLAN_LABEL: Record<BusinessPlan, string> = {
   starter: 'Starter',

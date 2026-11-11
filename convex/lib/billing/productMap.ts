@@ -125,7 +125,9 @@ export function resolveLogicalProductId(
   if (!productId) {
     return null;
   }
-  const mapping = buildRevenueCatProductMap().get(normalizeProductId(productId));
+  const mapping = buildRevenueCatProductMap().get(
+    normalizeProductId(productId)
+  );
   return mapping?.logicalProductId ?? null;
 }
 

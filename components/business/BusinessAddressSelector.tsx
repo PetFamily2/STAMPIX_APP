@@ -2,6 +2,7 @@ import {
   type MutableRefObject,
   type Ref,
   type RefObject,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -211,31 +212,38 @@ export default function BusinessAddressSelector({
       : null,
   });
 
-  const requestFieldVisibility = (field: AddressField) => {
-    const input =
-      field === 'city'
-        ? cityInputRef.current
-        : field === 'street'
-          ? streetInputRef.current
-          : houseNumberInputRef.current;
-    const nodeHandle = findNodeHandle(input);
-    if (nodeHandle === null) {
-      return;
-    }
-    const resultCount =
-      field === 'city'
-        ? cityAutocomplete.suggestions.length
-        : field === 'street'
-          ? streetAutocomplete.suggestions.length
-          : 0;
-    const additionalOffset =
-      resultCount > 0 ? Math.min(resultCount, 5) * 64 + 56 : 56;
-    scrollViewRef?.current?.scrollResponderScrollNativeHandleToKeyboard(
-      nodeHandle,
-      additionalOffset,
-      true
-    );
-  };
+  const requestFieldVisibility = useCallback(
+    (field: AddressField) => {
+      const input =
+        field === 'city'
+          ? cityInputRef.current
+          : field === 'street'
+            ? streetInputRef.current
+            : houseNumberInputRef.current;
+      const nodeHandle = findNodeHandle(input);
+      if (nodeHandle === null) {
+        return;
+      }
+      const resultCount =
+        field === 'city'
+          ? cityAutocomplete.suggestions.length
+          : field === 'street'
+            ? streetAutocomplete.suggestions.length
+            : 0;
+      const additionalOffset =
+        resultCount > 0 ? Math.min(resultCount, 5) * 64 + 56 : 56;
+      scrollViewRef?.current?.scrollResponderScrollNativeHandleToKeyboard(
+        nodeHandle,
+        additionalOffset,
+        true
+      );
+    },
+    [
+      cityAutocomplete.suggestions.length,
+      streetAutocomplete.suggestions.length,
+      scrollViewRef,
+    ]
+  );
 
   useEffect(() => {
     const activeField = activeFieldRef.current;
@@ -252,6 +260,7 @@ export default function BusinessAddressSelector({
   }, [
     cityAutocomplete.suggestions.length,
     streetAutocomplete.suggestions.length,
+    requestFieldVisibility,
   ]);
 
   useEffect(() => {
@@ -277,23 +286,26 @@ export default function BusinessAddressSelector({
     onError?.(null);
   };
 
-  const acceptResolvedAddress = (address: SelectedBusinessAddress) => {
-    setState((current) => ({
-      ...current,
-      cityText: address.city,
-      streetText: address.street,
-      houseNumber: address.streetNumber,
-      resolvedAddress: address,
-      candidates: [],
-      status: 'resolved',
-      error: null,
-    }));
-    onSelectedAddressChange(address);
-    onQueryChange(address.formattedAddress);
-    onError?.(null);
-  };
+  const acceptResolvedAddress = useCallback(
+    (address: SelectedBusinessAddress) => {
+      setState((current) => ({
+        ...current,
+        cityText: address.city,
+        streetText: address.street,
+        houseNumber: address.streetNumber,
+        resolvedAddress: address,
+        candidates: [],
+        status: 'resolved',
+        error: null,
+      }));
+      onSelectedAddressChange(address);
+      onQueryChange(address.formattedAddress);
+      onError?.(null);
+    },
+    [onSelectedAddressChange, onQueryChange, onError]
+  );
 
-  const beginResolution = async () => {
+  const beginResolution = useCallback(async () => {
     const snapshot = stateRef.current;
     if (
       !isAddressResolutionReady(snapshot) ||
@@ -393,7 +405,7 @@ export default function BusinessAddressSelector({
       }));
       onError?.(message);
     }
-  };
+  }, [disabled, resolveAddress, acceptResolvedAddress, onError]);
 
   useEffect(() => {
     if (
@@ -407,13 +419,7 @@ export default function BusinessAddressSelector({
       void beginResolution();
     }, 650);
     return () => clearTimeout(timeoutId);
-  }, [
-    disabled,
-    state.citySelection,
-    state.houseNumber,
-    state.status,
-    state.streetSelection,
-  ]);
+  }, [disabled, state, beginResolution]);
 
   const handleCityChange = (value: string) => {
     invalidateCanonicalAddress();

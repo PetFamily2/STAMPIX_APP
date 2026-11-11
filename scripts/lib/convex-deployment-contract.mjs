@@ -41,7 +41,10 @@ export function redactSecrets(text) {
     .replace(/https?:\/\/[^\s"'\\]+/gi, '[REDACTED_URL]')
     .replace(/\b[a-z0-9_-]+\.convex\.(cloud|site)\b/gi, '[REDACTED_HOST]')
     .replace(/\b(dev|prod|preview):[A-Za-z0-9_-]+\b/gi, '[REDACTED_DEPLOYMENT]')
-    .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[REDACTED_EMAIL]')
+    .replace(
+      /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g,
+      '[REDACTED_EMAIL]'
+    )
     .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9._-]+/g, '[REDACTED_JWT]');
 }
 
@@ -80,9 +83,14 @@ export function loadEnvFiles(projectRoot, { readFile = readFileSync } = {}) {
   return merged;
 }
 
-export function resolveConvexEnvFromProject(projectRoot, processEnv = process.env, { readFile = readFileSync, exists = existsSync } = {}) {
+export function resolveConvexEnvFromProject(
+  projectRoot,
+  processEnv = process.env,
+  { readFile = readFileSync, exists = existsSync } = {}
+) {
   const hasEnvFiles =
-    exists(join(projectRoot, '.env')) || exists(join(projectRoot, '.env.local'));
+    exists(join(projectRoot, '.env')) ||
+    exists(join(projectRoot, '.env.local'));
   const fileEnv = loadEnvFiles(projectRoot, { readFile });
   const source = hasEnvFiles ? fileEnv : processEnv;
   return {
@@ -94,7 +102,9 @@ export function resolveConvexEnvFromProject(projectRoot, processEnv = process.en
 }
 
 export function classifyDeploymentKind(value) {
-  const normalized = String(value ?? '').trim().toLowerCase();
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase();
   if (!normalized) return 'MISSING';
   if (normalized.startsWith('dev:')) return 'DEV';
   if (normalized.startsWith('prod:')) return 'PRODUCTION';
@@ -194,9 +204,7 @@ export function assertPreviewTargetIsolation({
     );
   }
   if (deploymentKind === 'PRODUCTION') {
-    throw new ConvexContractError(
-      'Preview verifier cannot select Production'
-    );
+    throw new ConvexContractError('Preview verifier cannot select Production');
   }
   if (deploymentKind !== 'DEV') {
     throw new ConvexContractError(
@@ -227,9 +235,7 @@ export function assertProductionTargetIsolation({
   if (envPresence(devUrl) === 'PRESENT') {
     const usesDev = matchUrlToDeploymentSlug(convexUrl, deploymentSlugValue);
     if (deploymentKind === 'DEV' && usesDev === 'MATCH') {
-      throw new ConvexContractError(
-        'Production verifier cannot select DEV'
-      );
+      throw new ConvexContractError('Production verifier cannot select DEV');
     }
   }
   if (envPresence(legacyUrl) === 'PRESENT' && convexUrl === legacyUrl) {
@@ -248,9 +254,16 @@ export function assertProductionTargetIsolation({
 export function buildFunctionSpecArgs({ profile, deploymentSlugValue }) {
   if (profile === 'preview') {
     if (!deploymentSlugValue) {
-      throw new ConvexContractError('Preview Convex deployment slug is MISSING');
+      throw new ConvexContractError(
+        'Preview Convex deployment slug is MISSING'
+      );
     }
-    return ['function-spec', '--deployment-name', deploymentSlugValue, '--file'];
+    return [
+      'function-spec',
+      '--deployment-name',
+      deploymentSlugValue,
+      '--file',
+    ];
   }
   if (profile === 'production') {
     return ['function-spec', '--prod', '--file'];
@@ -351,7 +364,10 @@ function walkFiles(root, extensions) {
   return files;
 }
 
-export function collectLocalPublicFunctions(projectRoot, { readFile = readFileSync } = {}) {
+export function collectLocalPublicFunctions(
+  projectRoot,
+  { readFile = readFileSync } = {}
+) {
   const convexRoot = join(projectRoot, 'convex');
   const files = walkFiles(convexRoot, ['.ts']).filter((filePath) => {
     const base = filePath.replaceAll('\\', '/');
@@ -422,13 +438,14 @@ export function compareFunctionContracts({
 }) {
   const remote = new Set(remotePublic);
   const missingLocalPublic = localPublic.filter((name) => !remote.has(name));
-  const missingClientConsumed = clientConsumed.filter((name) => !remote.has(name));
+  const missingClientConsumed = clientConsumed.filter(
+    (name) => !remote.has(name)
+  );
 
   return {
     missingLocalPublic,
     missingClientConsumed,
-    pass:
-      missingLocalPublic.length === 0 && missingClientConsumed.length === 0,
+    pass: missingLocalPublic.length === 0 && missingClientConsumed.length === 0,
   };
 }
 

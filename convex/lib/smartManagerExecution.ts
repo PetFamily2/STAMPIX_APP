@@ -8,10 +8,7 @@ export const SMART_MANAGER_RECIPIENT_FINALIZATION_BATCH_SIZE = 25;
 export const SMART_MANAGER_RECIPIENT_MEMBERSHIP_LIMIT = 100;
 export const SMART_MANAGER_RECIPIENT_EVENT_LIMIT = 500;
 
-export type SmartManagerResolvedChannel =
-  | 'push'
-  | 'in_app'
-  | 'not_contactable';
+export type SmartManagerResolvedChannel = 'push' | 'in_app' | 'not_contactable';
 
 export type SmartManagerRecipientHashAccumulator = {
   chainHash: string;

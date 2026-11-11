@@ -323,15 +323,46 @@ async function processUntil(ctx, predicate, limit = 250) {
 describe('permanent business deletion request', () => {
   test('duplicate canonical accounts and verified payments without canonical evidence block', async () => {
     for (const initial of [
-      { businessBillingAccounts: [
-        { _id: 'one', businessId: BUSINESS_ID, status: 'inactive', hasProviderEvidence: false },
-        { _id: 'two', businessId: BUSINESS_ID, status: 'inactive', hasProviderEvidence: false },
-      ] },
-      { sumitCheckoutIntents: [{ _id: 'paid', businessId: BUSINESS_ID, status: 'verified', createdAt: 1, sumitRecurringId: 'one' }] },
-      { sumitCheckoutIntents: Array.from({ length: 101 }, (_, index) => ({ _id: `intent_${index}`, businessId: BUSINESS_ID, status: 'verified', createdAt: index })) },
+      {
+        businessBillingAccounts: [
+          {
+            _id: 'one',
+            businessId: BUSINESS_ID,
+            status: 'inactive',
+            hasProviderEvidence: false,
+          },
+          {
+            _id: 'two',
+            businessId: BUSINESS_ID,
+            status: 'inactive',
+            hasProviderEvidence: false,
+          },
+        ],
+      },
+      {
+        sumitCheckoutIntents: [
+          {
+            _id: 'paid',
+            businessId: BUSINESS_ID,
+            status: 'verified',
+            createdAt: 1,
+            sumitRecurringId: 'one',
+          },
+        ],
+      },
+      {
+        sumitCheckoutIntents: Array.from({ length: 101 }, (_, index) => ({
+          _id: `intent_${index}`,
+          businessId: BUSINESS_ID,
+          status: 'verified',
+          createdAt: index,
+        })),
+      },
     ]) {
       const ctx = buildCtx(initial);
-      await expect(requestDeletion(ctx)).rejects.toThrow(/BUSINESS_(BILLING_UNVERIFIED|PAYMENT_PENDING)/);
+      await expect(requestDeletion(ctx)).rejects.toThrow(
+        /BUSINESS_(BILLING_UNVERIFIED|PAYMENT_PENDING)/
+      );
       expect(ctx.db.rows('businessDeletionJobs')).toHaveLength(0);
     }
   });

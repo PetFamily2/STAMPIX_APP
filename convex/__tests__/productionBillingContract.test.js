@@ -1,18 +1,17 @@
 import { describe, expect, test } from 'bun:test';
-
+import { CARD_THEMES } from '../../constants/cardThemes';
 import {
+  assertFrozenPlanContract,
   CANONICAL_LOYALTY_THEME_COUNT,
   GENERAL_FREE_TRIAL_DAYS,
   GENERAL_FREE_TRIAL_PLAN,
   LOGICAL_SUBSCRIPTION_PRODUCTS,
   MVP_FEATURE_FLAGS,
   PLAN_ORDER,
+  planConfig,
   REFERRAL_CONTRACT,
   REVENUECAT_CANONICAL_ENTITLEMENT,
-  assertFrozenPlanContract,
-  planConfig,
 } from '../lib/billing/productionContract';
-import { CARD_THEMES } from '../../constants/cardThemes';
 
 describe('frozen launch billing contract', () => {
   test('locks exactly three paid plans, prices and limits', () => {

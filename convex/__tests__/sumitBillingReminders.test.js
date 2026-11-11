@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test';
+import { DIRECT_PROVIDER_RENEWAL_GRACE_MS } from '../lib/billing/productionContract';
 import {
   BILLING_REMINDER_MAX_ATTEMPTS,
   billingReminderDedupeKey,
   buildBillingReminderEmail,
   resolveBillingReminderStage,
 } from '../lib/billing/sumit/reminders';
-import { DIRECT_PROVIDER_RENEWAL_GRACE_MS } from '../lib/billing/productionContract';
 
 const DAY = 24 * 60 * 60 * 1000;
 const start = Date.UTC(2026, 9, 1, 9, 0, 0);

@@ -9,7 +9,14 @@ import {
   ShieldCheck,
   Users,
 } from 'lucide-react-native';
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { api } from '@/convex/_generated/api';
@@ -36,7 +43,9 @@ function Field({
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
       <Text selectable={true} style={styles.fieldValue}>
-        {value === null || value === undefined || value === '' ? '—' : String(value)}
+        {value === null || value === undefined || value === ''
+          ? '—'
+          : String(value)}
       </Text>
     </View>
   );
@@ -60,7 +69,10 @@ export function AdminBusinessDetail({
     return (
       <View style={styles.empty}>
         <Text style={styles.emptyTitle}>העסק לא נמצא</Text>
-        <Pressable onPress={() => router.replace('/admin')} style={styles.backButton}>
+        <Pressable
+          onPress={() => router.replace('/admin')}
+          style={styles.backButton}
+        >
           <Text style={styles.backButtonText}>חזרה לאדמין</Text>
         </Pressable>
       </View>
@@ -129,7 +141,10 @@ export function AdminBusinessDetail({
           <Field label="סטטוס" value={detail.billing?.status} />
           <Field label="מחזור" value={detail.billing?.billingPeriod} />
           <Field label="ספק" value={detail.billing?.provider} />
-          <Field label="מזהה מוצר ספק" value={detail.billing?.providerProductId} />
+          <Field
+            label="מזהה מוצר ספק"
+            value={detail.billing?.providerProductId}
+          />
           <Field
             label="מזהה מנוי ספק"
             value={detail.billing?.providerSubscriptionIdentifier}
@@ -172,10 +187,19 @@ export function AdminBusinessDetail({
             <Users color={TOKENS.colors.primary} size={20} />
             <Text style={styles.cardTitle}>שימוש וצוות</Text>
           </View>
-          <Field label="לקוחות פעילים" value={detail.usage?.activeUniqueCustomers} />
+          <Field
+            label="לקוחות פעילים"
+            value={detail.usage?.activeUniqueCustomers}
+          />
           <Field label="כרטיסים" value={detail.usage?.nonArchivedCards} />
-          <Field label="קמפיינים פעילים" value={detail.usage?.activeCampaigns} />
-          <Field label="פעולות שימור" value={detail.usage?.activeRetentionActions} />
+          <Field
+            label="קמפיינים פעילים"
+            value={detail.usage?.activeCampaigns}
+          />
+          <Field
+            label="פעולות שימור"
+            value={detail.usage?.activeRetentionActions}
+          />
           <Field label="AI החודש" value={detail.usage?.aiExecutionsThisMonth} />
           <Field label="חברי צוות" value={detail.team.total} />
           <Field label="מנהלים פעילים" value={detail.team.managers} />
