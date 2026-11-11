@@ -9,6 +9,8 @@ export default function NativeScannerPreviewFallback(_props: {
   url: string;
   enabled: boolean;
   canStartScan?: boolean;
+  canManageSubscription?: boolean;
+  onManageSubscription?: () => void;
   onBusy?: (busy: boolean) => void;
 }) {
   return <NativeCompanionRedirect />;

@@ -3,7 +3,6 @@ import { BUSINESS_WEB_TOKENS as TOKENS } from '../../lib/design/businessWebToken
 import { createWebReceiptAdapter } from '../../lib/scanner/webReceiptAdapter';
 import { startPreviouslyGrantedCamera } from '../../lib/web-scanner/cameraPermission';
 import {
-  type CommandState,
   initialCommand,
   type Scope,
   WebScannerCommands,
@@ -21,21 +20,12 @@ import {
 import { createRawWorkerDecoder } from '../../lib/web-scanner/rawWorker';
 import { recoveryIdentity } from '../../lib/web-scanner/recovery';
 import { initialScannerState } from '../../lib/web-scanner/state';
+import {
+  scannerErrorLabel,
+  scannerNeedsSubscription,
+  scannerPhaseLabel,
+} from '../../lib/web-scanner/userMessage';
 
-const labels: Record<CommandState['phase'], string> = {
-  IDLE: 'המצלמה כבויה',
-  CAMERA_READY: 'כוונו QR למצלמה',
-  QR_LOCKED: 'הקוד נקרא',
-  RESOLVING: 'בודקים את הקוד בשרת',
-  READY_FOR_ACTION: 'בחרו פעולה',
-  COMMITTING: 'הפעולה נשלחה — ממתינים לאישור',
-  UNKNOWN_OUTCOME:
-    'תוצאת הפעולה עדיין אינה ידועה. אין לסרוק או לבצע פעולה נוספת.',
-  RECONCILING: 'מבררים את התוצאה בשרת',
-  SUCCESS: 'השרת אישר את הפעולה',
-  ERROR: 'הפעולה לא אושרה',
-  OFFLINE: 'אין חיבור זמין — הפעולה לא נשלחה',
-};
 /** Web camera and commands use normal Convex Auth and server business permissions. */
 export default function BusinessScanner(props: {
   actorId: string;
@@ -45,6 +35,8 @@ export default function BusinessScanner(props: {
   url: string;
   enabled: boolean;
   canStartScan?: boolean;
+  canManageSubscription?: boolean;
+  onManageSubscription?: () => void;
   onBusy?: (busy: boolean) => void;
 }) {
   const current = useRef(props);
@@ -55,11 +47,17 @@ export default function BusinessScanner(props: {
   const lockLease = useRef<Promise<void>>(Promise.resolve());
   const [state, setState] = useState(initialCommand);
   const [cameraState, setCameraState] = useState(initialScannerState);
-  const [blocked, setBlocked] = useState<string | null>('מכינים את הסורק');
+  const [blocked, setBlocked] = useState<string | null>('מכינים');
   const [benefits, setBenefits] = useState<
     Array<{ rewardId: string; title: string }>
   >([]);
   const [revision, setRevision] = useState(0);
+  const [armed, setArmed] = useState<{
+    phase: typeof state.phase;
+    action: string;
+  } | null>(null);
+  const isArmed = (action: string) =>
+    armed?.phase === state.phase && armed.action === action;
   useEffect(() => {
     const busy = [
       'QR_LOCKED',
@@ -78,6 +76,7 @@ export default function BusinessScanner(props: {
     const element = video.current;
     if (!element || !props.enabled) return;
     setBlocked('מכינים את הסורק');
+    setArmed(null);
     setState(initialCommand);
     setCameraState(initialScannerState);
     let disposed = false;
@@ -85,7 +84,7 @@ export default function BusinessScanner(props: {
     let detachCamera: (() => void) | undefined;
     const onNetwork = () => commands.current?.networkChanged();
     const onPageHide = () => {
-      camera.current?.stop();
+      camera.current?.suspend();
       commands.current?.invalidate();
     };
     const onPageShow = () => {
@@ -101,11 +100,11 @@ export default function BusinessScanner(props: {
       // Never reuse a resolve runtime after a completed/reset scan.
       if (!recovery.identity.uncertain) recovery.rotate();
     } catch {
-      setBlocked('לא ניתן לשמור סימון אי־ודאות; הפעולות חסומות.');
+      setBlocked('אי אפשר לסרוק');
       return;
     }
     if (!navigator.locks) {
-      setBlocked('בדפדפן זה לא ניתן למנוע סריקה מקבילה; הפעולות חסומות.');
+      setBlocked('אי אפשר לסרוק');
       return;
     }
     const scope: Scope = {
@@ -143,7 +142,7 @@ export default function BusinessScanner(props: {
           { ifAvailable: true },
           async (lock) => {
             if (!lock || disposed) {
-              if (!disposed) setBlocked('סורק אחר פתוח עבור החשבון והעסק.');
+              if (!disposed) setBlocked('סורק אחר פתוח');
               return;
             }
             setBlocked(null);
@@ -164,7 +163,10 @@ export default function BusinessScanner(props: {
                     }
                   : undefined,
               onState: (next) => {
-                if (!disposed) setState(next);
+                if (!disposed) {
+                  setArmed(null);
+                  setState(next);
+                }
               },
             });
             commands.current = engine;
@@ -216,7 +218,7 @@ export default function BusinessScanner(props: {
         );
       })
       .catch(() => {
-        if (!disposed) setBlocked('נעילת הסורק לא זמינה; הפעולות חסומות.');
+        if (!disposed) setBlocked('אי אפשר לסרוק');
       });
     return () => {
       disposed = true;
@@ -275,7 +277,7 @@ export default function BusinessScanner(props: {
           setBenefits(
             rows.map((r: any) => ({
               rewardId: r.rewardId,
-              title: r.benefitTitle ?? 'הטבת הפניה',
+              title: r.benefitTitle ?? 'הטבה',
             }))
           );
       } catch {
@@ -306,7 +308,9 @@ export default function BusinessScanner(props: {
   ].includes(cameraState.status);
   const statusMessage = ['IDLE', 'CAMERA_READY'].includes(state.phase)
     ? cameraStatusMessage(cameraState.status)
-    : labels[state.phase];
+    : state.phase === 'ERROR'
+      ? scannerErrorLabel(state.code)
+      : scannerPhaseLabel(state.phase, state.receipt);
   const busy = [
     'QR_LOCKED',
     'RESOLVING',
@@ -314,6 +318,7 @@ export default function BusinessScanner(props: {
     'UNKNOWN_OUTCOME',
     'RECONCILING',
   ].includes(state.phase);
+  const redeem = state.session?.resolution === 'REDEEM_AVAILABLE';
   return (
     <main
       className="sx-scan"
@@ -358,19 +363,27 @@ export default function BusinessScanner(props: {
           הרשאת המצלמה נשמרת בדפדפן לכתובת האתר הזו. בחרו הרשאה מתמשכת אם הדפדפן
           מציע זאת. המצלמה נעצרת ביציאה מהסורק וברקע.
         </p>
-        {state.code ? <p>{state.code}</p> : null}
+        {state.session?.customerDisplayName ? (
+          <p>{state.session.customerDisplayName}</p>
+        ) : null}
         {cameraError && !['IDLE', 'CAMERA_READY'].includes(state.phase) ? (
           <p role="alert">{cameraStatusMessage(cameraState.status)}</p>
         ) : null}
         {props.canStartScan === false ? (
-          <p>הכרטיסייה אינה זמינה לסריקה חדשה. אפשר לברר תוצאה קודמת.</p>
+          <p className="sx-meta">הכרטיסייה לא זמינה</p>
         ) : null}
-        {state.session ? <p>{state.session.customerDisplayName}</p> : null}
-        {state.receipt && success ? (
-          <p>
-            אישור שרת:{' '}
-            {state.receipt.eventType ?? state.receipt.status ?? 'הטבה מומשה'}
-          </p>
+        {scannerNeedsSubscription(state.code) && state.phase === 'ERROR' ? (
+          props.canManageSubscription && props.onManageSubscription ? (
+            <button
+              className="primary"
+              type="button"
+              onClick={props.onManageSubscription}
+            >
+              ניהול מנוי
+            </button>
+          ) : (
+            <p className="sx-meta">פנו לבעלים</p>
+          )
         ) : null}
         <div className="sx-actions">
           {!cameraActive && !ready && !success ? (
@@ -398,16 +411,19 @@ export default function BusinessScanner(props: {
             <button
               className="primary"
               type="button"
-              onClick={() =>
-                void commands.current?.action(
-                  state.session?.resolution === 'REDEEM_AVAILABLE'
-                    ? 'redeem'
-                    : 'stamp'
-                )
-              }
+              onClick={() => {
+                if (redeem && !isArmed('redeem')) {
+                  setArmed({ phase: state.phase, action: 'redeem' });
+                  return;
+                }
+                setArmed(null);
+                void commands.current?.action(redeem ? 'redeem' : 'stamp');
+              }}
             >
-              {state.session?.resolution === 'REDEEM_AVAILABLE'
-                ? 'אישור מימוש'
+              {redeem
+                ? isArmed('redeem')
+                  ? 'אישור מימוש'
+                  : 'ממשו פרס'
                 : 'אישור חותמת'}
             </button>
           ) : null}
@@ -416,7 +432,7 @@ export default function BusinessScanner(props: {
               type="button"
               onClick={() => void commands.current?.action('continuation')}
             >
-              מימוש הכרטיס שהושלם
+              מימוש פרס
             </button>
           ) : null}
           {success &&
@@ -424,9 +440,16 @@ export default function BusinessScanner(props: {
           !state.receipt.undoBlockedReason ? (
             <button
               type="button"
-              onClick={() => void commands.current?.action('undo')}
+              onClick={() => {
+                if (!isArmed('undo')) {
+                  setArmed({ phase: state.phase, action: 'undo' });
+                  return;
+                }
+                setArmed(null);
+                void commands.current?.action('undo');
+              }}
             >
-              ביטול הפעולה
+              {isArmed('undo') ? 'אישור ביטול' : 'ביטול'}
             </button>
           ) : null}
           {success
@@ -434,11 +457,19 @@ export default function BusinessScanner(props: {
                 <button
                   type="button"
                   key={benefit.rewardId}
-                  onClick={() =>
-                    void commands.current?.action('referral', benefit.rewardId)
-                  }
+                  onClick={() => {
+                    const action = `benefit:${benefit.rewardId}`;
+                    if (!isArmed(action)) {
+                      setArmed({ phase: state.phase, action });
+                      return;
+                    }
+                    setArmed(null);
+                    void commands.current?.action('referral', benefit.rewardId);
+                  }}
                 >
-                  {benefit.title}
+                  {isArmed(`benefit:${benefit.rewardId}`)
+                    ? 'אישור הטבה'
+                    : benefit.title}
                 </button>
               ))
             : null}
@@ -447,7 +478,7 @@ export default function BusinessScanner(props: {
               type="button"
               onClick={() => void commands.current?.reconcile()}
             >
-              בירור תוצאה בלבד
+              בדיקת תוצאה
             </button>
           ) : null}
           {state.phase === 'UNKNOWN_OUTCOME' &&
@@ -458,7 +489,7 @@ export default function BusinessScanner(props: {
               type="button"
               onClick={() => void commands.current?.retrySameSession()}
             >
-              ניסיון מפורש באותה פעולה ובאותו מזהה
+              נסו שוב
             </button>
           ) : null}
           {state.phase !== 'IDLE' || cameraActive ? (

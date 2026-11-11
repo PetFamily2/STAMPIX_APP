@@ -446,10 +446,7 @@ export function classifyPosError(
 ): PosErrorPresentation {
   const code = extractPosErrorCode(error);
 
-  if (
-    code === 'PROGRAM_NOT_FOUND' ||
-    code === 'PROGRAM_NOT_SCANNER_ELIGIBLE'
-  ) {
+  if (code === 'PROGRAM_NOT_FOUND' || code === 'PROGRAM_NOT_SCANNER_ELIGIBLE') {
     return {
       code,
       kind: 'stale_program',
@@ -516,11 +513,16 @@ export function classifyPosError(
       canChangeProgram: false,
     };
   }
-  if (
-    code === 'FEATURE_NOT_AVAILABLE' ||
-    code === 'PLAN_LIMIT_REACHED' ||
-    code === 'SUBSCRIPTION_INACTIVE'
-  ) {
+  if (code === 'SUBSCRIPTION_INACTIVE') {
+    return {
+      code,
+      kind: 'entitlement',
+      message: 'המנוי לא פעיל',
+      retrySameSession: false,
+      canChangeProgram: false,
+    };
+  }
+  if (code === 'FEATURE_NOT_AVAILABLE' || code === 'PLAN_LIMIT_REACHED') {
     return {
       code,
       kind: 'entitlement',

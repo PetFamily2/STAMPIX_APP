@@ -135,6 +135,9 @@ const styles = StyleSheet.create({
     fontWeight: Platform.OS === 'web' ? '600' : '700',
     textAlign: 'center',
     ...rtlCenterText,
+    ...(Platform.OS === 'web'
+      ? { textAlign: 'right' as const, writingDirection: 'rtl' as const }
+      : null),
   },
   optionTextWithIcon: {
     paddingHorizontal: 28,

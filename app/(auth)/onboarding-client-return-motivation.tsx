@@ -14,10 +14,9 @@ import { safeBack } from '@/lib/navigation';
 import { useOnboardingTracking } from '@/lib/onboarding/useOnboardingTracking';
 
 const TEXT = {
-  title: 'הארנק שלך מוכן',
-  description:
-    'אפשר להתחיל לצבור חותמות, לשמור הטבות ולגלות עסקים בסביבה כשזה רלוונטי.',
-  note: 'מיקום והרשאות נבקש רק כשצריך.',
+  title: 'הארנק מוכן',
+  description: 'אפשר לצבור חותמות ולשמור הטבות.',
+  note: 'הרשאות רק כשצריך.',
   continue: 'כניסה לארנק',
 };
 
@@ -95,9 +94,9 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 560,
     alignSelf: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
   },
   header: {
     marginBottom: 0,

@@ -1,5 +1,6 @@
 import { useAuthToken } from '@convex-dev/auth/react';
 import { useQuery } from 'convex/react';
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import BusinessScanner from '@/components/web-scanner/BusinessScanner';
 import { ScannerProgramTiles } from '@/components/web-scanner/ScannerProgramTiles.web';
@@ -16,6 +17,7 @@ import { pendingProgram } from '@/lib/web-scanner/recovery';
 import { getConvexUrl } from '@/utils/convexConfig';
 
 export default function ScannerPreviewRoute() {
+  const router = useRouter();
   const { user } = useUser();
   const token = useAuthToken();
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
@@ -71,15 +73,14 @@ export default function ScannerPreviewRoute() {
   }, [scopeKey, priorProgram]);
   if (!enabled || !user || !activeBusinessId || !token)
     return (
-      <main dir="rtl" style={{ padding: 24 }}>
-        <h1>סורק Web עדיין אינו זמין</h1>
-        <p>אפשר להמשיך לסרוק באפליקציה.</p>
+      <main dir="rtl" style={{ padding: 16 }}>
+        <p>הסורק לא זמין</p>
       </main>
     );
   if (recoveryUnavailable)
     return (
       <p role="alert" dir="rtl">
-        סימון פעולה קודמת דורש בירור. הסורק חסום.
+        נדרש בירור
       </p>
     );
   const scannerProgramId = selectedScannerProgram(
@@ -91,7 +92,13 @@ export default function ScannerPreviewRoute() {
   return (
     <div
       dir="rtl"
-      style={{ height: '100%', minHeight: 0, overflowY: 'auto' }}
+      style={{
+        height: '100%',
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+      }}
       {...(!scannerProgramId ? { role: 'main' } : {})}
     >
       <h1
@@ -122,6 +129,10 @@ export default function ScannerPreviewRoute() {
           token={token}
           url={url}
           enabled={enabled}
+          onManageSubscription={() => router.push('/business/billing')}
+          canManageSubscription={
+            activeBusiness?.capabilities?.manage_subscription === true
+          }
           canStartScan={
             programs?.some(
               (p: any) => p.loyaltyProgramId === scannerProgramId
