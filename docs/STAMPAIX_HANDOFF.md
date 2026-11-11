@@ -751,7 +751,7 @@ Current state:
 - active branch `pwa/phase-3-scanner-commands-20261005`
 
 Release / Web:
-- `docs/PWA_RELEASE_CANDIDATE.md`
+- `docs/archive/legacy-development/PWA_RELEASE_CANDIDATE.md` (historical; superseded)
 - `docs/WEB_PRODUCT_AUDIT.md`
 - `docs/WEB_OPERATIONS_LAUNCH_CHECKLIST.md`
 
