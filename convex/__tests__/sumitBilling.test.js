@@ -1034,6 +1034,20 @@ describe('SUMIT server-to-server verification', () => {
 });
 
 describe('SUMIT canonical application and lifecycle', () => {
+  test.each([
+    'in_progress',
+    'queued',
+    'running',
+    'failed',
+  ])('checkout cannot start while deletion is %s', async (permanentDeletionStatus) => {
+    const ctx = createMockCtx({
+      businesses: [business({ permanentDeletionStatus })],
+    });
+    await expect(seedCheckout(ctx)).rejects.toThrow(
+      'BUSINESS_PERMANENT_DELETION_IN_PROGRESS'
+    );
+    expect(ctx.rows('sumitCheckoutIntents')).toHaveLength(0);
+  });
   test('unknown checkout fails without granting access', async () => {
     const ctx = createMockCtx({ businesses: [business()] });
     const result = await applyVerifiedSUMITPaymentRecord(

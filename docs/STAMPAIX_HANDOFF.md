@@ -1,5 +1,9 @@
 # StampAix — Project Handoff / Single Source of Truth
 
+## Current execution override — 2026-11-11
+
+Work is on `integration/release-hardening-20261111`, based on launch `b7f8676`. Follow [the hardening execution ledger](audits/RELEASE_HARDENING_EXECUTION_20261111.md) for current branch snapshots, Issue #15, CI evidence and pending acceptance. The historical active branch, old Preview URL and test totals below are not today's release status. Draft PRs #13/#14 remain unmerged. The protected game worktree stays Cursor-owned and Post-launch. Compact business settings work remains pending; no real deletion, payment or Production action is authorized by this ledger.
+
 Last updated: 2026-10-10  
 Repository: `PetFamily2/STAMPIX_APP`
 

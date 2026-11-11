@@ -11,6 +11,7 @@ import {
   type QueryCtx,
 } from './_generated/server';
 import {
+  isBusinessPermanentDeletionInProgress,
   requireActorHasBusinessCapability,
   requireCurrentUser,
 } from './guards';
@@ -193,6 +194,9 @@ export async function createSUMITCheckoutRecord(
   }
   if (business.ownerUserId !== args.actorUserId) {
     throw new Error('NOT_AUTHORIZED');
+  }
+  if (isBusinessPermanentDeletionInProgress(business)) {
+    throw new Error('BUSINESS_PERMANENT_DELETION_IN_PROGRESS');
   }
   await assertBusinessActivationAccepted(ctx, args.actorUserId, business._id);
   const now = args.now ?? Date.now();

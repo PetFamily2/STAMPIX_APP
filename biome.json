@@ -9,6 +9,12 @@
     "ignoreUnknown": false,
     "includes": [
       "**",
+      "!!**/.tmp",
+      "!!**/_tmp",
+      "!!**/node_modules",
+      "!!**/.tools",
+      "!!**/dist",
+      "!!**/web-build",
       "!!**/.expo",
       "!!**/.expo-export-check",
       "!!**/convex/_generated",

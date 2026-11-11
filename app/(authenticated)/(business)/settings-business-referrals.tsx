@@ -37,6 +37,7 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
+import { NATIVE_REFERRAL_DESTINATIONS } from '@/lib/navigation/referralSettingsDestinations';
 import { flexDirection } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
@@ -134,8 +135,8 @@ function EmptyReferralActionState({
 }
 
 export default function BusinessReferralSettingsScreen({
-  settingsHref = '/(authenticated)/(business)/settings',
-  campaignsHref = '/(authenticated)/(business)/campaigns',
+  settingsHref = NATIVE_REFERRAL_DESTINATIONS.settings,
+  campaignsHref = NATIVE_REFERRAL_DESTINATIONS.campaigns,
   webPresentation = false,
 }: {
   settingsHref?: Href;

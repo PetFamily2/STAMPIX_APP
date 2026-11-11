@@ -12,6 +12,7 @@ import {
   isBusinessPermanentDeletionInProgress,
   requireCurrentUser,
 } from './guards';
+import { readDeletionBillingSafety } from './lib/billing/deletionSafety';
 import { sendExpoPushMessages } from './pushNotifications';
 
 const DELETE_BATCH_SIZE = 50;
@@ -123,7 +124,7 @@ async function findJobsForBusiness(ctx: any, businessId: string) {
     .take(20);
 }
 
-async function getRevenueCatBillingState(
+async function getLegacyRevenueCatBillingState(
   ctx: any,
   businessId: Id<'businesses'>
 ) {
@@ -165,6 +166,14 @@ async function getRevenueCatBillingState(
     endAt: null,
     renewalActive: false,
   } as const;
+}
+
+async function getDeletionBillingState(ctx: any, businessId: Id<'businesses'>) {
+  return readDeletionBillingSafety(
+    ctx,
+    businessId,
+    await getLegacyRevenueCatBillingState(ctx, businessId)
+  );
 }
 
 async function requireCanonicalOwnerRelationship(
@@ -228,7 +237,7 @@ export const listMyBusinessesForPermanentDeletion = query({
           continue;
         }
       }
-      const billing = await getRevenueCatBillingState(ctx, business._id);
+      const billing = await getDeletionBillingState(ctx, business._id);
       result.push({
         businessExists: true as const,
         businessId: business._id,
@@ -241,7 +250,7 @@ export const listMyBusinessesForPermanentDeletion = query({
         permanentDeletionPhase: deletionJob?.phase ?? null,
         permanentDeletionFailureCode: deletionJob?.failureCode ?? null,
         billing,
-        deletionEligible: !billing.renewalActive,
+        deletionEligible: billing.deletionEligible,
       });
     }
 
@@ -331,9 +340,16 @@ export const deleteBusinessPermanently = mutation({
     ) {
       throw new Error('BUSINESS_NAME_CONFIRMATION_MISMATCH');
     }
-    const billing = await getRevenueCatBillingState(ctx, business._id);
+    const billing = await getDeletionBillingState(ctx, business._id);
     if (billing.renewalActive) {
       throw new Error('BUSINESS_SUBSCRIPTION_RENEWAL_ACTIVE');
+    }
+    if (!billing.deletionEligible) {
+      throw new Error(
+        billing.deletionBlockReason === 'payment_pending'
+          ? 'BUSINESS_PAYMENT_PENDING'
+          : 'BUSINESS_BILLING_UNVERIFIED'
+      );
     }
 
     const now = Date.now();
@@ -1853,6 +1869,14 @@ export const processBusinessDeletionBatchInternal = internalMutation({
     const business = await ctx.db.get(businessId);
     if (!business && job.phase !== 'finalize') {
       throw new Error('BUSINESS_ROOT_MISSING_EARLY');
+    }
+    // Jobs created by the old RevenueCat-only gate must not bypass SUMIT safety.
+    if (business && job.billingSnapshot?.deletionSafetyVersion !== 1) {
+      const billing = await getDeletionBillingState(ctx, businessId);
+      if (!billing.deletionEligible) {
+        throw new Error('BUSINESS_BILLING_UNVERIFIED');
+      }
+      await ctx.db.patch(job._id, { billingSnapshot: billing });
     }
 
     switch (job.phase) {

@@ -96,7 +96,7 @@ jobs:
         if: startsWith(github.head_ref, 'pwa/phase-2-')
         run: node scripts/verify-web-phase2-boundaries.mjs
       - name: Scanner safety and protected camera/billing contracts
-        if: startsWith(github.head_ref, 'pwa/phase-3-') || startsWith(github.head_ref, 'agent/launch-')
+        if: startsWith(github.head_ref, 'pwa/phase-3-') || startsWith(github.head_ref, 'agent/launch-') || startsWith(github.head_ref, 'integration/release-hardening-')
         run: node scripts/verify-web-phase3-boundaries.mjs
       - name: Export Web, iOS and Android JavaScript with rollout enabled
         if: ${{ !startsWith(github.head_ref, 'agent/launch-') }}
@@ -118,10 +118,10 @@ jobs:
           EXPO_PUBLIC_WEB_QR_LAB: 'true'
         run: bun scripts/export-qr-lab.mjs ${{ runner.temp }}/phase1-verify-export
       - name: Export Phase 3 Preview worker assets
-        if: startsWith(github.head_ref, 'pwa/phase-3-') || startsWith(github.head_ref, 'agent/launch-')
+        if: startsWith(github.head_ref, 'pwa/phase-3-') || startsWith(github.head_ref, 'agent/launch-') || startsWith(github.head_ref, 'integration/release-hardening-')
         run: bun scripts/export-web-scanner-business.mjs ${{ runner.temp }}/phase1-verify-export
       - name: Verify install manifest and safe PWA artifacts
-        if: startsWith(github.head_ref, 'pwa/phase-3-') || startsWith(github.head_ref, 'agent/launch-')
+        if: startsWith(github.head_ref, 'pwa/phase-3-') || startsWith(github.head_ref, 'agent/launch-') || startsWith(github.head_ref, 'integration/release-hardening-')
         run: node scripts/finalize-web-pwa-export.mjs ${{ runner.temp }}/phase1-verify-export
       - name: Exported client secret patterns
         run: node scripts/verify-client-secret-patterns.mjs ${{ runner.temp }}/phase1-verify-export

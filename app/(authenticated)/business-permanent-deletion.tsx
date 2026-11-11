@@ -45,6 +45,8 @@ const TEXT = {
   retry: 'נסה שוב',
   billing:
     'מחיקה לצמיתות אינה זמינה כל עוד חידוש המנוי פעיל. לאחר שהסטטוס יתעדכן ל״מבוטל״, ניתן יהיה למחוק את העסק.',
+  billingUnverified:
+    'לפני מחיקה יש לאמת שאין חיוב או תשלום ממתין. פנו לשירות הלקוחות לבדיקת מצב המנוי.',
   accountReturn: 'העסקים נמחקו. ניתן לחזור ולהמשיך במחיקת החשבון.',
   returnToAccountDeletion: 'חזרה למחיקת החשבון',
   returnToSettings: 'חזרה להגדרות',
@@ -254,7 +256,9 @@ export default function BusinessPermanentDeletionScreen() {
   const hasExistingJob = Boolean(jobId && effectiveJobStatus);
   const billingBlocked =
     displayBusiness?.billing?.renewalActive === true ||
-    requestError === TEXT.billing;
+    selectedBusiness?.deletionEligible === false ||
+    requestError === TEXT.billing ||
+    requestError === TEXT.billingUnverified;
   const hasCanceledPaidTime =
     displayBusiness?.billing?.status === 'canceled' &&
     displayBusiness.billing.endAt != null &&
@@ -356,6 +360,11 @@ export default function BusinessPermanentDeletionScreen() {
     } catch (error) {
       if (errorHasCode(error, 'BUSINESS_SUBSCRIPTION_RENEWAL_ACTIVE')) {
         setRequestError(TEXT.billing);
+      } else if (
+        errorHasCode(error, 'BUSINESS_BILLING_UNVERIFIED') ||
+        errorHasCode(error, 'BUSINESS_PAYMENT_PENDING')
+      ) {
+        setRequestError(TEXT.billingUnverified);
       } else if (errorHasCode(error, 'BUSINESS_NAME_CONFIRMATION_MISMATCH')) {
         setRequestError(TEXT.nameMismatch);
       } else if (errorHasCode(error, 'NOT_AUTHORIZED')) {
@@ -654,7 +663,11 @@ export default function BusinessPermanentDeletionScreen() {
         <View style={styles.billingCard}>
           <Ionicons name="card-outline" size={30} color="#92400E" />
           <Text style={styles.billingTitle}>המחיקה אינה זמינה כרגע</Text>
-          <Text style={styles.billingText}>{TEXT.billing}</Text>
+          <Text style={styles.billingText}>
+            {displayBusiness?.billing?.renewalActive
+              ? TEXT.billing
+              : TEXT.billingUnverified}
+          </Text>
           <View style={styles.actionRow}>
             <Pressable
               accessibilityRole="button"
