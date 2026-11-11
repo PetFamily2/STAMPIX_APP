@@ -1,3 +1,7 @@
+# Execution override — 2026-11-11
+
+Continue release hardening in `integration/release-hardening-20261111`, Draft PR #16 to main. Current evidence, completed integration and remaining gates: [release hardening ledger](audits/RELEASE_HARDENING_EXECUTION_20261111.md). GAME-01/02 remain Post-launch under Cursor ownership. No merge or Production approval is implied. Code fixes are not provider/device acceptance.
+
 # תכנית ביצוע להשקת StampAix Web/PWA
 
 ## עדכון 10.11.2026 — QA וניווט ״עוד״
@@ -197,7 +201,3 @@
 - קריאה מאומתת ל־SUMIT billing/payments/list (חלון 28–30.10.2026) החזירה HTTP 200, Status=0, רשימה ריקה ו־HasNextPage=false. לא נוצר חיוב, לא הודפסו פרטי עסקאות או סודות. זו הוכחת חיבור API, לא קבלת תשלום.
 - המשתמש התבקש להתחבר ל־https://review.stampaix-web-qa.pages.dev/sign-in עם חשבון הבעלים הקיים. הדומיין הישן שבו הוא מחובר אינו מחליף כניסה ב־QA הקבוע. לא נשמרו/הועתקו אסימונים בין הכתובות.
 - עדיין פתוחים: תשלום מתוך המוצר, אימות שרת והפעלת זכאות, חידוש/כשל/כפילות/ביטול/החזר וקבלת onboarding. שער PAY-01 אינו סגור. אין שינוי ב־Production, בנתוני Convex או בקבצי Cursor.
-# Execution override — 2026-11-11
-
-Continue release hardening in `integration/release-hardening-20261111`, Draft PR #16 to main. Current evidence, completed integration and remaining gates: [release hardening ledger](audits/RELEASE_HARDENING_EXECUTION_20261111.md). GAME-01/02 remain Post-launch under Cursor ownership. No merge or Production approval is implied. Code fixes are not provider/device acceptance.
-

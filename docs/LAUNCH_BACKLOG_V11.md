@@ -1,3 +1,7 @@
+# Execution override — 2026-11-11
+
+Safety remediation and reviewed branch integration are tracked in [the release hardening ledger](audits/RELEASE_HARDENING_EXECUTION_20261111.md), Draft PR #16. SUMIT deletion safety is implemented locally; live backend/provider acceptance is still open. Preserve all backlog requirements, GAME-01/02 as Post-launch and unpublished Cursor work. Global lint, exact-candidate CI/export, payment acceptance and physical-device tests must not be inferred from earlier passing revisions.
+
 # StampAix launch backlog — v11 control baseline
 
 ## 2026-11-10 execution update
@@ -136,7 +140,3 @@ Current evidence: app `88517dd` CI passed (run 40742400781), live Preview https:
 Immediate Work sequence: finish the role-aware unified permission setup and Welcome separation; preserve and verify that batch; continue SUMIT TEST, onboarding, QR/discovery/campaign/role acceptance, security/operations, device UAT and release preparation. Cursor remains a separate Post-launch lane.
 
 SUMIT TEST configuration update (2026-10-29): all six hosted catalogs now have single-product/no-quantity/no-VAT settings and the stable QA success return. Read-back of all six confirmed no VAT and QA return. The original DEV deployment has test environment/company plus QA origin/product mapping configured; its existing key was not exposed. An authenticated read-only SUMIT API request succeeded (HTTP 200, provider Status 0). No charge occurred. PAY-01 remains OPEN until the actual in-product TEST checkout, server entitlement verification and failure/lifecycle acceptance pass. The next dependency is user login on the stable QA origin, not gamification.
-# Execution override — 2026-11-11
-
-Safety remediation and reviewed branch integration are tracked in [the release hardening ledger](audits/RELEASE_HARDENING_EXECUTION_20261111.md), Draft PR #16. SUMIT deletion safety is implemented locally; live backend/provider acceptance is still open. Preserve all backlog requirements, GAME-01/02 as Post-launch and unpublished Cursor work. Global lint, exact-candidate CI/export, payment acceptance and physical-device tests must not be inferred from earlier passing revisions.
-
