@@ -7,9 +7,10 @@ import { ScannerProgramTiles } from '@/components/web-scanner/ScannerProgramTile
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
-import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
 import { scannerCommandsEnabled } from '@/lib/web-scanner/previewGate';
 import {
+  rememberedScannerProgram,
+  rememberScannerProgram,
   retainRecoverySelection,
   selectedScannerProgram,
 } from '@/lib/web-scanner/programSelection';
@@ -66,11 +67,24 @@ export default function ScannerPreviewRoute() {
     recoveryUnavailable = true;
   }
   useEffect(() => {
-    if (priorProgram)
+    if (priorProgram) {
       setSelection((previous) =>
         retainRecoverySelection(previous, scopeKey, priorProgram)
       );
-  }, [scopeKey, priorProgram]);
+      return;
+    }
+    const available = (programs ?? []).map(
+      (program: { loyaltyProgramId: string }) => program.loyaltyProgramId
+    );
+    const next = rememberedScannerProgram(scopeKey, available, sessionStorage);
+    if (!next) return;
+    rememberScannerProgram(scopeKey, next, sessionStorage);
+    setSelection((previous) =>
+      previous.scopeKey === scopeKey && previous.programId === next
+        ? previous
+        : { scopeKey, programId: next }
+    );
+  }, [scopeKey, priorProgram, programs]);
   if (!enabled || !user || !activeBusinessId || !token)
     return (
       <main dir="rtl" style={{ padding: 16 }}>
@@ -101,24 +115,15 @@ export default function ScannerPreviewRoute() {
       }}
       {...(!scannerProgramId ? { role: 'main' } : {})}
     >
-      <h1
-        style={{
-          margin: '0 0 8px',
-          fontSize: 22,
-          color: TOKENS.colors.textPrimary,
-        }}
-      >
-        סריקת לקוח
-      </h1>
-      <p style={{ margin: '0 0 20px', color: TOKENS.colors.textSecondary }}>
-        בחרו כרטיסייה והציגו למצלמה את קוד הלקוח.
-      </p>
       <ScannerProgramTiles
         programs={programs ?? []}
         selectedId={scannerProgramId}
         disabled={busy || !!priorProgram}
-        recoveryId={priorProgram ?? scannerProgramId}
-        onSelect={(programId) => setSelection({ scopeKey, programId })}
+        recoveryId={priorProgram}
+        onSelect={(programId) => {
+          rememberScannerProgram(scopeKey, programId, sessionStorage);
+          setSelection({ scopeKey, programId });
+        }}
       />
       {scannerProgramId ? (
         <BusinessScanner
@@ -140,37 +145,7 @@ export default function ScannerPreviewRoute() {
           }
           onBusy={setBusy}
         />
-      ) : (
-        <section
-          aria-live="polite"
-          style={{
-            marginTop: 16,
-            padding: 24,
-            borderRadius: TOKENS.radii.lg,
-            background: TOKENS.colors.elevatedSurface,
-            color: TOKENS.colors.textSecondary,
-          }}
-        >
-          <h2
-            style={{
-              fontSize: 18,
-              margin: '0 0 8px',
-              color: TOKENS.colors.textPrimary,
-            }}
-          >
-            {programs === undefined
-              ? 'טוענים כרטיסיות…'
-              : programs.length === 0
-                ? 'אין כרטיסיות זמינות לסריקה'
-                : 'מתחילים בבחירת כרטיסייה'}
-          </h2>
-          <p style={{ margin: 0 }}>
-            {programs?.length === 0
-              ? 'כרטיסיות פעילות יופיעו כאן לאחר יצירתן במועדון.'
-              : 'לחצו על כרטיסייה. אם הרשאת המצלמה שמורה בדפדפן, הסריקה תיפתח אוטומטית. כל חותמת או מימוש ידרשו אישור שלכם.'}
-          </p>
-        </section>
-      )}
+      ) : null}
     </div>
   );
 }

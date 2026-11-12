@@ -24,6 +24,7 @@ import { BusinessLogoField } from '@/components/business-web/BusinessLogoField';
 import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
 import { AppText as Text } from '@/components/ui/AppText';
 import WebPushSettings from '@/components/WebPushSettings';
+import { ScannerCameraSettings } from '@/components/web-scanner/ScannerCameraSettings';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import {
   type BusinessSettingsSnapshot,
@@ -378,6 +379,7 @@ export function BusinessWebSettings() {
   return (
     <View style={styles.page}>
       <WebPushSettings />
+      <ScannerCameraSettings />
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="קוד הצטרפות לעסק"

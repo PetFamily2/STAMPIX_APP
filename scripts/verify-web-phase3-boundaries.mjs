@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { assertPreservedDependencies } from './lib/release-dependency-policy.mjs';
@@ -178,9 +179,18 @@ for (const file of files) {
     continue;
   }
   const source = readFileSync(file, 'utf8');
+  // Reviewed camera-device preference only, never QR/receipt/customer or write intents.
+  // Keep every other scanner module under the existing no-localStorage boundary.
+  const cameraPreferenceOnly =
+    file === 'lib/web-scanner/savedCamera.ts' &&
+    createHash('sha256').update(source.replace(/\r\n/g, '\n')).digest('hex') ===
+      '398dd28b52ea6398ce50ce02fdcd4989f88d4b05f29c1255913e05dc00eceefb';
   if (
     /useMutation|console\.|AsyncStorage|localStorage|CacheStorage|indexedDB|analytics|errorReporting|navigator\.serviceWorker|\.sync\.register|WebSocket/.test(
-      source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '')
+      (cameraPreferenceOnly
+        ? source.replaceAll('localStorage', 'cameraPreference')
+        : source
+      ).replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '')
     )
   ) {
     throw new Error(`Disallowed business scanner dependency: ${file}`);

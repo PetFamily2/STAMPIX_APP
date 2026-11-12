@@ -1,12 +1,22 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import {
   CLOUDFLARE_PREVIEW_BACKEND,
   prepareCloudflarePreview,
 } from './lib/cloudflare-web-export.mjs';
+import { verifyReleaseSource } from './lib/release-source.mjs';
 
 const repo = process.cwd();
+const source = verifyReleaseSource({
+  cwd: repo,
+  policy: JSON.parse(
+    readFileSync(
+      new URL('../config/release-source.json', import.meta.url),
+      'utf8'
+    )
+  ),
+});
 execFileSync(
   'git',
   [
@@ -90,5 +100,19 @@ const result = prepareCloudflarePreview(output, {
   revision,
   backendUrl: CLOUDFLARE_PREVIEW_BACKEND,
 });
+const afterBuild = verifyReleaseSource({
+  cwd: repo,
+  policy: {
+    branch: source.branch,
+    requiredAncestors: source.requiredAncestors,
+  },
+});
+if (afterBuild.revision !== source.revision) {
+  throw new Error('RELEASE_SOURCE_CHANGED_DURING_BUILD');
+}
+writeFileSync(
+  path.join(output, 'pwa/source.json'),
+  JSON.stringify(source) + '\n'
+);
 // biome-ignore lint/suspicious/noConsole: public build identity and artifact path only.
 console.log('CLOUDFLARE_PREVIEW_EXPORT ' + JSON.stringify(result));

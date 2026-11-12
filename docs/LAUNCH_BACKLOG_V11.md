@@ -1,3 +1,9 @@
+# Canonical integration checkpoint — 12 November 2026
+
+User requires one launch source: `integration/release-hardening-20261111`, Draft PR #16, worktree `STAMPIX_UI`. Combining launch hardening `715594c` with all 15 Cursor QA commits through `2579919` (runtime `76893ad`); committed-source integration is locally verified: 2,653 tests PASS, types and protected boundaries PASS; exact integrated CI/export still required. Additional uncommitted Cursor business UI is snapshotted and pending review (see CURSOR_PENDING_UI_20261112.md); do not claim full parity. Earlier QA URLs are historical, not this integrated candidate. Source guard now requires both histories, exact canonical branch/CI head and a clean committed tree; Preview artifacts record source identity. See [release source](RELEASE_SOURCE.md). No game worktree was changed; GAME-01/02 remain Cursor-owned Post-launch. No Production/main merge is authorized.
+
+SUMIT TEST checkout and physical-phone Push were deferred by the user, not passed. Original Production read-only review found 33 tables versus 82 in the candidate, absent billing/Push configuration, legacy segments compatibility and campaign validators needing review; production SUMIT activation and backup/restore acceptance also remain open. No Production schema, configuration, data or DNS changed.
+
 # Execution override — 2026-11-11
 
 Follow-up status: SUMIT wire fix 3a426be is CI-verified and live on original DEV. TEST payment form and physical-phone Push opt-in require the user's response; neither is accepted yet. Scoped dependency updates have 2,645 passing local tests/types and 12 remaining audit records, with exact CI pending. Backup dashboard is unauthenticated; no restore/clone/export was performed.

@@ -1,7 +1,23 @@
+# Canonical integration checkpoint — 12 November 2026
+
+User requires one launch source: `integration/release-hardening-20261111`, Draft PR #16, worktree `STAMPIX_UI`. Combining launch hardening `715594c` with all 15 Cursor QA commits through `2579919` (runtime `76893ad`); semantic integration/checks are in progress. Earlier QA URLs are historical, not this integrated candidate. Source guard now requires both histories, exact canonical branch/CI head and a clean committed tree; Preview artifacts record source identity. See [release source](RELEASE_SOURCE.md). No game worktree was changed; GAME-01/02 remain Cursor-owned Post-launch. No Production/main merge is authorized.
+
+SUMIT TEST checkout and physical-phone Push were deferred by the user, not passed. Original Production read-only review found 33 tables versus 82 in the candidate, absent billing/Push configuration, legacy segments compatibility and campaign validators needing review; production SUMIT activation and backup/restore acceptance also remain open. No Production schema, configuration, data or DNS changed.
+
 # Launch QA rejections
 
-Branch: `pwa/phase-3-scanner-commands-20261005`.
+QA branch: `qa/cloudflare-scanner-onboarding-20261110`.
+Base: Work launch tip `ffaaca2` on `agent/launch-completion-20261028`.
+The two scanner and onboarding commits `ad5fca0` and `37c4b83` are applied on that base.
+Uncommitted gamification files in the game worktree were not included, and that branch was not updated.
 Data source: original Convex deployment `utmost-fennec-280`. No billing write, no new database, and no entitlement bypass.
+Deployed SHA: `76893ad589262d57c382d53102bb15112b4d6c7f`.
+Cloudflare Pages project: `stampaix-web-qa`, deployment `f2fc6807`, environment Preview.
+Phone check on 2026-11-10 showed a scan-state panel after a read. That panel is removed. The camera starts with the screen. Device retest is still required.
+Phone URL: https://qa-cloudflare-scanner-onboar.stampaix-web-qa.pages.dev/welcome
+Exact deployment URL: https://f2fc6807.stampaix-web-qa.pages.dev
+The hosted bundle is `index-07c4f74025c617ceb5cf176666ee0a4f.js` and uses `utmost-fennec-280`. `aware-llama-850` appears only inside a denylist. The marketing project and the Work launch branch were not updated.
+No defect below is `CLOSED`.
 
 Statuses: `OPEN`, `REPRODUCED`, `FIXED`, `VERIFIED`, `CLOSED`, `REOPENED`.
 A defect is not `CLOSED` without the evidence named in its test row. A real camera check also needs device UAT.
