@@ -1,5 +1,7 @@
 # Execution override — 2026-11-11
 
+Owner settings/route acceptance advanced: existing business and collapsed groups observed; Campaigns and Referrals open canonical Web routes. Do not mark phone More-menu or all onboarding accepted. Push requires original-DEV configuration first: enable/environment and all three VAPID settings are empty in a read-only presence audit. No configuration was changed; delivery remains a launch gate.
+
 Resolved CI follow-up: f76c9af / run 43166643585 passed 2,641 tests, types, Web/iOS/Android JavaScript exports, PWA/client checks and both original-DEV dry-runs without deployment. Keep live-backend/provider, owner settings and physical-device/Push acceptance open; do not infer them from CI.
 
 12 November: retain open gates for exact-candidate CI/export, owner-account settings and Push delivery. c4f1a19 has 2,640 passing tests and passing types, but the historical dependency guard stopped the run before export/dry-run; the narrowly reviewed auth-version transitions require a follow-up CI. Current QA login reaches a customer account without a linked business, not owner acceptance.

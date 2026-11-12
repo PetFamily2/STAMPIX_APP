@@ -1,5 +1,7 @@
 # Execution override — 2026-11-11
 
+Owner follow-up: existing business login, collapsed settings groups and canonical Web Campaigns/Referrals navigation are now observed in hosted QA 6b72a0a without changes to business data. Push is still blocked: original DEV has empty enable/environment/VAPID configuration (presence-only audit; no values changed). Device delivery and newer backend/provider acceptance remain open. Earlier no-linked-business notes describe the preceding customer session only.
+
 Verified follow-up: f76c9af passed CI 43166643585, 2,641 tests, types, all three JavaScript exports, PWA/client checks and both original-DEV backend dry-runs. No backend or hosting deployment occurred. Owner settings, real SUMIT TEST acceptance, Push/devices and the other release gates remain open.
 
 12 November checkpoint: c4f1a19 passed 2,640 tests and types; CI stopped at the historical dependency freeze on the reviewed auth security upgrades. An exact-transition guard correction is under verification. Current authenticated QA is a customer account without a linked business; owner settings and Push delivery remain unaccepted. See the ledger below for current evidence.
