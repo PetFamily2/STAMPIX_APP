@@ -395,6 +395,87 @@ describe('permanent business deletion request', () => {
     expect(ctx.db.deletionOrder).toHaveLength(0);
     expect(ctx.db.rows('businessDeletionRecipients')).toHaveLength(0);
   });
+
+  test.each([
+    'capture_customers',
+    'purge_memberships',
+    'purge_programs',
+    'finalize',
+  ])('a previously authorized job rechecks a new SUMIT activation before %s', async (phase) => {
+    const ctx = buildCtx();
+    const request = await requestDeletion(ctx);
+    const job = await ctx.db.get(request.jobId);
+    expect(job.billingSnapshot.deletionEligible).toBe(true);
+    job.phase = phase;
+    job.status = 'running';
+    Object.assign(ctx.db.rows('businessBillingAccounts')[0], {
+      provider: 'sumit',
+      status: 'active',
+      hasProviderEvidence: true,
+    });
+    await expect(
+      processBusinessDeletionBatchInternal._handler(ctx, {
+        jobId: request.jobId,
+      })
+    ).rejects.toThrow('BUSINESS_BILLING_UNVERIFIED');
+    expect(ctx.db.deletionOrder).toHaveLength(0);
+    expect(await ctx.db.get(BUSINESS_ID)).not.toBeNull();
+  });
+
+  test('a payment that becomes pending after authorization blocks the next batch', async () => {
+    const ctx = buildCtx();
+    const request = await requestDeletion(ctx);
+    ctx.db.rows('sumitCheckoutIntents').push({
+      _id: 'late_intent',
+      businessId: BUSINESS_ID,
+      status: 'pending',
+      createdAt: Date.now(),
+    });
+    await expect(
+      processBusinessDeletionBatchInternal._handler(ctx, {
+        jobId: request.jobId,
+      })
+    ).rejects.toThrow('BUSINESS_BILLING_UNVERIFIED');
+    expect(ctx.db.deletionOrder).toHaveLength(0);
+  });
+
+  test('verified legacy cancellation remains usable after its subscription rows are intentionally purged', async () => {
+    const ctx = buildCtx({
+      subscriptions: [
+        {
+          _id: 'legacy_canceled',
+          businessId: BUSINESS_ID,
+          provider: 'revenuecat',
+          status: 'canceled',
+          plan: 'starter',
+          period: 'monthly',
+        },
+      ],
+    });
+    const request = await requestDeletion(ctx);
+    const job = await ctx.db.get(request.jobId);
+    ctx.db.tables.subscriptions = [];
+    job.phase = 'purge_subscriptions';
+    job.status = 'running';
+    await expect(
+      processBusinessDeletionBatchInternal._handler(ctx, {
+        jobId: request.jobId,
+      })
+    ).resolves.toMatchObject({ status: 'processed' });
+    expect((await ctx.db.get(request.jobId)).phase).toBe('purge_programs');
+    ctx.db.rows('subscriptions').push({
+      _id: 'legacy_new_active',
+      businessId: BUSINESS_ID,
+      provider: 'revenuecat',
+      status: 'active',
+    });
+    await expect(
+      processBusinessDeletionBatchInternal._handler(ctx, {
+        jobId: request.jobId,
+      })
+    ).rejects.toThrow('BUSINESS_BILLING_UNVERIFIED');
+    expect(await ctx.db.get(BUSINESS_ID)).not.toBeNull();
+  });
   test.each([
     'active',
     'trialing',

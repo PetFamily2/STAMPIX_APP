@@ -2,6 +2,18 @@
 
 Status: IN PROGRESS. No Production approval, merge, real charge or real business deletion.
 
+## Current checkpoint — 12 November
+
+- Source `6b72a0a9c50e6690126527bc4509e1e368db2525` passed **all** CI jobs in [run 43082344271](https://github.com/PetFamily2/STAMPIX_APP/actions/runs/43082344271): 2,629 tests, types, Native/RTL/scanner boundaries, Web/iOS/Android JavaScript exports, PWA artifact checks and client-secret pattern checks. Both original-DEV backend dry-runs (CLI 1.31.5 and 1.49.0) passed with existing restricted access. Neither deployed code or read private environment values; the old WebSocket error did not reproduce and its original cause remains unproven.
+- That verified Web artifact was deployed to **QA only**: https://d7426237.stampaix-web-qa.pages.dev and stable https://review.stampaix-web-qa.pages.dev . Rechecked Cloudflare's existing project/account and `production-disabled` branch before upload; no domains/DNS changed. The connector was authorized for a different account, so the previously authenticated CLI connection was used without expanding access. Public sign-in loaded and a safe no-pending-action PWA update completed. Authenticated settings acceptance awaits the owner's login; the tab was explicitly made visible after the owner reported it was hidden.
+- Subsequent candidate adds **per-batch** billing revalidation, including already-versioned jobs. New active SUMIT, new pending checkout or renewed legacy billing stops before the next destructive batch. Legacy terminal evidence may survive only the deliberate removal of its own old subscription rows; canonical account and new payment/renewal checks remain live. No real deletion was attempted.
+- Subsequent dependency candidate pins compatible Auth peers, resolves critical package advisories, applies reviewed same-major security updates and backports the vendor's linear URI decoder while preserving the old CommonJS/form API. [Dependency report](DEPENDENCY_HARDENING_20261112.md) records exact scope and remaining advisories. The application's shared dependency junction is preserved; installations and patches are isolated from Cursor/original source.
+- Full local checkpoint after the security pins and per-batch gate: **2,638 PASS / zero FAIL**, 200 files, 13,054 assertions; types PASS. The later URI backport adds two meaningful regression cases and Metro's alternate entry becomes a compatibility wrapper; these require their own final full CI/export/dry-run. Focused URI/Bearer/quote/archive tests: five PASS.
+- [External material inventory](EXTERNAL_MATERIAL_INVENTORY_20261112.md) is complete for the stated local directories and two discovered Drive documents. No external assets or credentials were moved or copied into Git. Candidate/snapshot folders remain distinct from the protected active game worktree.
+- Four global Biome baseline errors in three frozen source files remain visible; no lint/safety rule was disabled. Native signed builds are BLOCKED on this Windows host: Java/ADB/Gradle/Xcode executables were not available. This is distinct from passing Native JavaScript exports and still-open physical-device acceptance.
+
+Latest changes after `6b72a0a` are not yet represented by the hosted QA code or live original DEV backend. Do not infer authentication/provider/deletion acceptance from the older QA artifact or a dry-run.
+
 ## Integrated milestone (11 November)
 
 - Draft integration PR: https://github.com/PetFamily2/STAMPIX_APP/pull/16 (base main). Initial safety commit `7fda7a2` passed GitHub verification run `43078848906`; later changes require their own CI.
@@ -31,13 +43,13 @@ No live backend deployment, real payment, business deletion, Production/DNS acti
 
 | Area | Finding | Change / evidence | Status |
 |---|---|---|---|
-| Issue #15 | RevenueCat-only permanent deletion gate omitted SUMIT canonical account | Provider-neutral read gate: active/trialing/past_due, missing/duplicate account, unverified checkout including local expiry, failed reconciliation, inconsistent cancellation and stale proof all block. Recent processed cancellation must match business, recurring item and canonical event. Legacy RevenueCat renewal remains blocked. Pristine never-billed canonical account remains eligible. | CODE IMPLEMENTED; review/types/integration pending |
-| Existing deletion jobs | A job accepted by the old gate could still enter the worker | Pre-safety-version jobs must pass the new gate before purging. New jobs retain a versioned authorization snapshot for bounded continuation. | LOCAL TEST PASS |
+| Issue #15 | RevenueCat-only permanent deletion gate omitted SUMIT canonical account | Provider-neutral read gate: active/trialing/past_due, missing/duplicate account, unverified checkout including local expiry, failed reconciliation, inconsistent cancellation and stale proof all block. Recent processed cancellation must match business, recurring item and canonical event. Legacy RevenueCat renewal remains blocked. Pristine never-billed canonical account remains eligible. | LOCAL TYPES/TESTS PASS; latest exact CI and live backend acceptance pending |
+| Existing deletion jobs | A job accepted by the old gate or changed billing could still enter a batch | Every batch now revalidates billing transactionally; terminal legacy evidence is retained only after its deliberate source-row purge. | LOCAL TEST PASS; no real deletion |
 | Checkout race | A direct checkout-record helper lacked an explicit deletion-state guard | Reject checkout during queued/running/in-progress/failed deletion. No new provider calls. | LOCAL TEST PASS |
 | Deletion UI | Unknown billing could still show an enabled destructive action | Honor server deletionEligible and show verification/pending-payment recovery guidance. No delete action executed. | TYPES / browser pending |
 | CI tests | Two tests asserted obsolete literal JSX rather than Native fallback plus Web override | Canonical pure destination resolver, runtime Native/Web assertions and source wiring checks preserve C2C/B2B distinction. | 27 focused tests PASS |
-| CI infrastructure | PWA run 42871684918 verify PASS; hosting failed at BACKEND_DRY_RUN with WebSocket diagnostic | No evidence yet proving code or network cause. Do not bypass dry-run or broaden deployment-key permissions. | INVESTIGATING |
-| Biome performance | Generated exports/dependencies were included in repository scans | Exclude only .tmp, _tmp, node_modules, .tools, dist and web-build. Actual application source remains covered; existing style debt is not waived. | BASELINE SCAN pending |
+| CI infrastructure | PWA run 42871684918 verify PASS; hosting failed at BACKEND_DRY_RUN with WebSocket diagnostic | Both CLI versions pass current same-key, existing-DEV dry-runs. Original cause remains unproven; guard preserved, no permission expansion. | CURRENT DRY-RUN PASS |
+| Biome performance | Generated exports/dependencies were included in repository scans | Exclude only .tmp, _tmp, node_modules, .tools, dist and web-build. Actual application source remains covered; existing style debt is not waived. | Four retained baseline errors; global check FAIL |
 
 94 local deletion/SUMIT tests passed before the destination-resolver change. Full baseline: 2,613 passed / 3 failed; two real source-contract failures above plus a local safe.directory execution failure. The identity test passed with a per-command safe.directory override; no global Git trust change. These tests use local test harnesses, not a new Convex database or product acceptance fixtures.
 
@@ -45,12 +57,12 @@ No live backend deployment, real payment, business deletion, Production/DNS acti
 
 1. Finish critical review, negative tests, exact-candidate types and full regression. No destructive live test.
 2. Diagnose backend dry-run transport; preserve the guard and separate external failure from code failure.
-3. Review/integrate the named PWA and cleanup changes in this integration branch; do not integrate the protected game worktree.
-4. Generate a complete route/dependency inventory. No route becomes ORPHAN merely because no import was found.
-5. Verify retirement/archive candidates with CI/script/deep-link references; preserve unknown/manual dependencies.
+3. DONE: reviewed/integrated named PWA (`e239d19`) and cleanup (`497e465`); protected game worktree remains untouched.
+4. DONE static route inventory; retain UNKNOWN/dynamic/deep-link candidates for acceptance. No route becomes ORPHAN merely because no import was found.
+5. DONE for the seven removed artifacts and six archived docs. Keep historical/manual tooling whose retirement is not proven.
 6. Complete scoped security, QR, billing, privacy, operations and dependency review; assess Native build availability without store publication.
-7. Inventory project-local/Drive material by evidence, without deleting or moving external/synced assets. Drive search found a current 2.0 master document and an older untitled document; content classification remains pending.
-8. Carry forward the requested compact business settings: collapsed groups and real consent controls, with an owner-only deletion entry only after the safety gate is verified. No permissions changed yet.
+7. DONE within the stated read-only local/Drive inventory scope; no external/synced asset removals.
+8. IMPLEMENTED compact settings and account Push switch; browser/phone acceptance awaits login. Browser-owned permissions remain truthful and separate. No deletion entry expansion before backend safety acceptance.
 9. Exact integration CI, QA export, physical-device and payment acceptance; prepare Draft PR. Stop before main merge and any Production action.
 
 ## External acceptance still open

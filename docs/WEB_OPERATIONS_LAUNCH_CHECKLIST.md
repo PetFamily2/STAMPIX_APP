@@ -1,6 +1,6 @@
 # Web + operations launch checklist
 
-Last updated: 2026-10-03
+Last updated: 2026-11-11. Current execution evidence: [release hardening ledger](audits/RELEASE_HARDENING_EXECUTION_20261111.md). This checklist is not launch approval.
 
 ## Implemented on the launch branches
 
@@ -22,19 +22,27 @@ Last updated: 2026-10-03
 These require account/domain/provider access and are not completed by source
 code alone:
 
-- Make `stampaix.com` the direct canonical Vercel domain and redirect
+- Make `stampaix.com` the direct canonical Cloudflare marketing domain and redirect
   `www.stampaix.com` to it.
-- Configure the final Business Web HTTPS origin.
+- Configure `business.stampaix.com` as the single application HTTPS origin on the existing Cloudflare account. No new paid hosting service; no Production DNS changes without explicit approval.
 - Configure `SUMIT_WEB_ORIGIN`.
 - Configure all six SUMIT hosted product success/cancel destinations.
-- Supply final Apple Team ID for AASA generation.
-- Supply final Google Play signing SHA-256 fingerprint for assetlinks.
-- Configure final App Store and Google Play listing URLs after listings exist.
 - Verify Search Console ownership for the final canonical domain.
 - Provide final legal operator identity/address where required by the legal
   documents.
 - Confirm the monitored production support mailbox.
-- Configure production APNs/FCM/OAuth credentials.
+- Verify the configured Web OAuth/email origins, delivery and account recovery on the final application origin.
+- Verify Web Push/VAPID, persistent browser permissions, installation and QR on two physical phones. API/configuration presence does not prove delivery or device acceptance.
+- Complete SUMIT TEST immediate paid checkout, entitlement, renewal/cancellation, duplicate webhook and refund acceptance. Production charging remains separately authorized; never use a free/unbilled trial to bypass this gate.
+- Verify monitoring, alert ownership, original-database backup/restore procedure and tested rollback. Do not reset or import data to demonstrate recovery.
+- Resolve dependency advisories by reviewed exposure and compatible fixes; an audit result is not proof of exploitation or proof of safety.
+
+## Post-launch Native work (not Web/PWA launch blockers)
+
+- Apple Team ID/AASA, Play signing/assetlinks and final store listing URLs.
+- Production Native APNs/FCM credentials, signed device builds and store submission.
+- Native JavaScript exports passed in integration CI; a Windows host without Java/Android tools or Xcode cannot establish a signed Android/iOS build PASS. Physical tests are separate.
+- GAME-01/02 and advanced game systems remain Post-launch, owned by Cursor. Preserve the unpublished game branch and external artwork.
 
 ## Intentionally still blocked
 

@@ -1851,6 +1851,10 @@ const STAFF_STEPS: DeleteStep[] = [
 
 export const processBusinessDeletionBatchInternal = internalMutation({
   args: { jobId: v.id('businessDeletionJobs') },
+  returns: v.union(
+    v.object({ status: v.literal('stale') }),
+    v.object({ status: v.literal('processed'), phase: v.string() })
+  ),
   handler: async (ctx, { jobId }) => {
     const job = await ctx.db.get(jobId);
     if (!job || job.status === 'completed' || job.status === 'failed') {
@@ -1870,9 +1874,38 @@ export const processBusinessDeletionBatchInternal = internalMutation({
     if (!business && job.phase !== 'finalize') {
       throw new Error('BUSINESS_ROOT_MISSING_EARLY');
     }
-    // Jobs created by the old RevenueCat-only gate must not bypass SUMIT safety.
-    if (business && job.billingSnapshot?.deletionSafetyVersion !== 1) {
-      const billing = await getDeletionBillingState(ctx, businessId);
+    // Recheck in the same transaction as every batch: provider callbacks can
+    // change billing after the request or between scheduled batches.
+    if (business) {
+      let legacy = await getLegacyRevenueCatBillingState(ctx, businessId);
+      const snapshot = job.billingSnapshot;
+      if (
+        legacy.provider === null &&
+        snapshot?.deletionSafetyVersion === 1 &&
+        snapshot.deletionEligible === true &&
+        snapshot.provider === 'revenuecat' &&
+        ['canceled', 'inactive'].includes(snapshot.status) &&
+        [
+          'purge_subscriptions',
+          'purge_programs',
+          'purge_assets',
+          'verify',
+          'finalize',
+        ].includes(job.phase)
+      ) {
+        // This job intentionally removes legacy subscription rows. Its verified
+        // terminal receipt may replace only those absent rows; current canonical
+        // billing, new legacy renewals and pending payments are still checked.
+        legacy = {
+          provider: 'revenuecat',
+          status: snapshot.status === 'canceled' ? 'canceled' : 'inactive',
+          plan: snapshot.plan ?? null,
+          period: snapshot.period ?? null,
+          endAt: snapshot.endAt ?? null,
+          renewalActive: false,
+        };
+      }
+      const billing = await readDeletionBillingSafety(ctx, businessId, legacy);
       if (!billing.deletionEligible) {
         throw new Error('BUSINESS_BILLING_UNVERIFIED');
       }
