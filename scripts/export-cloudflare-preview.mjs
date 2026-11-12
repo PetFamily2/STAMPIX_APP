@@ -10,6 +10,7 @@ import { verifyReleaseSource } from './lib/release-source.mjs';
 const repo = process.cwd();
 const source = verifyReleaseSource({
   cwd: repo,
+  forExport: true,
   policy: JSON.parse(
     readFileSync(
       new URL('../config/release-source.json', import.meta.url),
@@ -102,10 +103,13 @@ const result = prepareCloudflarePreview(output, {
 });
 const afterBuild = verifyReleaseSource({
   cwd: repo,
-  policy: {
-    branch: source.branch,
-    requiredAncestors: source.requiredAncestors,
-  },
+  forExport: true,
+  policy: JSON.parse(
+    readFileSync(
+      new URL('../config/release-source.json', import.meta.url),
+      'utf8'
+    )
+  ),
 });
 if (afterBuild.revision !== source.revision) {
   throw new Error('RELEASE_SOURCE_CHANGED_DURING_BUILD');

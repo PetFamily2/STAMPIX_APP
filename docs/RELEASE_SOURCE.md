@@ -17,6 +17,8 @@ This guard controls the repository's canonical exporter and integration CI; it c
 
 GAME-01/02 and other unpublished game work remain separate and Post-launch. Do not merge/cherry-pick or overwrite `agent/game-album-001`. Future shared-file work requires conflict review before integration.
 
+The pending UI review is explicitly listed in `config/release-source.json`; Preview export fails with `RELEASE_PENDING_SOURCE_REVIEW` until resolved. CI can continue testing this branch. Remove a pending review only with integration evidence or an explicit scope decision. Passing ancestry checks alone is insufficient. A canonical-source guidance note was also appended to the original Cursor worktree's AGENTS.md; no original application/game file was changed.
+
 ## Remaining acceptance
 
 Integration is not payment or device acceptance. User deferred SUMIT TEST checkout and physical-phone Push tests; keep both open. Production readiness still requires schema compatibility review (33-table live schema versus 82-table candidate, including legacy segments and campaign validators), deliberate provider/environment configuration, backup/restore acceptance, essential product/device checks and explicit release approval. Production was not modified.

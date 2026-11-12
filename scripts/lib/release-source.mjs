@@ -1,7 +1,15 @@
 import { execFileSync } from 'node:child_process';
 
 /** Reject incomplete/stale sources before producing an artifact. No deployment. */
-export function verifyReleaseSource({ cwd, policy, event = null }) {
+export function verifyReleaseSource({
+  cwd,
+  policy,
+  event = null,
+  forExport = false,
+}) {
+  if (forExport && policy.pendingSourceReviews?.length) {
+    throw new Error('RELEASE_PENDING_SOURCE_REVIEW');
+  }
   const git = (...args) =>
     execFileSync('git', args, {
       cwd,
@@ -44,5 +52,6 @@ export function verifyReleaseSource({ cwd, policy, event = null }) {
     branch: policy.branch,
     revision,
     requiredAncestors: policy.requiredAncestors,
+    pendingSourceReviews: policy.pendingSourceReviews ?? [],
   };
 }
