@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
+import { assertPreservedDependencies } from './lib/release-dependency-policy.mjs';
 
 const base = '9afcfac8b5b68d3f72212f7866e0aad9c897b094';
 execFileSync('git', ['merge-base', '--is-ancestor', base, 'HEAD']);
@@ -150,9 +151,10 @@ const priorPackage = JSON.parse(
   execFileSync('git', ['show', `${base}:package.json`], { encoding: 'utf8' })
 );
 const nextPackage = JSON.parse(readFileSync('package.json', 'utf8'));
-for (const [name, version] of Object.entries(priorPackage.dependencies))
-  if (nextPackage.dependencies[name] !== version)
-    throw new Error(`Existing Native dependency changed: ${name}`);
+assertPreservedDependencies(
+  priorPackage.dependencies,
+  nextPackage.dependencies
+);
 const backend = readFileSync('convex/webScanner.ts', 'utf8');
 if (
   /\b(mutation|action|internalMutation|internalAction)\s*\(|ctx\.db\.(patch|insert|delete|replace)|ctx\.scheduler|\.collect\s*\(/.test(

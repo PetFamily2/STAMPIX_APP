@@ -1,5 +1,7 @@
 # Execution override — 2026-11-11
 
+12 November checkpoint: c4f1a19 passed 2,640 tests and types; CI stopped at the historical dependency freeze on the reviewed auth security upgrades. An exact-transition guard correction is under verification. Current authenticated QA is a customer account without a linked business; owner settings and Push delivery remain unaccepted. See the ledger below for current evidence.
+
 Continue release hardening in `integration/release-hardening-20261111`, Draft PR #16 to main. Current evidence, completed integration and remaining gates: [release hardening ledger](audits/RELEASE_HARDENING_EXECUTION_20261111.md). GAME-01/02 remain Post-launch under Cursor ownership. No merge or Production approval is implied. Code fixes are not provider/device acceptance.
 
 # תכנית ביצוע להשקת StampAix Web/PWA

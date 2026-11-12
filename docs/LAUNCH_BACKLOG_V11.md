@@ -1,5 +1,7 @@
 # Execution override — 2026-11-11
 
+12 November: retain open gates for exact-candidate CI/export, owner-account settings and Push delivery. c4f1a19 has 2,640 passing tests and passing types, but the historical dependency guard stopped the run before export/dry-run; the narrowly reviewed auth-version transitions require a follow-up CI. Current QA login reaches a customer account without a linked business, not owner acceptance.
+
 Safety remediation and reviewed branch integration are tracked in [the release hardening ledger](audits/RELEASE_HARDENING_EXECUTION_20261111.md), Draft PR #16. SUMIT deletion safety is implemented locally; live backend/provider acceptance is still open. Preserve all backlog requirements, GAME-01/02 as Post-launch and unpublished Cursor work. Global lint, exact-candidate CI/export, payment acceptance and physical-device tests must not be inferred from earlier passing revisions.
 
 # StampAix launch backlog — v11 control baseline
