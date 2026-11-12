@@ -6,6 +6,7 @@ import {
   type SumitConfig,
 } from './config';
 import {
+  isSumitSuccessStatus,
   type NormalizedSumitPayment,
   type NormalizedSumitRecurringItem,
   parseSumitDocumentResponse,
@@ -150,7 +151,7 @@ function responseSucceeded(body: unknown): boolean {
     return false;
   }
   const status = (body as Record<string, unknown>).Status;
-  return status === 'Success' || status === 'Success (0)';
+  return isSumitSuccessStatus(status);
 }
 
 export function parseSumitAck(

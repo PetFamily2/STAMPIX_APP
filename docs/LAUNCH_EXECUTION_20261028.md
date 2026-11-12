@@ -1,5 +1,7 @@
 # Execution override — 2026-11-11
 
+12 November continuation: original DEV Push is configured and its switch is available; no notification/consent/device acceptance yet. QA and original DEV now run verified source d24b7f5 (QA https://2c972102.stampaix-web-qa.pages.dev). Found/fixed numeric SUMIT status/currency parsing locally; 50 focused tests and types pass, exact CI/sync pending. Three existing provider TEST payments are declined, not successful paid acceptance. Details and strict no-data-change evidence are in the current ledger.
+
 Owner follow-up: existing business login, collapsed settings groups and canonical Web Campaigns/Referrals navigation are now observed in hosted QA 6b72a0a without changes to business data. Push is still blocked: original DEV has empty enable/environment/VAPID configuration (presence-only audit; no values changed). Device delivery and newer backend/provider acceptance remain open. Earlier no-linked-business notes describe the preceding customer session only.
 
 Verified follow-up: f76c9af passed CI 43166643585, 2,641 tests, types, all three JavaScript exports, PWA/client checks and both original-DEV backend dry-runs. No backend or hosting deployment occurred. Owner settings, real SUMIT TEST acceptance, Push/devices and the other release gates remain open.

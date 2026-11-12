@@ -1,5 +1,7 @@
 # Execution override — 2026-11-11
 
+Current advancement: Push configuration and verified-candidate QA/original-DEV sync completed without data reset/import or Production. Delivery/device tests remain open. New provider-wire defect (numeric SUMIT success and ILS enums) fixed with negative tests; latest exact CI/sync is required. Existing TEST charges are declined and cannot close paid entitlement/onboarding acceptance.
+
 Owner settings/route acceptance advanced: existing business and collapsed groups observed; Campaigns and Referrals open canonical Web routes. Do not mark phone More-menu or all onboarding accepted. Push requires original-DEV configuration first: enable/environment and all three VAPID settings are empty in a read-only presence audit. No configuration was changed; delivery remains a launch gate.
 
 Resolved CI follow-up: f76c9af / run 43166643585 passed 2,641 tests, types, Web/iOS/Android JavaScript exports, PWA/client checks and both original-DEV dry-runs without deployment. Keep live-backend/provider, owner settings and physical-device/Push acceptance open; do not infer them from CI.
