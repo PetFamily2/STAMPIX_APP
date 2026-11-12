@@ -1,5 +1,7 @@
 # Execution override — 2026-11-11
 
+Latest: 3a426be passed 2,645-test full CI and original-DEV sync, fixing actual numeric SUMIT wire responses. A real QA→SUMIT TEST Pro/299 monthly form is prepared and awaiting the user's completion; no charge was submitted. Phone Push opt-in is pending. Additional matching-major dependency hardening reduces the audit to 12 records; full local tests/types pass, exact follow-up CI pending. Convex backup dashboard login is still needed for backup acceptance.
+
 12 November continuation: original DEV Push is configured and its switch is available; no notification/consent/device acceptance yet. QA and original DEV now run verified source d24b7f5 (QA https://2c972102.stampaix-web-qa.pages.dev). Found/fixed numeric SUMIT status/currency parsing locally; 50 focused tests and types pass, exact CI/sync pending. Three existing provider TEST payments are declined, not successful paid acceptance. Details and strict no-data-change evidence are in the current ledger.
 
 Owner follow-up: existing business login, collapsed settings groups and canonical Web Campaigns/Referrals navigation are now observed in hosted QA 6b72a0a without changes to business data. Push is still blocked: original DEV has empty enable/environment/VAPID configuration (presence-only audit; no values changed). Device delivery and newer backend/provider acceptance remain open. Earlier no-linked-business notes describe the preceding customer session only.

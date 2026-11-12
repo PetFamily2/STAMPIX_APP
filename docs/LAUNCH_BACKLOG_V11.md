@@ -1,5 +1,7 @@
 # Execution override — 2026-11-11
 
+Follow-up status: SUMIT wire fix 3a426be is CI-verified and live on original DEV. TEST payment form and physical-phone Push opt-in require the user's response; neither is accepted yet. Scoped dependency updates have 2,645 passing local tests/types and 12 remaining audit records, with exact CI pending. Backup dashboard is unauthenticated; no restore/clone/export was performed.
+
 Current advancement: Push configuration and verified-candidate QA/original-DEV sync completed without data reset/import or Production. Delivery/device tests remain open. New provider-wire defect (numeric SUMIT success and ILS enums) fixed with negative tests; latest exact CI/sync is required. Existing TEST charges are declined and cannot close paid entitlement/onboarding acceptance.
 
 Owner settings/route acceptance advanced: existing business and collapsed groups observed; Campaigns and Referrals open canonical Web routes. Do not mark phone More-menu or all onboarding accepted. Push requires original-DEV configuration first: enable/environment and all three VAPID settings are empty in a read-only presence audit. No configuration was changed; delivery remains a launch gate.

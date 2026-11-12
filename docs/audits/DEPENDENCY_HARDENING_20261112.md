@@ -2,6 +2,23 @@
 
 Status: implemented candidate; exact-candidate CI/export/backend dry-run and real authentication acceptance are required. No live backend, Production, data migration or provider configuration was changed by these dependency operations.
 
+## Matching-major lockfile follow-up
+
+The further isolated candidate refreshes 24 scoped resolutions without changing root dependency declarations, overrides, patches, Expo SDK, React Native, Convex SDK or Bun. npm registry integrity, Node 22 compatibility, all existing consumer ranges, package entry points and install lifecycle scripts were checked. Twenty-one entries keep identical declared dependency/API metadata. Three additional reviewed resolutions preserve their public entry points while requiring already available patched child versions:
+
+| Package | Scoped resolutions |
+|---|---|
+| ws | 6.2.3 → 6.2.6; 7.5.10 → 7.5.13; 8.19.0 → 8.22.2 |
+| brace-expansion | 1.1.12 → 1.1.22; 2.0.2 → 2.1.8; 5.0.9 → 5.0.13 |
+| picomatch | 2.3.1 → 2.3.2; 4.0.3 → 4.0.7 |
+| js-yaml | 3.14.2 → 3.15.2; 4.1.1 → 4.3.2 |
+| minimatch | 3.1.2 → 3.1.5; 9.0.5 → 9.0.9; 10.1.1 → 10.2.6 |
+| postcss | root 8.5.6 → 8.5.32; Expo's separate ~8.4 dependency remains 8.4.49 |
+
+Minimatch 9 adds a `module` field pointing to its unchanged existing ESM export. Minimatch 10 switches its brace dependency to the same patched 5.x implementation already consumed by Expo fingerprint. A separate nested lock resolution preserves the root brace-expansion 2.x API. Root PostCSS's updated nanoid/source-map ranges resolve to the already reviewed pinned versions. Bun canonicalization removed two now-unreferenced @isaacs resolutions and added the nested brace/balanced-match resolutions; no unrelated package version changed. The first frozen install detected that canonicalization was needed; ordinary install normalized the graph and a subsequent **frozen install PASS** confirmed it is stable.
+
+Fresh audit: **12 records across seven package names: zero critical, five high, six moderate, one low**, down from 54 records / 37 high before these scoped updates. Two URI-decoder version records still refer to the documented runtime backport; no advisory was suppressed. Remaining image-size/PostCSS 8.4/other records remain visible and require exposure/SDK compatibility review. Full local regression: **2,645 PASS / zero FAIL**, 202 files, 13,115 assertions; types PASS. Exact follow-up CI/export is still required for the lockfile candidate.
+
 ## Evidence and changes
 
 - Initial `bun audit --json`: 156 advisory records across 29 package names (3 critical, 96 high, 43 moderate, 14 low). Records can repeat an advisory across installed versions; these are not counts of unique exploitable vulnerabilities.
