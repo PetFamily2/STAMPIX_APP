@@ -91,10 +91,7 @@ export function classifyCampaignState(
   const activationLifecycle = normalizeLifecycle(campaign.activationStatus);
   const legacyLifecycle = normalizeLifecycle(campaign.status);
 
-  if (
-    campaign.activationStatus !== undefined &&
-    activationLifecycle === null
-  ) {
+  if (campaign.activationStatus !== undefined && activationLifecycle === null) {
     return buildResult('inconsistent', {
       reasonCode: 'INVALID_ACTIVATION_STATUS',
     });

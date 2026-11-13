@@ -3,7 +3,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -30,11 +29,13 @@ import { MAX_STAMP_OPTIONS } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { Alert } from '@/lib/alert';
 import {
   DEFAULT_LOYALTY_CARD_TERMS,
   DEFAULT_LOYALTY_REWARD_CONDITIONS,
 } from '@/lib/loyalty/cardTerms';
 import { loyaltyWriteErrorToHebrewMessage } from '@/lib/loyalty/programErrors';
+import { businessHref } from '@/lib/navigation/businessHref';
 import { rtlBaseView, tw } from '@/lib/rtl';
 
 export default function NewLoyaltyCardScreen() {
@@ -80,7 +81,10 @@ export default function NewLoyaltyCardScreen() {
         rewardConditions: DEFAULT_LOYALTY_REWARD_CONDITIONS,
       });
       router.replace({
-        pathname: '/(authenticated)/(business)/cards/[programId]',
+        pathname: businessHref(
+          Platform.OS,
+          '/(authenticated)/(business)/cards/[programId]'
+        ) as any,
         params: {
           businessId: String(businessId),
           programId: String(result.loyaltyProgramId),

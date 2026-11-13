@@ -36,7 +36,11 @@ function createMockCtx(initial = {}) {
         return null;
       },
       normalizeId: (tableName, id) =>
-        state[tableName]?.has(id) ? id : tableName === 'businesses' && id === BUSINESS_ID ? id : null,
+        state[tableName]?.has(id)
+          ? id
+          : tableName === 'businesses' && id === BUSINESS_ID
+            ? id
+            : null,
       insert: async (tableName, doc) => {
         const id = doc._id ?? `${tableName}_${state[tableName].size + 1}`;
         state[tableName].set(id, { _id: id, ...doc });
@@ -143,8 +147,14 @@ describe('out-of-order RevenueCat events', () => {
 
   test('duplicate event id is acknowledged without reapplying', async () => {
     const ctx = createMockCtx({ businesses: [buildBusiness()] });
-    const first = await apply(ctx, { eventId: 'evt_dup', eventType: 'INITIAL_PURCHASE' });
-    const second = await apply(ctx, { eventId: 'evt_dup', eventType: 'INITIAL_PURCHASE' });
+    const first = await apply(ctx, {
+      eventId: 'evt_dup',
+      eventType: 'INITIAL_PURCHASE',
+    });
+    const second = await apply(ctx, {
+      eventId: 'evt_dup',
+      eventType: 'INITIAL_PURCHASE',
+    });
     expect(first.duplicate).toBe(false);
     expect(second.duplicate).toBe(true);
     expect(ctx.rows('revenueCatWebhookEvents')).toHaveLength(1);

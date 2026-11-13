@@ -26,6 +26,14 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { trackActivationEvent } from '@/lib/analytics/activation';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import {
+  productAccent,
+  webAccentSoft,
+  webAccentText,
+  webBody,
+  webPage,
+  webTitle,
+} from '@/lib/design/webProductChrome';
 import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
   BUSINESS_ONBOARDING_ROUTES,
@@ -65,13 +73,8 @@ const CREATE_PROGRAM_COPY = {
 
 export default function CreateProgramScreen() {
   const { flow } = useLocalSearchParams<{ flow?: string }>();
-  const {
-    businessId,
-    programDraft,
-    programId,
-    setProgramDraft,
-    setProgramId,
-  } = useOnboarding();
+  const { businessId, programDraft, programId, setProgramDraft, setProgramId } =
+    useOnboarding();
   const { user } = useUser();
   const { saveStep } = useBusinessOnboardingDraftPersistence();
   const didSyncStepRef = useRef(false);
@@ -88,7 +91,9 @@ export default function CreateProgramScreen() {
     businessId ? { businessId } : 'skip'
   ) ?? []) as Array<{ programId: Id<'loyaltyPrograms'>; themeId: string }>;
   const usedThemeIds = themeReservations
-    .filter((reservation) => String(reservation.programId) !== String(programId))
+    .filter(
+      (reservation) => String(reservation.programId) !== String(programId)
+    )
     .map((reservation) => reservation.themeId);
 
   const [error, setError] = useState<string | null>(null);
@@ -336,7 +341,7 @@ export default function CreateProgramScreen() {
               style={styles.inputButton}
             >
               {isUploadingImage ? (
-                <ActivityIndicator color="#2563EB" />
+                <ActivityIndicator color={productAccent} />
               ) : (
                 <Text style={styles.inputButtonText}>
                   {programDraft.imagePreviewUri
@@ -410,7 +415,7 @@ export default function CreateProgramScreen() {
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         {isSubmitting ? (
           <View style={styles.submittingRow}>
-            <ActivityIndicator color="#2563EB" />
+            <ActivityIndicator color={productAccent} />
             <Text style={styles.submittingText}>{TEXT.submitting}</Text>
           </View>
         ) : null}
@@ -433,6 +438,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FBFAF7',
+    ...webPage,
   },
   content: {
     flex: 1,
@@ -451,12 +457,14 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#111827',
     textAlign: 'right',
+    ...webTitle,
   },
   subtitle: {
     fontSize: 13,
     fontWeight: '600',
     color: '#6B7280',
     textAlign: 'right',
+    ...webBody,
   },
   formScroll: {
     marginTop: 16,
@@ -532,6 +540,7 @@ const styles = StyleSheet.create({
   optionChipOn: {
     borderColor: '#2563EB',
     backgroundColor: '#EAF1FF',
+    ...webAccentSoft,
   },
   optionChipText: {
     fontSize: 12,
@@ -560,6 +569,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#2563EB',
+    ...webAccentText,
     textAlign: 'right',
   },
   footer: {

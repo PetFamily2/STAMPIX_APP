@@ -194,10 +194,7 @@ async function runScheduledRecipientDeliveries(ctx, scheduled, startIndex = 0) {
     const job = scheduled[index];
     index += 1;
     if (job.args.toUserId) {
-      await deliverBusinessClosureNotificationInternal._handler(
-        ctx,
-        job.args
-      );
+      await deliverBusinessClosureNotificationInternal._handler(ctx, job.args);
       continue;
     }
     if (job.args.messageId) {
@@ -225,9 +222,7 @@ describe('business closure notification fan-out', () => {
     expect(closeMutation).not.toContain('sendPushNotificationToUser');
     expect(closeMutation).not.toContain("query('memberships')");
 
-    const restoreStart = source.indexOf(
-      'export const restoreBusinessAccount'
-    );
+    const restoreStart = source.indexOf('export const restoreBusinessAccount');
     const restoreEnd = source.indexOf(
       'export const createBusiness',
       restoreStart
@@ -279,9 +274,7 @@ describe('business closure notification fan-out', () => {
     );
     expect(tables.messageLog[0].dedupeKey).toContain(String(CLOSED_AT));
     expect(
-      tables.messageLog.some(
-        (row) => row.toUserId === 'inactive_history_only'
-      )
+      tables.messageLog.some((row) => row.toUserId === 'inactive_history_only')
     ).toBeFalse();
     expect(tables.memberships).toEqual(membershipsBefore);
   });
@@ -318,8 +311,7 @@ describe('business closure notification fan-out', () => {
     });
     const continuation = scheduled.find(
       (job) =>
-        job.args.cursor ===
-        String(BUSINESS_CLOSURE_NOTIFICATION_BATCH_SIZE)
+        job.args.cursor === String(BUSINESS_CLOSURE_NOTIFICATION_BATCH_SIZE)
     );
     expect(continuation).toBeTruthy();
     const firstPageScheduledCount = await runScheduledRecipientDeliveries(
@@ -409,10 +401,7 @@ describe('business closure notification fan-out', () => {
       closedAt: CLOSED_AT,
       cursor: null,
     });
-    let scheduledCount = await runScheduledRecipientDeliveries(
-      ctx,
-      scheduled
-    );
+    let scheduledCount = await runScheduledRecipientDeliveries(ctx, scheduled);
     await processBusinessClosureStaffBatchInternal._handler(ctx, {
       businessId: BUSINESS_ID,
       closedAt: CLOSED_AT,
@@ -462,10 +451,7 @@ describe('business closure notification fan-out', () => {
       cursor: null,
     };
     await processBusinessClosureCustomerBatchInternal._handler(ctx, args);
-    let scheduledCount = await runScheduledRecipientDeliveries(
-      ctx,
-      scheduled
-    );
+    let scheduledCount = await runScheduledRecipientDeliveries(ctx, scheduled);
     await processBusinessClosureCustomerBatchInternal._handler(ctx, args);
     scheduledCount = await runScheduledRecipientDeliveries(
       ctx,
@@ -524,9 +510,7 @@ describe('business closure notification fan-out', () => {
     await runScheduledRecipientDeliveries(ctx, scheduled);
 
     expect(tables.messageLog).toHaveLength(1);
-    expect(tables.messageLog[0].deliveryStatus).toBe(
-      'inbox_push_attempted'
-    );
+    expect(tables.messageLog[0].deliveryStatus).toBe('inbox_push_attempted');
     expect(tables.pushDeliveryLog).toContainEqual(
       expect.objectContaining({
         toUserId: CUSTOMER_ID,

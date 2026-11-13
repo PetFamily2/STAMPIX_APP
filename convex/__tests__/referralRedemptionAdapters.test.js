@@ -39,7 +39,11 @@ describe('Google referral redemption adapter', () => {
   test('provider failure leaves reward unredeemed and retry is idempotent', async () => {
     const provider = createGoogleRedemptionProvider({
       secretApiKey: 'test_secret',
-      fetchImpl: async () => ({ ok: false, status: 500, json: async () => ({}) }),
+      fetchImpl: async () => ({
+        ok: false,
+        status: 500,
+        json: async () => ({}),
+      }),
     });
     const first = await provider.apply({
       months: 2,

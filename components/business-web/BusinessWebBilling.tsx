@@ -1,8 +1,7 @@
-import { useAction, useQuery } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import {
   CalendarDays,
   Check,
-  CreditCard,
   ExternalLink,
   FileText,
   ReceiptText,
@@ -13,14 +12,18 @@ import {
   ActivityIndicator,
   Linking,
   Pressable,
+  ScrollView,
   StyleSheet,
-  Text,
   useWindowDimensions,
   View,
 } from 'react-native';
-
-import { BusinessWebConfirmDialog } from '@/components/business-web/BusinessWebDialog';
+import {
+  BusinessWebConfirmDialog,
+  BusinessWebDialog,
+} from '@/components/business-web/BusinessWebDialog';
+import { AppText as Text } from '@/components/ui/AppText';
 import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import {
   type BillingPeriod,
@@ -28,8 +31,12 @@ import {
   PLAN_ORDER,
   planConfig,
 } from '@/lib/billing/productionContract';
+import { WEB_TAX_POLICY } from '@/lib/billing/webTaxPolicy';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
+import { WEB_LEGAL_VERSION } from '@/lib/legalWebContract';
+import { WEB_LEGAL_DOCUMENTS } from '@/lib/legalWebDocuments';
 import { alignItems, flexDirection, ltrIslandText, selfStart } from '@/lib/rtl';
+import { WEB_BUSINESS_OPERATOR } from '@/lib/webBusinessOperator';
 
 const YEARLY_COPY = 'בחיוב שנתי — משלמים על 10 חודשים ומקבלים 12';
 const CANCELLATION_COPY =
@@ -37,7 +44,7 @@ const CANCELLATION_COPY =
 
 const STATUS_LABELS: Record<string, string> = {
   active: 'פעיל',
-  trialing: 'פעיל',
+  trialing: 'תקופת ניסיון',
   past_due: 'נדרש טיפול בתשלום',
   canceled: 'בוטל — פעיל עד סוף התקופה',
   inactive: 'לא פעיל',
@@ -85,20 +92,50 @@ function openDocumentUrl(url: string | null) {
   }
 }
 
-export function BusinessWebBilling() {
+export function BusinessWebBilling({
+  businessIdOverride,
+  businessNameOverride,
+  onBeforeCheckout,
+}: {
+  businessIdOverride?: Id<'businesses'>;
+  businessNameOverride?: string;
+  onBeforeCheckout?: () => Promise<void>;
+} = {}) {
   const { width } = useWindowDimensions();
-  const { activeBusiness, activeBusinessId } = useActiveBusiness();
-  const isOwner = activeBusiness?.staffRole === 'owner';
+  const active = useActiveBusiness();
+  const activeBusinessId = businessIdOverride ?? active.activeBusinessId;
+  const businessName =
+    businessNameOverride ?? active.activeBusiness?.name ?? '';
+  // The override scopes onboarding to its draft. Every server call still
+  // authorizes the authenticated owner independently of this UI condition.
+  const isOwner =
+    businessIdOverride !== undefined ||
+    active.activeBusiness?.staffRole === 'owner';
   const overview = useQuery(
     api.businessBilling.getBusinessBillingOverview,
     activeBusinessId && isOwner ? { businessId: activeBusinessId } : 'skip'
   );
   const createCheckout = useAction(api.sumitBilling.createSUMITCheckout);
+  const termsAcceptance = useQuery(
+    api.businessBilling.getActivationTermsAcceptance,
+    activeBusinessId && isOwner ? { businessId: activeBusinessId } : 'skip'
+  );
+  const acceptTerms = useMutation(api.businessBilling.acceptActivationTerms);
+  const [checkedBusinessId, setCheckedBusinessId] =
+    useState<Id<'businesses'> | null>(null);
+  const termsAccepted =
+    termsAcceptance?.accepted === true ||
+    checkedBusinessId === activeBusinessId;
+  const checkoutAvailability = useQuery(
+    api.businessBilling.getCheckoutAvailability,
+    activeBusinessId && isOwner ? { businessId: activeBusinessId } : 'skip'
+  );
   const cancelRecurring = useAction(api.sumitBilling.cancelSUMITRecurring);
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
   const [pendingPlan, setPendingPlan] = useState<BusinessPlan | null>(null);
   const [actionError, setActionError] = useState('');
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
   const [cancelNotice, setCancelNotice] = useState('');
 
@@ -108,9 +145,15 @@ export function BusinessWebBilling() {
     if (!activeBusinessId || pendingPlan || overview?.hasCurrentPaidAccess) {
       return;
     }
+    if (checkoutAvailability?.available !== true || !termsAccepted) return;
     setActionError('');
     setPendingPlan(plan);
     try {
+      await onBeforeCheckout?.();
+      await acceptTerms({
+        businessId: activeBusinessId,
+        version: WEB_LEGAL_VERSION,
+      });
       const result = await createCheckout({
         businessId: activeBusinessId,
         plan,
@@ -158,10 +201,10 @@ export function BusinessWebBilling() {
     }
   }
 
-  if (!activeBusinessId || !activeBusiness) {
+  if (!activeBusinessId) {
     return (
       <PageState
-        description="בחרו עסק כדי לצפות בחיוב ובחשבוניות שלו."
+        description="בחרו עסק כדי לצפות בחיוב ובמסמכי התשלום שלו."
         title="לא נבחר עסק פעיל"
       />
     );
@@ -191,6 +234,7 @@ export function BusinessWebBilling() {
     : null;
   const status = overview?.status ?? 'inactive';
   const hasCurrentPaidAccess = overview?.hasCurrentPaidAccess === true;
+  const isTrialing = overview?.isTrialing === true;
   const currentBillingPeriod: BillingPeriod | null =
     overview?.billingPeriod === 'monthly' ||
     overview?.billingPeriod === 'yearly'
@@ -200,16 +244,120 @@ export function BusinessWebBilling() {
     hasCurrentPaidAccess && currentBillingPeriod
       ? currentBillingPeriod
       : billingPeriod;
+  const visiblePlans = PLAN_ORDER.map((plan) => plan).sort(
+    (left, right) =>
+      planConfig[left].pricing[displayedBillingPeriod] -
+      planConfig[right].pricing[displayedBillingPeriod]
+  );
+
+  const periodLabel = overview?.billingPeriod
+    ? PERIOD_LABELS[overview.billingPeriod]
+    : null;
+  const statusSummary = [planName, periodLabel].filter(Boolean).join(' · ');
+  const periodEndAt = isTrialing
+    ? overview?.trialEndsAt
+    : overview?.currentPeriodEndAt;
+  function focusRenewalPlans() {
+    if (typeof document === 'undefined') {
+      return;
+    }
+    document
+      .getElementById('billing-plans')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  const bannerTone =
+    status === 'active'
+      ? 'success'
+      : status === 'past_due' || status === 'canceled'
+        ? 'warning'
+        : status === 'trialing'
+          ? 'neutral'
+          : 'danger';
 
   return (
     <View style={styles.page}>
-      <View style={styles.pageHeader}>
-        <View style={styles.pageHeaderCopy}>
-          <Text style={styles.pageTitle}>חיוב וחשבוניות</Text>
-          <Text style={styles.pageSubtitle}>
-            ניהול המסלול, מחזור החיוב ומסמכי התשלום של {activeBusiness.name}.
+      <View
+        accessibilityRole="summary"
+        style={[
+          styles.statusBanner,
+          bannerTone === 'success'
+            ? styles.statusBannerSuccess
+            : bannerTone === 'warning'
+              ? styles.statusBannerWarning
+              : bannerTone === 'neutral'
+                ? styles.statusBannerNeutral
+                : styles.statusBannerDanger,
+        ]}
+      >
+        <Text
+          style={[
+            styles.statusLabel,
+            bannerTone === 'success'
+              ? styles.statusLabelSuccess
+              : bannerTone === 'warning'
+                ? styles.statusLabelWarning
+                : bannerTone === 'neutral'
+                  ? styles.statusLabelNeutral
+                  : styles.statusLabelDanger,
+          ]}
+        >
+          {STATUS_LABELS[status] ?? 'לא פעיל'}
+        </Text>
+        <Text
+          style={[
+            styles.statusMeta,
+            bannerTone === 'danger' ? styles.statusOnDanger : null,
+          ]}
+        >
+          {statusSummary || 'אין מסלול פעיל'}
+        </Text>
+        {bannerTone === 'danger' ? (
+          <Text style={styles.statusImpact}>
+            לקוח חדש לא מצטרף ולא מקבל חותמת. מבצע חדש לא נפתח.
           </Text>
-        </View>
+        ) : null}
+        {typeof periodEndAt === 'number' ? (
+          <Text
+            style={[
+              styles.statusNote,
+              bannerTone === 'danger' ? styles.statusOnDanger : null,
+            ]}
+          >
+            {isTrialing ? 'ניסיון עד' : 'פעיל עד'} {formatDate(periodEndAt)}
+          </Text>
+        ) : null}
+        {overview?.canceledAt ? (
+          <Text style={styles.statusNote}>
+            החידוש בוטל ב-{formatDate(overview.canceledAt)}.
+          </Text>
+        ) : null}
+        {overview?.canCancel ? (
+          <Pressable
+            accessibilityLabel="ביטול חידוש המנוי"
+            accessibilityRole="button"
+            onPress={() => setShowCancelDialog(true)}
+            style={({ pressed }) => [
+              styles.dangerOutlineButton,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Text style={styles.dangerOutlineText}>ביטול חידוש</Text>
+          </Pressable>
+        ) : null}
+        {bannerTone === 'danger' ? (
+          <Pressable
+            accessibilityLabel="חידוש המנוי"
+            accessibilityRole="button"
+            onPress={focusRenewalPlans}
+            style={({ pressed }) => [
+              styles.renewButton,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Text style={styles.renewButtonText}>חידוש המנוי</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       {actionError ? (
@@ -223,70 +371,29 @@ export function BusinessWebBilling() {
         </View>
       ) : null}
 
-      <SectionCard
-        description="המידע מוצג לפי מצב המנוי הקנוני שנשמר ב-StampAix."
-        icon={ShieldCheck}
-        title="המנוי הנוכחי"
-      >
-        <View style={styles.detailsGrid}>
-          <Detail
-            label="מסלול"
-            value={planName ?? 'אין מסלול פעיל'}
-            ltr={true}
-          />
-          <Detail label="סטטוס" value={STATUS_LABELS[status] ?? 'לא פעיל'} />
-          <Detail
-            label="מחזור חיוב"
-            value={
-              overview?.billingPeriod
-                ? PERIOD_LABELS[overview.billingPeriod]
-                : '—'
-            }
-          />
-          <Detail
-            label="סוף התקופה ששולמה"
-            value={formatDate(overview?.currentPeriodEndAt)}
-          />
+      {checkoutAvailability?.available === false && !hasCurrentPaidAccess ? (
+        <View accessibilityLiveRegion="polite" style={styles.errorBanner}>
+          <Text style={styles.errorText}>התשלום אינו זמין כרגע.</Text>
         </View>
-        {overview?.canceledAt ? (
-          <Text style={styles.cancellationState}>
-            החידוש בוטל בתאריך {formatDate(overview.canceledAt)}. הגישה אינה
-            נפסקת לפני סוף התקופה ששולמה.
-          </Text>
-        ) : null}
-        {overview?.canCancel ? (
-          <View style={styles.subscriptionActions}>
-            <Pressable
-              accessibilityLabel="ביטול חידוש המנוי"
-              accessibilityRole="button"
-              onPress={() => setShowCancelDialog(true)}
-              style={({ pressed }) => [
-                styles.dangerOutlineButton,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <Text style={styles.dangerOutlineText}>ביטול חידוש המנוי</Text>
-            </Pressable>
-            <View
-              accessibilityState={{ disabled: true }}
-              style={styles.disabledButton}
-            >
-              <CreditCard color={TOKENS.colors.textMuted} size={17} />
-              <Text style={styles.disabledButtonText}>עדכון כרטיס — בקרוב</Text>
-            </View>
-          </View>
-        ) : null}
-      </SectionCard>
+      ) : null}
 
-      <View style={styles.plansHeader}>
-        <View style={styles.plansHeaderCopy}>
-          <Text style={styles.sectionHeading}>בחירת מסלול</Text>
+      <View nativeID="billing-plans" style={styles.plansBar}>
+        <Text style={styles.sectionHeading}>מסלולים</Text>
+        <Text style={styles.sectionDescription}>
+          {WEB_TAX_POLICY.priceNotice}
+        </Text>
+        {!hasCurrentPaidAccess ? (
           <Text style={styles.sectionDescription}>
-            {hasCurrentPaidAccess
-              ? 'המנוי הנוכחי מוצג למטה. שינוי מסלול או מחזור חיוב עדיין לא זמין בגרסה זו.'
-              : 'התשלום מתבצע בעמוד המאובטח של SUMIT. פרטי הכרטיס אינם מוזנים או נשמרים ב-StampAix.'}
+            הפעלה מחייבת חיוב מיידי בכרטיס אשראי. ב־14 הימים הראשונים מהתשלום
+            הראשון אפשר לבקש החזר מלא דרך שירות הלקוחות. התשלום מתבצע בעמוד
+            המאובטח של SUMIT.
           </Text>
-        </View>
+        ) : null}
+        {hasCurrentPaidAccess ? (
+          <Text style={styles.sectionDescription}>
+            שינוי מסלול או מחזור חיוב עדיין לא זמין בגרסה זו.
+          </Text>
+        ) : null}
         <View accessibilityLabel="מחזור חיוב" style={styles.cadenceToggle}>
           {(['monthly', 'yearly'] as const).map((period) => {
             const selected = displayedBillingPeriod === period;
@@ -317,41 +424,108 @@ export function BusinessWebBilling() {
             );
           })}
         </View>
+        <Text style={styles.taxLine}>{WEB_TAX_POLICY.priceNotice}</Text>
       </View>
       {displayedBillingPeriod === 'yearly' ? (
-        <View style={styles.yearlyBanner}>
-          <CalendarDays color={TOKENS.colors.success} size={19} />
-          <Text style={styles.yearlyBannerText}>{YEARLY_COPY}</Text>
+        <Text style={styles.yearlyNote}>{YEARLY_COPY}</Text>
+      ) : null}
+
+      {!hasCurrentPaidAccess ? (
+        <View style={styles.plansHeaderCopy}>
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: termsAccepted }}
+            accessibilityLabel="אישור תנאי המנוי: חיוב מיידי ואפשרות להחזר מלא דרך השירות ב־14 הימים הראשונים"
+            onPress={() =>
+              setCheckedBusinessId(
+                checkedBusinessId === activeBusinessId ? null : activeBusinessId
+              )
+            }
+            disabled={
+              termsAcceptance?.accepted === true || pendingPlan !== null
+            }
+          >
+            <Text style={styles.sectionDescription}>
+              {termsAccepted ? '☑' : '☐'} אני מאשר/ת את תנאי המנוי: חיוב מיידי,
+              חידוש לפי המסלול שנבחר ואפשרות לבקש החזר מלא דרך השירות ב־14 הימים
+              הראשונים מהתשלום הראשון.
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => setShowTerms(true)}
+          >
+            <Text style={styles.planName}>קריאת תנאי המנוי וההחזר</Text>
+          </Pressable>
         </View>
       ) : null}
+      <Pressable
+        accessibilityRole="link"
+        onPress={() =>
+          void Linking.openURL(
+            `mailto:${WEB_BUSINESS_OPERATOR.supportEmail}?subject=${encodeURIComponent(`בקשת שירות או החזר למנוי — ${businessName}`)}`
+          )
+        }
+      >
+        <Text style={styles.sectionDescription}>
+          שירות לקוחות ובקשת החזר: {WEB_BUSINESS_OPERATOR.supportEmail}
+        </Text>
+      </Pressable>
 
       <View
         style={[styles.planGrid, plansStacked ? styles.planGridStacked : null]}
       >
-        {PLAN_ORDER.map((plan) => {
+        {visiblePlans.map((plan) => {
           const definition = planConfig[plan];
           const price = definition.pricing[displayedBillingPeriod];
+          const fullYearPrice = definition.pricing.monthly * 12;
+          const discount =
+            displayedBillingPeriod === 'yearly'
+              ? fullYearPrice - definition.pricing.yearly
+              : 0;
           const isCurrent = hasCurrentPaidAccess && overview?.plan === plan;
           const busy = pendingPlan === plan;
-          const checkoutDisabled = hasCurrentPaidAccess || pendingPlan !== null;
-          return (
+          const checkoutDisabled =
+            hasCurrentPaidAccess ||
+            pendingPlan !== null ||
+            checkoutAvailability?.available !== true ||
+            !termsAccepted;
+          const pulseYearlyPro =
+            plan === 'pro' && displayedBillingPeriod === 'yearly';
+          const card = (
             <View
               key={plan}
+              nativeID={pulseYearlyPro ? 'yearly-pro-plan' : undefined}
               style={[
                 styles.planCard,
                 plan === 'pro' ? styles.planCardFeatured : null,
               ]}
             >
-              {plan === 'pro' ? (
-                <Text style={styles.featuredBadge}>הבחירה הפופולרית</Text>
-              ) : null}
-              <Text style={styles.planName}>{definition.displayName}</Text>
-              <View style={styles.priceRow}>
+              <View style={styles.planTitleRow}>
+                <Text style={styles.planName}>{definition.displayName}</Text>
+                {pulseYearlyPro ? (
+                  <Text style={styles.featuredBadge}>הנמכר ביותר</Text>
+                ) : null}
+              </View>
+              <View style={styles.priceBlock}>
+                {discount > 0 ? (
+                  <View style={styles.priceCompare}>
+                    <Text
+                      accessibilityLabel={`מחיר לפני הנחה ${fullYearPrice} שקלים`}
+                      style={styles.priceWas}
+                    >
+                      ₪{fullYearPrice.toLocaleString('he-IL')}
+                    </Text>
+                    <Text style={styles.discountLabel}>
+                      הנחה ₪{discount.toLocaleString('he-IL')}
+                    </Text>
+                  </View>
+                ) : null}
                 <Text style={styles.price}>
                   ₪{price.toLocaleString('he-IL')}
                 </Text>
                 <Text style={styles.pricePeriod}>
-                  / {displayedBillingPeriod === 'monthly' ? 'חודש' : 'שנה'}
+                  {displayedBillingPeriod === 'monthly' ? 'לחודש' : 'לשנה'}
                 </Text>
               </View>
               <View style={styles.planFacts}>
@@ -390,22 +564,53 @@ export function BusinessWebBilling() {
                     : isCurrent
                       ? 'המסלול הנוכחי'
                       : hasCurrentPaidAccess
-                        ? 'שינוי מסלול — בקרוב'
-                        : 'המשך לתשלום מאובטח'}
+                        ? 'שינוי מסלול אינו זמין בגרסה זו'
+                        : checkoutAvailability?.available !== true
+                          ? 'התשלום אינו זמין כרגע'
+                          : !termsAccepted
+                            ? 'יש לאשר את תנאי העסק'
+                            : isTrialing
+                              ? 'בחירת מסלול והמשך לתשלום'
+                              : 'לתשלום'}
                 </Text>
               </Pressable>
+            </View>
+          );
+          return (
+            <View key={plan} style={styles.planSlot}>
+              {card}
             </View>
           );
         })}
       </View>
 
-      <SectionCard
-        description="מסמכים שהתקבלו מתשלומים שאומתו על ידי השרת."
-        icon={ReceiptText}
-        title="חשבוניות וקבלות"
+      <BusinessWebDialog
+        visible={showTerms}
+        onDismiss={() => setShowTerms(false)}
+        title="תנאי המנוי וההחזר"
+        description={`גרסה ${WEB_LEGAL_VERSION}`}
+        maxWidth={760}
       >
+        <ScrollView
+          style={{ maxHeight: 480 }}
+          contentContainerStyle={{ gap: 16 }}
+        >
+          {WEB_LEGAL_DOCUMENTS.terms.sections.map((section) => (
+            <View key={section.title}>
+              <Text style={styles.sectionHeading}>{section.title}</Text>
+              {section.body.map((paragraph) => (
+                <Text key={paragraph} style={styles.sectionDescription}>
+                  {paragraph}
+                </Text>
+              ))}
+            </View>
+          ))}
+        </ScrollView>
+      </BusinessWebDialog>
+
+      <SectionCard title="מסמכים">
         {documents.length === 0 ? (
-          <Text style={styles.emptyDocuments}>אין עדיין מסמכים להצגה.</Text>
+          <Text style={styles.emptyDocuments}>אין מסמכים.</Text>
         ) : (
           <View style={styles.documentList}>
             {documents.map((document, index) => (
@@ -460,29 +665,12 @@ export function BusinessWebBilling() {
   );
 }
 
-function Detail({
-  label,
-  ltr = false,
-  value,
-}: {
-  label: string;
-  ltr?: boolean;
-  value: string;
-}) {
-  return (
-    <View style={styles.detail}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={[styles.detailValue, ltr ? styles.ltrText : null]}>
-        {value}
-      </Text>
-    </View>
-  );
-}
-
 function PlanFact({ text }: { text: string }) {
   return (
     <View style={styles.planFact}>
-      <Check color={TOKENS.colors.success} size={17} />
+      <View style={styles.planFactIcon}>
+        <Check color={TOKENS.colors.success} size={16} />
+      </View>
       <Text style={styles.planFactText}>{text}</Text>
     </View>
   );
@@ -490,26 +678,14 @@ function PlanFact({ text }: { text: string }) {
 
 function SectionCard({
   children,
-  description,
-  icon: Icon,
   title,
 }: {
   children: React.ReactNode;
-  description: string;
-  icon: typeof ShieldCheck;
   title: string;
 }) {
   return (
     <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={styles.cardIcon}>
-          <Icon color={TOKENS.colors.primary} size={21} />
-        </View>
-        <View style={styles.cardHeaderCopy}>
-          <Text style={styles.cardTitle}>{title}</Text>
-          <Text style={styles.cardDescription}>{description}</Text>
-        </View>
-      </View>
+      <Text style={styles.cardTitle}>{title}</Text>
       <View style={styles.cardBody}>{children}</View>
     </View>
   );
@@ -536,20 +712,74 @@ function PageState({
 const styles = StyleSheet.create({
   page: {
     alignSelf: 'center',
-    gap: TOKENS.space.xl,
-    maxWidth: 1180,
+    gap: 14,
+    maxWidth: 980,
     width: '100%',
   },
-  pageHeader: { flexDirection: flexDirection.row },
-  pageHeaderCopy: { flex: 1, gap: TOKENS.space.xs },
-  pageTitle: {
-    ...TOKENS.typography.pageTitle,
+  statusBanner: {
+    borderRadius: TOKENS.radii.lg,
+    borderWidth: 1,
+    gap: 4,
+    paddingHorizontal: TOKENS.space.lg,
+    paddingVertical: TOKENS.space.lg,
+    width: '100%',
+  },
+  statusBannerDanger: {
+    backgroundColor: '#B91C1C',
+    borderColor: '#B91C1C',
+  },
+  statusBannerSuccess: {
+    backgroundColor: TOKENS.colors.successSubtle,
+    borderColor: '#A7F3D0',
+  },
+  statusBannerWarning: {
+    backgroundColor: TOKENS.colors.warningSubtle,
+    borderColor: '#FED7AA',
+  },
+  statusBannerNeutral: {
+    backgroundColor: TOKENS.colors.primarySubtle,
+    borderColor: TOKENS.colors.border,
+  },
+  statusLabel: {
+    fontSize: 22,
+    fontWeight: '600',
+    lineHeight: 30,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  statusLabelDanger: { color: '#FFFFFF' },
+  statusOnDanger: { color: '#FFFFFF' },
+  statusImpact: {
+    ...TOKENS.typography.secondaryBody,
+    color: '#FFFFFF',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  renewButton: {
+    alignSelf: selfStart,
+    backgroundColor: '#FFFFFF',
+    borderRadius: TOKENS.radii.sm,
+    justifyContent: 'center',
+    marginTop: TOKENS.space.sm,
+    minHeight: 42,
+    paddingHorizontal: TOKENS.space.md,
+  },
+  renewButtonText: {
+    ...TOKENS.typography.label,
+    color: '#B91C1C',
+    textAlign: 'center',
+  },
+  statusLabelSuccess: { color: TOKENS.colors.success },
+  statusLabelWarning: { color: TOKENS.colors.warning },
+  statusLabelNeutral: { color: TOKENS.colors.primary },
+  statusMeta: {
+    ...TOKENS.typography.cardTitle,
     color: TOKENS.colors.textPrimary,
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  pageSubtitle: {
-    ...TOKENS.typography.body,
+  statusNote: {
+    ...TOKENS.typography.secondaryBody,
     color: TOKENS.colors.textSecondary,
     textAlign: 'right',
     writingDirection: 'rtl',
@@ -581,89 +811,28 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   card: {
-    ...TOKENS.shadow,
-    backgroundColor: TOKENS.colors.elevatedSurface,
-    borderColor: TOKENS.colors.border,
-    borderRadius: TOKENS.radii.lg,
-    borderWidth: 1,
-    padding: TOKENS.space.xl,
+    backgroundColor: 'transparent',
+    borderTopWidth: 1,
+    borderTopColor: TOKENS.colors.border,
+    paddingTop: 12,
     width: '100%',
   },
-  cardHeader: {
-    alignItems: alignItems.start,
-    borderBottomColor: TOKENS.colors.border,
-    borderBottomWidth: 1,
-    flexDirection: flexDirection.row,
-    gap: TOKENS.space.md,
-    paddingBottom: TOKENS.space.lg,
-  },
-  cardIcon: {
-    alignItems: 'center',
-    backgroundColor: TOKENS.colors.primarySubtle,
-    borderRadius: TOKENS.radii.md,
-    height: 42,
-    justifyContent: 'center',
-    width: 42,
-  },
-  cardHeaderCopy: { flex: 1, gap: 2 },
   cardTitle: {
     ...TOKENS.typography.sectionTitle,
     color: TOKENS.colors.textPrimary,
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  cardDescription: {
-    ...TOKENS.typography.secondaryBody,
-    color: TOKENS.colors.textMuted,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  cardBody: { gap: TOKENS.space.lg, paddingTop: TOKENS.space.xl },
-  detailsGrid: {
-    flexDirection: flexDirection.row,
-    flexWrap: 'wrap',
-    gap: TOKENS.space.md,
-  },
-  detail: {
-    backgroundColor: TOKENS.colors.subtleSurface,
-    borderRadius: TOKENS.radii.md,
-    flexGrow: 1,
-    gap: TOKENS.space.xs,
-    minWidth: 190,
-    padding: TOKENS.space.lg,
-  },
-  detailLabel: {
-    ...TOKENS.typography.metadata,
-    color: TOKENS.colors.textMuted,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  detailValue: {
-    ...TOKENS.typography.cardTitle,
-    color: TOKENS.colors.textPrimary,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  ltrText: { ...ltrIslandText },
-  cancellationState: {
-    ...TOKENS.typography.secondaryBody,
-    color: TOKENS.colors.warning,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  subscriptionActions: {
-    alignItems: 'center',
-    flexDirection: flexDirection.row,
-    flexWrap: 'wrap',
-    gap: TOKENS.space.md,
-  },
+  cardBody: { gap: 10, paddingTop: 10 },
   dangerOutlineButton: {
+    alignSelf: selfStart,
     borderColor: TOKENS.colors.danger,
     borderRadius: TOKENS.radii.sm,
     borderWidth: 1,
-    minHeight: 44,
+    marginTop: TOKENS.space.sm,
+    minHeight: 38,
     justifyContent: 'center',
-    paddingHorizontal: TOKENS.space.lg,
+    paddingHorizontal: TOKENS.space.md,
   },
   dangerOutlineText: {
     ...TOKENS.typography.label,
@@ -677,22 +846,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: flexDirection.row,
     gap: TOKENS.space.sm,
-    minHeight: 44,
+    minHeight: 38,
     opacity: 0.75,
-    paddingHorizontal: TOKENS.space.lg,
+    paddingHorizontal: TOKENS.space.md,
   },
   disabledButtonText: {
     ...TOKENS.typography.label,
     color: TOKENS.colors.textMuted,
   },
-  plansHeader: {
-    alignItems: alignItems.start,
-    flexDirection: flexDirection.row,
-    flexWrap: 'wrap',
-    gap: TOKENS.space.lg,
-    justifyContent: 'space-between',
+  plansBar: {
+    gap: TOKENS.space.sm,
+    width: '100%',
   },
-  plansHeaderCopy: { flex: 1, gap: TOKENS.space.xs, minWidth: 260 },
   sectionHeading: {
     ...TOKENS.typography.sectionTitle,
     color: TOKENS.colors.textPrimary,
@@ -712,11 +877,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: flexDirection.row,
     padding: 4,
+    width: '100%',
   },
   cadenceOption: {
+    alignItems: 'center',
     borderRadius: TOKENS.radii.sm,
-    minWidth: 88,
-    paddingHorizontal: TOKENS.space.lg,
+    flex: 1,
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: TOKENS.space.md,
     paddingVertical: TOKENS.space.sm,
   },
   cadenceOptionSelected: { backgroundColor: TOKENS.colors.primary },
@@ -726,76 +895,145 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   cadenceOptionTextSelected: { color: '#FFFFFF' },
-  yearlyBanner: {
-    alignItems: 'center',
-    alignSelf: selfStart,
-    backgroundColor: TOKENS.colors.successSubtle,
-    borderRadius: TOKENS.radii.pill,
-    flexDirection: flexDirection.row,
-    gap: TOKENS.space.sm,
-    paddingHorizontal: TOKENS.space.lg,
-    paddingVertical: TOKENS.space.sm,
+  taxLine: {
+    ...TOKENS.typography.metadata,
+    color: TOKENS.colors.textMuted,
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
-  yearlyBannerText: {
-    ...TOKENS.typography.label,
+  yearlyNote: {
+    ...TOKENS.typography.secondaryBody,
     color: TOKENS.colors.success,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  termsGate: {
+    alignItems: alignItems.start,
+    backgroundColor: TOKENS.colors.elevatedSurface,
+    borderColor: TOKENS.colors.border,
+    borderRadius: TOKENS.radii.md,
+    borderWidth: 1,
+    gap: TOKENS.space.sm,
+    padding: TOKENS.space.md,
+  },
+  termsGateText: {
+    ...TOKENS.typography.secondaryBody,
+    color: TOKENS.colors.textSecondary,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  termsGateLink: {
+    ...TOKENS.typography.label,
+    color: TOKENS.colors.primary,
+    textAlign: 'right',
+    textDecorationLine: 'underline',
     writingDirection: 'rtl',
   },
   planGrid: {
     alignItems: 'stretch',
     flexDirection: flexDirection.row,
-    gap: TOKENS.space.lg,
+    gap: 8,
+    overflow: 'visible',
   },
   planGridStacked: { flexDirection: 'column' },
+  planSlot: {
+    flex: 1,
+    minWidth: 0,
+    position: 'relative',
+  },
   planCard: {
-    ...TOKENS.shadow,
     backgroundColor: TOKENS.colors.elevatedSurface,
     borderColor: TOKENS.colors.border,
-    borderRadius: TOKENS.radii.lg,
+    borderRadius: TOKENS.radii.md,
     borderWidth: 1,
     flex: 1,
-    gap: TOKENS.space.lg,
+    gap: 6,
     minWidth: 0,
-    padding: TOKENS.space.xl,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   planCardFeatured: { borderColor: TOKENS.colors.primary, borderWidth: 2 },
+  planTitleRow: {
+    alignItems: 'center',
+    flexDirection: flexDirection.row,
+    gap: 8,
+    justifyContent: 'space-between',
+    width: '100%',
+  },
   featuredBadge: {
     ...TOKENS.typography.metadata,
-    alignSelf: selfStart,
     backgroundColor: TOKENS.colors.primarySubtle,
     borderRadius: TOKENS.radii.pill,
     color: TOKENS.colors.primary,
+    overflow: 'hidden',
     paddingHorizontal: TOKENS.space.md,
     paddingVertical: TOKENS.space.xs,
   },
   planName: {
     ...ltrIslandText,
-    ...TOKENS.typography.sectionTitle,
+    ...TOKENS.typography.cardTitle,
     color: TOKENS.colors.textPrimary,
+    flexShrink: 1,
+    textAlign: 'right',
   },
-  priceRow: {
-    alignItems: 'baseline',
-    flexDirection: flexDirection.rowReverse,
-    gap: TOKENS.space.xs,
+  priceBlock: {
+    gap: 0,
+    width: '100%',
+  },
+  priceCompare: {
+    alignItems: 'center',
+    flexDirection: flexDirection.row,
+    gap: 8,
+    width: '100%',
+  },
+  priceWas: {
+    ...ltrIslandText,
+    color: TOKENS.colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+    textDecorationLine: 'line-through',
+  },
+  discountLabel: {
+    color: TOKENS.colors.success,
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 18,
+    writingDirection: 'rtl',
   },
   price: {
     ...ltrIslandText,
-    ...TOKENS.typography.kpiValue,
     color: TOKENS.colors.textPrimary,
+    fontSize: 22,
+    fontWeight: '600',
+    lineHeight: 26,
+    textAlign: 'right',
+    width: '100%',
   },
   pricePeriod: {
     ...TOKENS.typography.secondaryBody,
     color: TOKENS.colors.textMuted,
+    textAlign: 'right',
+    width: '100%',
+    writingDirection: 'rtl',
   },
-  planFacts: { flex: 1, gap: TOKENS.space.md },
+  planFacts: { gap: 2, width: '100%' },
   planFact: {
-    alignItems: 'center',
+    alignItems: alignItems.end,
     flexDirection: flexDirection.row,
     gap: TOKENS.space.sm,
+    width: '100%',
+  },
+  planFactIcon: {
+    flexShrink: 0,
+    marginTop: 1,
   },
   planFactText: {
     ...TOKENS.typography.secondaryBody,
     color: TOKENS.colors.textSecondary,
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    textAlign: 'right',
     writingDirection: 'rtl',
   },
   checkoutButton: {
@@ -805,11 +1043,17 @@ const styles = StyleSheet.create({
     flexDirection: flexDirection.row,
     gap: TOKENS.space.sm,
     justifyContent: 'center',
-    minHeight: 48,
-    paddingHorizontal: TOKENS.space.lg,
+    marginTop: 4,
+    minHeight: 36,
+    paddingHorizontal: TOKENS.space.md,
   },
   checkoutButtonDisabled: { opacity: 0.65 },
-  checkoutButtonText: { ...TOKENS.typography.label, color: '#FFFFFF' },
+  checkoutButtonText: {
+    ...TOKENS.typography.label,
+    color: '#FFFFFF',
+    flexShrink: 1,
+    textAlign: 'center',
+  },
   documentList: { gap: TOKENS.space.sm },
   documentRow: {
     alignItems: 'center',
@@ -817,16 +1061,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     flexDirection: flexDirection.row,
     gap: TOKENS.space.md,
-    minHeight: 66,
+    minHeight: 46,
     paddingVertical: TOKENS.space.sm,
   },
   documentIcon: {
     alignItems: 'center',
     backgroundColor: TOKENS.colors.primarySubtle,
     borderRadius: TOKENS.radii.sm,
-    height: 38,
+    height: 32,
     justifyContent: 'center',
-    width: 38,
+    width: 32,
   },
   documentCopy: { flex: 1, gap: 2 },
   documentTitle: {
@@ -864,17 +1108,17 @@ const styles = StyleSheet.create({
     gap: TOKENS.space.md,
     justifyContent: 'center',
     maxWidth: 520,
-    minHeight: 360,
-    padding: TOKENS.space.xl,
+    minHeight: 160,
+    padding: TOKENS.space.lg,
     width: '100%',
   },
   pageStateIcon: {
     alignItems: 'center',
     backgroundColor: TOKENS.colors.primarySubtle,
     borderRadius: TOKENS.radii.pill,
-    height: 56,
+    height: 44,
     justifyContent: 'center',
-    width: 56,
+    width: 44,
   },
   pageStateTitle: {
     ...TOKENS.typography.sectionTitle,
@@ -889,4 +1133,111 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   pressed: { opacity: 0.82 },
+  pageHeader: { flexDirection: flexDirection.row },
+  pageHeaderCopy: { flex: 1, gap: TOKENS.space.xs },
+  pageTitle: {
+    ...TOKENS.typography.pageTitle,
+    color: TOKENS.colors.textPrimary,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  pageSubtitle: {
+    ...TOKENS.typography.body,
+    color: TOKENS.colors.textSecondary,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  cardHeader: {
+    alignItems: alignItems.start,
+    flexDirection: flexDirection.row,
+    gap: TOKENS.space.sm,
+    paddingBottom: 8,
+  },
+  cardIcon: {
+    display: 'none',
+  },
+  cardHeaderCopy: { flex: 1, gap: 2 },
+  cardDescription: {
+    ...TOKENS.typography.secondaryBody,
+    color: TOKENS.colors.textMuted,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  detailsGrid: {
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    gap: 0,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: TOKENS.colors.border,
+    paddingVertical: 8,
+  },
+  detail: {
+    flexGrow: 1,
+    gap: 1,
+    minWidth: 140,
+    paddingHorizontal: 12,
+    paddingVertical: 2,
+  },
+  detailLabel: {
+    ...TOKENS.typography.metadata,
+    color: TOKENS.colors.textMuted,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  detailValue: {
+    ...TOKENS.typography.cardTitle,
+    color: TOKENS.colors.textPrimary,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  ltrText: { ...ltrIslandText },
+  cancellationState: {
+    ...TOKENS.typography.secondaryBody,
+    color: TOKENS.colors.warning,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  subscriptionActions: {
+    alignItems: 'center',
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    gap: 0,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: TOKENS.colors.border,
+    paddingVertical: 8,
+  },
+  plansHeader: {
+    alignItems: alignItems.start,
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    gap: 0,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: TOKENS.colors.border,
+    paddingVertical: 8,
+    justifyContent: 'space-between',
+  },
+  plansHeaderCopy: { flex: 1, gap: TOKENS.space.xs, minWidth: 260 },
+  yearlyBanner: {
+    alignItems: 'center',
+    alignSelf: selfStart,
+    backgroundColor: TOKENS.colors.successSubtle,
+    borderRadius: TOKENS.radii.pill,
+    flexDirection: flexDirection.row,
+    gap: TOKENS.space.sm,
+    paddingHorizontal: TOKENS.space.md,
+    paddingVertical: TOKENS.space.sm,
+  },
+  yearlyBannerText: {
+    ...TOKENS.typography.label,
+    color: TOKENS.colors.success,
+    writingDirection: 'rtl',
+  },
+  priceRow: {
+    alignItems: 'baseline',
+    flexDirection: flexDirection.rowReverse,
+    gap: TOKENS.space.xs,
+  },
 });

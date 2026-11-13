@@ -1,20 +1,19 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
-
+import { buildSmartManagerRecipientBindingHash } from '../lib/smartManagerExecution';
 import {
-  isQualifyingSmartManagerReturnEvent,
   emptySmartManagerOutcomeCounters,
   ensureSmartManagerOutcomeForContact,
+  isQualifyingSmartManagerReturnEvent,
   markSmartManagerOutcomeDirty,
   SMART_MANAGER_OUTCOME_DIRTY_BATCH_SIZE,
   SMART_MANAGER_OUTCOME_EVENT_BATCH_SIZE,
   SMART_MANAGER_OUTCOME_EXPIRY_BATCH_SIZE,
+  shouldContinueSmartManagerOutcomeSweep,
   smartManagerRecipientBindingsAreStructurallyValid,
   sortEligibleLastTouchOutcomes,
-  shouldContinueSmartManagerOutcomeSweep,
   transitionSmartManagerOutcomeState,
 } from '../lib/smartManagerOutcomes';
-import { buildSmartManagerRecipientBindingHash } from '../lib/smartManagerExecution';
 import {
   SMART_MANAGER_POLICY_V1_HASH,
   SMART_MANAGER_POLICY_V1_VERSION,
@@ -128,7 +127,10 @@ describe('Smart Manager deterministic last-touch attribution', () => {
 
   test('identical contact times use a stable descending tie-break', () => {
     const selected = sortEligibleLastTouchOutcomes(
-      [outcome({ attributionTieBreaker: 'run_a' }), outcome({ attributionTieBreaker: 'run_b' })],
+      [
+        outcome({ attributionTieBreaker: 'run_a' }),
+        outcome({ attributionTieBreaker: 'run_b' }),
+      ],
       1_500
     );
     expect(selected.map((row) => row.attributionTieBreaker)).toEqual([
@@ -140,7 +142,10 @@ describe('Smart Manager deterministic last-touch attribution', () => {
   test('an already-returned older campaign is not eligible for reassignment', () => {
     const selected = sortEligibleLastTouchOutcomes(
       [
-        outcome({ state: 'returned_after_campaign', attributionTieBreaker: 'run_a' }),
+        outcome({
+          state: 'returned_after_campaign',
+          attributionTieBreaker: 'run_a',
+        }),
         outcome({ contactEvidenceAt: 1_300, attributionTieBreaker: 'run_b' }),
       ],
       1_500
@@ -198,7 +203,9 @@ describe('Smart Manager outcome processing contracts', () => {
   });
 
   test('older open contacts are durably superseded', () => {
-    expect(source).toContain("transitionSmartManagerOutcomeState(ctx, older, 'superseded'");
+    expect(source).toContain(
+      "transitionSmartManagerOutcomeState(ctx, older, 'superseded'"
+    );
     expect(source).toContain('supersededByOutcomeId: args.winner._id');
   });
 
@@ -231,8 +238,12 @@ describe('Smart Manager outcome processing contracts', () => {
     expect(source).toContain('openOutcomeWindowCount');
     expect(source).toContain('expiredOutcomeWindowCount');
     expect(source).not.toMatch(/recoveredRevenue|ROI|becauseOfCampaign/);
-    const summarySource = source.slice(source.indexOf('async function buildRunResultSummary'));
-    expect(summarySource).not.toContain(".query('smartManagerRecipientOutcomes')");
+    const summarySource = source.slice(
+      source.indexOf('async function buildRunResultSummary')
+    );
+    expect(summarySource).not.toContain(
+      ".query('smartManagerRecipientOutcomes')"
+    );
   });
 
   test('scanner hot path only writes a deduplicated marker', () => {
@@ -243,14 +254,22 @@ describe('Smart Manager outcome processing contracts', () => {
 
   test('business deletion covers outcome records and dirty markers', () => {
     expect(deletionSource).toContain("table: 'smartManagerRecipientOutcomes'");
-    expect(deletionSource).toContain("table: 'smartManagerOutcomeDirtyMarkers'");
-    expect(deletionSource).toContain("table: 'smartManagerOutcomeReversalMarkers'");
+    expect(deletionSource).toContain(
+      "table: 'smartManagerOutcomeDirtyMarkers'"
+    );
+    expect(deletionSource).toContain(
+      "table: 'smartManagerOutcomeReversalMarkers'"
+    );
   });
 
   test('account deletion removes customer-bound outcomes and dirty markers', () => {
     expect(accountDeletionSource).toContain("'smartManagerRecipientOutcomes'");
-    expect(accountDeletionSource).toContain("'smartManagerOutcomeDirtyMarkers'");
-    expect(accountDeletionSource).toContain("'smartManagerOutcomeReversalMarkers'");
+    expect(accountDeletionSource).toContain(
+      "'smartManagerOutcomeDirtyMarkers'"
+    );
+    expect(accountDeletionSource).toContain(
+      "'smartManagerOutcomeReversalMarkers'"
+    );
   });
 });
 
@@ -307,13 +326,18 @@ class BehaviorDb {
     this.nextId = 1;
   }
   rows(table) {
-    return (this.tables[table] ??= []);
+    this.tables[table] ??= [];
+    return this.tables[table];
   }
   query(table) {
     return new BehaviorQuery(this, table);
   }
   async get(id) {
-    return Object.values(this.tables).flat().find((row) => row._id === id) ?? null;
+    return (
+      Object.values(this.tables)
+        .flat()
+        .find((row) => row._id === id) ?? null
+    );
   }
   async insert(table, value) {
     const row = { _id: `${table}_${this.nextId++}`, ...structuredClone(value) };
@@ -410,10 +434,23 @@ async function createContactOutcome(ctx, run, recipient) {
 describe('Smart Manager executable outcome transitions', () => {
   test('initialization and awaiting to returned are counter-safe on retry', async () => {
     const fixture = behaviorFixture();
-    await createContactOutcome(fixture.ctx, fixture.run, fixture.newerRecipient);
-    await createContactOutcome(fixture.ctx, fixture.run, fixture.newerRecipient);
-    expect((await fixture.ctx.db.get('run_newer')).outcomeCounters.awaitingReturnCount).toBe(1);
-    expect(fixture.ctx.db.rows('smartManagerRecipientOutcomes')).toHaveLength(1);
+    await createContactOutcome(
+      fixture.ctx,
+      fixture.run,
+      fixture.newerRecipient
+    );
+    await createContactOutcome(
+      fixture.ctx,
+      fixture.run,
+      fixture.newerRecipient
+    );
+    expect(
+      (await fixture.ctx.db.get('run_newer')).outcomeCounters
+        .awaitingReturnCount
+    ).toBe(1);
+    expect(fixture.ctx.db.rows('smartManagerRecipientOutcomes')).toHaveLength(
+      1
+    );
 
     await attributeQualifyingEvent(fixture.ctx, fixture.event);
     await attributeQualifyingEvent(fixture.ctx, fixture.event);
@@ -434,10 +471,20 @@ describe('Smart Manager executable outcome transitions', () => {
       fixture.newerRecipient
     );
     const created = await fixture.ctx.db.get(outcomeId);
-    await transitionSmartManagerOutcomeState(fixture.ctx, created, 'window_expired', {
-      terminalAt: created.outcomeWindowEndsAt,
-    });
-    await transitionSmartManagerOutcomeState(fixture.ctx, created, 'window_expired', {});
+    await transitionSmartManagerOutcomeState(
+      fixture.ctx,
+      created,
+      'window_expired',
+      {
+        terminalAt: created.outcomeWindowEndsAt,
+      }
+    );
+    await transitionSmartManagerOutcomeState(
+      fixture.ctx,
+      created,
+      'window_expired',
+      {}
+    );
     expect((await fixture.ctx.db.get('run_newer')).outcomeCounters).toEqual({
       awaitingReturnCount: 0,
       returnedAfterCampaignCount: 0,
@@ -449,12 +496,24 @@ describe('Smart Manager executable outcome transitions', () => {
 
   test('overlap supersession retracts on reversal and accepts a later event', async () => {
     const fixture = behaviorFixture();
-    await createContactOutcome(fixture.ctx, fixture.olderRun, fixture.olderRecipient);
-    await createContactOutcome(fixture.ctx, fixture.run, fixture.newerRecipient);
+    await createContactOutcome(
+      fixture.ctx,
+      fixture.olderRun,
+      fixture.olderRecipient
+    );
+    await createContactOutcome(
+      fixture.ctx,
+      fixture.run,
+      fixture.newerRecipient
+    );
     await attributeQualifyingEvent(fixture.ctx, fixture.event);
-    expect((await fixture.ctx.db.get('run_older')).outcomeCounters.supersededCount).toBe(1);
+    expect(
+      (await fixture.ctx.db.get('run_older')).outcomeCounters.supersededCount
+    ).toBe(1);
 
-    await fixture.ctx.db.patch(fixture.event._id, { reversalEventId: 'reversal_1' });
+    await fixture.ctx.db.patch(fixture.event._id, {
+      reversalEventId: 'reversal_1',
+    });
     await fixture.ctx.db.insert('events', {
       _id: 'reversal_1',
       type: 'STAMP_REVERTED',
@@ -478,8 +537,12 @@ describe('Smart Manager executable outcome transitions', () => {
       await fixture.ctx.db.get('reversal_marker_1'),
       2_000_000_000
     );
-    expect((await fixture.ctx.db.get('run_newer')).outcomeCounters.windowExpiredCount).toBe(1);
-    expect((await fixture.ctx.db.get('run_older')).outcomeCounters.windowExpiredCount).toBe(1);
+    expect(
+      (await fixture.ctx.db.get('run_newer')).outcomeCounters.windowExpiredCount
+    ).toBe(1);
+    expect(
+      (await fixture.ctx.db.get('run_older')).outcomeCounters.windowExpiredCount
+    ).toBe(1);
     const retracted = fixture.ctx.db
       .rows('smartManagerRecipientOutcomes')
       .find((row) => row.campaignRunId === 'run_newer');
@@ -498,11 +561,15 @@ describe('Smart Manager executable outcome transitions', () => {
     await attributeQualifyingEvent(fixture.ctx, replacement, {
       includeExpiredOutcomes: true,
     });
-    expect((await fixture.ctx.db.get('run_newer')).outcomeCounters).toMatchObject({
+    expect(
+      (await fixture.ctx.db.get('run_newer')).outcomeCounters
+    ).toMatchObject({
       returnedAfterCampaignCount: 1,
       windowExpiredCount: 0,
     });
-    expect((await fixture.ctx.db.get('run_older')).outcomeCounters).toMatchObject({
+    expect(
+      (await fixture.ctx.db.get('run_older')).outcomeCounters
+    ).toMatchObject({
       supersededCount: 1,
       windowExpiredCount: 0,
     });
@@ -522,7 +589,9 @@ describe('Smart Manager executable outcome transitions', () => {
       await fixture.ctx.db.get('run_newer')
     );
     expect(summary.returnedAfterCampaignCount).toBe(1);
-    expect(fixture.ctx.db.rows('smartManagerRecipientOutcomes')).toHaveLength(0);
+    expect(fixture.ctx.db.rows('smartManagerRecipientOutcomes')).toHaveLength(
+      0
+    );
   });
 });
 
@@ -561,11 +630,7 @@ describe('Smart Manager account deletion aggregate reconciliation', () => {
     });
     const ctx = { db };
     expect(
-      await deleteSmartManagerOutcomesForAccount(
-        ctx,
-        'customer_delete',
-        1
-      )
+      await deleteSmartManagerOutcomesForAccount(ctx, 'customer_delete', 1)
     ).toBe(2);
     expect((await db.get('run_open')).outcomeCounters).toMatchObject({
       awaitingReturnCount: 0,
@@ -578,11 +643,7 @@ describe('Smart Manager account deletion aggregate reconciliation', () => {
     expect(db.rows('smartManagerRecipientOutcomes')).toHaveLength(0);
 
     expect(
-      await deleteSmartManagerOutcomesForAccount(
-        ctx,
-        'customer_delete',
-        1
-      )
+      await deleteSmartManagerOutcomesForAccount(ctx, 'customer_delete', 1)
     ).toBe(0);
     expect((await db.get('run_open')).outcomeCounters).toMatchObject({
       awaitingReturnCount: 0,
@@ -593,29 +654,31 @@ describe('Smart Manager account deletion aggregate reconciliation', () => {
   test('known-reversed returned history is not preserved during deletion', async () => {
     const counters = emptySmartManagerOutcomeCounters();
     const db = new BehaviorDb({
-      campaignRuns: [{
-        _id: 'run_reversed',
-        executionKind: 'smart_manager_v1',
-        outcomeCounters: { ...counters, returnedAfterCampaignCount: 1 },
-      }],
-      smartManagerRecipientOutcomes: [{
-        _id: 'outcome_reversed',
-        userId: 'customer_delete',
-        campaignRunId: 'run_reversed',
-        state: 'returned_after_campaign',
-        qualifyingEventId: 'event_reversed',
-      }],
-      events: [{
-        _id: 'event_reversed',
-        type: 'REWARD_REDEEMED',
-        reversalEventId: 'reversal_1',
-      }],
+      campaignRuns: [
+        {
+          _id: 'run_reversed',
+          executionKind: 'smart_manager_v1',
+          outcomeCounters: { ...counters, returnedAfterCampaignCount: 1 },
+        },
+      ],
+      smartManagerRecipientOutcomes: [
+        {
+          _id: 'outcome_reversed',
+          userId: 'customer_delete',
+          campaignRunId: 'run_reversed',
+          state: 'returned_after_campaign',
+          qualifyingEventId: 'event_reversed',
+        },
+      ],
+      events: [
+        {
+          _id: 'event_reversed',
+          type: 'REWARD_REDEEMED',
+          reversalEventId: 'reversal_1',
+        },
+      ],
     });
-    await deleteSmartManagerOutcomesForAccount(
-      { db },
-      'customer_delete',
-      1
-    );
+    await deleteSmartManagerOutcomesForAccount({ db }, 'customer_delete', 1);
     expect((await db.get('run_reversed')).outcomeCounters).toMatchObject({
       returnedAfterCampaignCount: 0,
       notEligibleCount: 1,
@@ -629,35 +692,48 @@ describe('Smart Manager marker gating and continuation policy', () => {
       smartManagerRecipientOutcomes: [],
       smartManagerOutcomeDirtyMarkers: [],
     });
-    expect(await markSmartManagerOutcomeDirty({ db }, {
-      businessId: 'business_1',
-      userId: 'customer_1',
-      activityAt: 100,
-    })).toEqual({ marked: false, created: false });
+    expect(
+      await markSmartManagerOutcomeDirty(
+        { db },
+        {
+          businessId: 'business_1',
+          userId: 'customer_1',
+          activityAt: 100,
+        }
+      )
+    ).toEqual({ marked: false, created: false });
     expect(db.rows('smartManagerOutcomeDirtyMarkers')).toHaveLength(0);
   });
 
   test('awaiting activity creates and coalesces one marker', async () => {
     const db = new BehaviorDb({
-      smartManagerRecipientOutcomes: [{
-        _id: 'outcome_waiting',
-        businessId: 'business_1',
-        userId: 'customer_1',
-        state: 'awaiting_return',
-        contactEvidenceAt: 1,
-      }],
+      smartManagerRecipientOutcomes: [
+        {
+          _id: 'outcome_waiting',
+          businessId: 'business_1',
+          userId: 'customer_1',
+          state: 'awaiting_return',
+          contactEvidenceAt: 1,
+        },
+      ],
       smartManagerOutcomeDirtyMarkers: [],
     });
-    await markSmartManagerOutcomeDirty({ db }, {
-      businessId: 'business_1',
-      userId: 'customer_1',
-      activityAt: 100,
-    });
-    await markSmartManagerOutcomeDirty({ db }, {
-      businessId: 'business_1',
-      userId: 'customer_1',
-      activityAt: 200,
-    });
+    await markSmartManagerOutcomeDirty(
+      { db },
+      {
+        businessId: 'business_1',
+        userId: 'customer_1',
+        activityAt: 100,
+      }
+    );
+    await markSmartManagerOutcomeDirty(
+      { db },
+      {
+        businessId: 'business_1',
+        userId: 'customer_1',
+        activityAt: 200,
+      }
+    );
     expect(db.rows('smartManagerOutcomeDirtyMarkers')).toHaveLength(1);
     expect(db.rows('smartManagerOutcomeDirtyMarkers')[0]).toMatchObject({
       earliestActivityAt: 100,
@@ -671,12 +747,17 @@ describe('Smart Manager marker gating and continuation policy', () => {
       smartManagerRecipientOutcomes: [],
       smartManagerOutcomeDirtyMarkers: [],
     });
-    expect(await markSmartManagerOutcomeDirty({ db }, {
-      businessId: 'business_1',
-      userId: 'customer_1',
-      activityAt: 100,
-      includeExpiredOutcomes: true,
-    })).toEqual({ marked: true, created: true });
+    expect(
+      await markSmartManagerOutcomeDirty(
+        { db },
+        {
+          businessId: 'business_1',
+          userId: 'customer_1',
+          activityAt: 100,
+          includeExpiredOutcomes: true,
+        }
+      )
+    ).toEqual({ marked: true, created: true });
     expect(db.rows('smartManagerOutcomeDirtyMarkers')).toHaveLength(1);
   });
 

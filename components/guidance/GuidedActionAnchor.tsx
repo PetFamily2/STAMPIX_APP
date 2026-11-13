@@ -1,13 +1,5 @@
-import {
-  useEffect,
-  useRef,
-  type ReactElement,
-} from 'react';
-import {
-  View,
-  type LayoutChangeEvent,
-  type ViewProps,
-} from 'react-native';
+import { type ReactElement, useEffect, useRef } from 'react';
+import { type LayoutChangeEvent, View, type ViewProps } from 'react-native';
 
 import type { GuidedActionController } from '@/hooks/useGuidedAction';
 import {

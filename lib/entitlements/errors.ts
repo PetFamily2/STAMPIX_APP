@@ -99,7 +99,7 @@ export function entitlementErrorToHebrewMessage(
       return 'הגעתם למגבלת המסלול הנוכחי.';
     }
     case 'SUBSCRIPTION_INACTIVE':
-      return 'המנוי לא פעיל כרגע.';
+      return 'המנוי לא פעיל';
     default:
       return 'אין הרשאה לפעולה הזו.';
   }

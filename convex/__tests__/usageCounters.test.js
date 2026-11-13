@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-
-import { monthKeyFromTimestamp } from '../lib/recommendationUtils';
 import { reserveUsageSlot } from '../lib/billing/usageCounters';
+import { monthKeyFromTimestamp } from '../lib/recommendationUtils';
 
 function createCounterCtx(initial = 0) {
   const state = {

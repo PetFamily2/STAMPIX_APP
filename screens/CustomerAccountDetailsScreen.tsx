@@ -3,7 +3,6 @@ import { useMutation } from 'convex/react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -27,6 +26,12 @@ import { UserAvatar } from '@/components/UserAvatar';
 import { PaintedPressable } from '@/components/ui/PaintedPressable';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
+import { Alert } from '@/lib/alert';
+import {
+  productPageBackground,
+  webAccentFill,
+  webPage,
+} from '@/lib/design/webProductChrome';
 import { safeBack } from '@/lib/navigation';
 import { CUSTOMER_BACK_FALLBACKS } from '@/lib/navigation/customerRoutes';
 import { alignItems, flexDirection, justifyContent } from '@/lib/rtl';
@@ -244,7 +249,7 @@ export default function CustomerAccountDetailsScreen() {
       >
         <StickyScrollHeader
           topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
+          backgroundColor={productPageBackground}
           style={styles.headerRow}
         >
           <BusinessScreenHeader
@@ -484,7 +489,7 @@ export default function CustomerAccountDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#E9F0FF' },
+  safeArea: { flex: 1, backgroundColor: '#E9F0FF', ...webPage },
   scrollContent: {
     paddingHorizontal: 20,
     gap: SETTINGS_TOKENS.sectionGap,
@@ -499,6 +504,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
+    ...webAccentFill,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
@@ -608,6 +614,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
+    ...webAccentFill,
     paddingHorizontal: 14,
     alignItems: 'center',
     justifyContent: 'center',

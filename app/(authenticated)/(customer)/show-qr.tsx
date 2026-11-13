@@ -31,6 +31,7 @@ import {
   readCustomerStampCelebrationArmSnapshot,
   useCustomerStampCelebrationArm,
 } from '@/lib/customer/customerStampCelebrationArm';
+import { webAccentFill, webPage } from '@/lib/design/webProductChrome';
 import type { CustomerMembershipView } from '@/lib/domain/customerMemberships';
 import {
   CUSTOMER_ROUTES,
@@ -315,6 +316,7 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#DCE7FF',
+    ...webPage,
   },
   screen: {
     flex: 1,
@@ -415,6 +417,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
+    ...webAccentFill,
     minHeight: 48,
     paddingHorizontal: 18,
     paddingVertical: 10,

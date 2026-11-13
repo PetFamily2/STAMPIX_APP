@@ -11,9 +11,9 @@ import {
   requireActorIsStaffForBusiness,
 } from './guards';
 import { mapCustomerStateToLegacyLifecycleStatus } from './lib/customerIntelligence';
+import { revokeRedemptionCelebrationReceipt } from './lib/redemptionReceipts';
 import { markSmartManagerDirty } from './lib/smartManagerDirty';
 import { markSmartManagerOutcomeReversalDirty } from './lib/smartManagerOutcomes';
-import { revokeRedemptionCelebrationReceipt } from './lib/redemptionReceipts';
 
 type ProgramLifecycle = 'draft' | 'active' | 'archived';
 

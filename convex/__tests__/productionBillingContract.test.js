@@ -1,16 +1,17 @@
 import { describe, expect, test } from 'bun:test';
-
+import { CARD_THEMES } from '../../constants/cardThemes';
 import {
+  assertFrozenPlanContract,
   CANONICAL_LOYALTY_THEME_COUNT,
+  GENERAL_FREE_TRIAL_DAYS,
+  GENERAL_FREE_TRIAL_PLAN,
   LOGICAL_SUBSCRIPTION_PRODUCTS,
   MVP_FEATURE_FLAGS,
   PLAN_ORDER,
+  planConfig,
   REFERRAL_CONTRACT,
   REVENUECAT_CANONICAL_ENTITLEMENT,
-  assertFrozenPlanContract,
-  planConfig,
 } from '../lib/billing/productionContract';
-import { CARD_THEMES } from '../../constants/cardThemes';
 
 describe('frozen launch billing contract', () => {
   test('locks exactly three paid plans, prices and limits', () => {
@@ -74,6 +75,9 @@ describe('frozen launch billing contract', () => {
     expect(LOGICAL_SUBSCRIPTION_PRODUCTS).toHaveLength(6);
     expect(REVENUECAT_CANONICAL_ENTITLEMENT).toBe('business_access');
     expect(MVP_FEATURE_FLAGS.freeStarterEnabled).toBe(false);
+    expect(MVP_FEATURE_FLAGS.generalFreeTrialEnabled).toBe(true);
+    expect(GENERAL_FREE_TRIAL_DAYS).toBe(14);
+    expect(GENERAL_FREE_TRIAL_PLAN).toBe('pro');
     expect(MVP_FEATURE_FLAGS.additionalBusinessCreationEnabled).toBe(false);
     expect(MVP_FEATURE_FLAGS.referralRewardMayGrantEntitlement).toBe(false);
     expect(MVP_FEATURE_FLAGS.referralMayPatchSubscriptionEndAt).toBe(false);

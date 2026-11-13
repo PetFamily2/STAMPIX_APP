@@ -13,10 +13,10 @@ import type { StampShape } from '@/constants/stampOptions';
 import {
   buildLoyaltyCardAccessibilityLabel,
   getBusinessMonogram,
-  resolveLoyaltyCardPresentation,
   type LoyaltyCardProgress,
   type LoyaltyCardVariant,
   type LoyaltyProgramLifecycle,
+  resolveLoyaltyCardPresentation,
 } from '@/lib/loyalty/cardPresentation';
 import {
   alignItems,
@@ -43,6 +43,7 @@ export type LoyaltyCardProps = {
   stampShape?: StampShape;
   selected?: boolean;
   compactManagement?: boolean;
+  density?: 'full' | 'compact';
   onPress?: () => void;
 };
 
@@ -181,19 +182,14 @@ export default function LoyaltyCard({
               styles.badge,
               isReady ? styles.badgeReady : null,
               isArchived ? styles.badgeArchived : null,
-              !isReady && !isArchived
-                ? { borderColor: theme.keyline }
-                : null,
+              !isReady && !isArchived ? { borderColor: theme.keyline } : null,
             ]}
           >
             <Text
               style={[
                 styles.badgeText,
                 {
-                  color:
-                    isReady || isArchived
-                      ? '#FFFFFF'
-                      : theme.onSurface,
+                  color: isReady || isArchived ? '#FFFFFF' : theme.onSurface,
                 },
               ]}
             >
@@ -516,7 +512,11 @@ const styles = StyleSheet.create({
   badgeReady: { backgroundColor: '#0F766E', borderColor: '#34D399' },
   badgeArchived: { backgroundColor: '#475569', borderColor: '#94A3B8' },
   badgeText: { fontSize: 12, lineHeight: 16, fontWeight: '700' },
-  rewardRow: { flexDirection: flexDirection.row, alignItems: 'center', gap: 12 },
+  rewardRow: {
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 12,
+  },
   rewardCopy: { flex: 1, alignItems: alignItems.start },
   rewardName: {
     width: '100%',

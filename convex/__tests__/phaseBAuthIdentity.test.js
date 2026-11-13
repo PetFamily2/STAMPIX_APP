@@ -1,9 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
-
-import { upsertUserAndAccount } from '../../node_modules/@convex-dev/auth/src/server/implementation/users.ts';
 import { createVerificationCodeImpl } from '../../node_modules/@convex-dev/auth/src/server/implementation/mutations/createVerificationCode.ts';
 import { verifyCodeAndSignInImpl } from '../../node_modules/@convex-dev/auth/src/server/implementation/mutations/verifyCodeAndSignIn.ts';
+import { upsertUserAndAccount } from '../../node_modules/@convex-dev/auth/src/server/implementation/users.ts';
 import { sha256 } from '../../node_modules/@convex-dev/auth/src/server/implementation/utils.ts';
 import {
   assertProductionAuthLogLevelSafe,
@@ -291,12 +290,8 @@ describe('deleted provider identity re-sign-up', () => {
           activeMode: 'customer',
         }),
       ]);
-      expect(ctx.db.rows('users')[0]).not.toHaveProperty(
-        'customerOnboardedAt'
-      );
-      expect(ctx.db.rows('users')[0]).not.toHaveProperty(
-        'businessOnboardedAt'
-      );
+      expect(ctx.db.rows('users')[0]).not.toHaveProperty('customerOnboardedAt');
+      expect(ctx.db.rows('users')[0]).not.toHaveProperty('businessOnboardedAt');
       expect(ctx.db.rows('userIdentities')).toEqual([
         expect.objectContaining({
           userId,
@@ -416,9 +411,9 @@ describe('deleted provider identity re-sign-up', () => {
       'utf8'
     );
 
-    expect(usersSource.indexOf('config.callbacks.createOrUpdateUser')).toBeLessThan(
-      usersSource.indexOf('ctx.db.insert("authAccounts"')
-    );
+    expect(
+      usersSource.indexOf('config.callbacks.createOrUpdateUser')
+    ).toBeLessThan(usersSource.indexOf('ctx.db.insert("authAccounts"'));
     expect(oauthMutationSource).toContain(
       'const { accountId } = await upsertUserAndAccount'
     );
@@ -626,13 +621,7 @@ function oauthThenEmailTables(provider, email = PERSON_EMAIL) {
       shellUser('temp_user', email),
     ],
     userIdentities: [
-      userIdentity(
-        `${provider}_identity`,
-        userId,
-        provider,
-        subject,
-        email
-      ),
+      userIdentity(`${provider}_identity`, userId, provider, subject, email),
       userIdentity('email_identity', 'temp_user', 'email', email, email),
     ],
     authAccounts: [
@@ -766,10 +755,14 @@ async function expectVerifiedEmailLinksToOAuth(provider) {
     ctx.db.rows('users').find((user) => user._id === 'temp_user')
   );
   expect(
-    ctx.db.rows('userIdentities').some((identity) => identity.userId === 'temp_user')
+    ctx.db
+      .rows('userIdentities')
+      .some((identity) => identity.userId === 'temp_user')
   ).toBe(false);
   expect(
-    ctx.db.rows('authAccounts').some((account) => account.userId === 'temp_user')
+    ctx.db
+      .rows('authAccounts')
+      .some((account) => account.userId === 'temp_user')
   ).toBe(false);
   expect(
     ctx.db
@@ -849,9 +842,9 @@ describe('verified email OTP account linking', () => {
       }),
     ]);
     expect(ctx.db.rows('authAccounts')[0].userId).toBe('temp_user');
-    expect(ctx.db.rows('authSessions').map((session) => session.userId)).toEqual(
-      ['temp_user']
-    );
+    expect(
+      ctx.db.rows('authSessions').map((session) => session.userId)
+    ).toEqual(['temp_user']);
   });
 
   test('existing verified email sign-in returns the same email user', async () => {
@@ -909,9 +902,9 @@ describe('verified email OTP account linking', () => {
       }),
     ]);
     expect(ctx.db.rows('authAccounts')[0].userId).toBe('email_user');
-    expect(ctx.db.rows('authSessions').map((session) => session.userId)).toEqual(
-      ['email_user']
-    );
+    expect(
+      ctx.db.rows('authSessions').map((session) => session.userId)
+    ).toEqual(['email_user']);
   });
 
   test('verified Google or Apple sign-in after email links to that email user', async () => {
@@ -1071,7 +1064,9 @@ describe('verified email OTP account linking', () => {
     expect(ctx.db.rows('users')).toHaveLength(2);
     expect(ctx.db.rows('authSessions')).toEqual([]);
     expect(
-      ctx.db.rows('authAccounts').find((account) => account.provider === 'email')
+      ctx.db
+        .rows('authAccounts')
+        .find((account) => account.provider === 'email')
     ).toMatchObject({
       userId: created._id,
       provider: 'email',
@@ -1090,9 +1085,9 @@ describe('verified email OTP account linking', () => {
       userId: created._id,
       providerUserId: PERSON_EMAIL,
     });
-    expect(ctx.db.rows('users').find((user) => user._id === 'google_user')).toEqual(
-      beforeUser
-    );
+    expect(
+      ctx.db.rows('users').find((user) => user._id === 'google_user')
+    ).toEqual(beforeUser);
     expect(
       ctx.db
         .rows('userIdentities')
@@ -1122,12 +1117,13 @@ describe('verified email OTP account linking', () => {
     });
     expect(ctx.db.rows('users')).toHaveLength(2);
     expect(
-      ctx.db.rows('authAccounts').find((account) => account.provider === 'email')
-        .userId
+      ctx.db
+        .rows('authAccounts')
+        .find((account) => account.provider === 'email').userId
     ).toBe(created._id);
-    expect(ctx.db.rows('users').find((user) => user._id === 'google_user')).toEqual(
-      beforeUser
-    );
+    expect(
+      ctx.db.rows('users').find((user) => user._id === 'google_user')
+    ).toEqual(beforeUser);
     expect(ctx.db.rows('authSessions')).toEqual([]);
   });
 
@@ -1145,10 +1141,14 @@ describe('verified email OTP account linking', () => {
       ctx.db.rows('users').find((user) => user._id === 'temp_user')
     );
     expect(
-      ctx.db.rows('userIdentities').filter((identity) => identity.provider === 'email')
+      ctx.db
+        .rows('userIdentities')
+        .filter((identity) => identity.provider === 'email')
     ).toHaveLength(1);
     expect(
-      ctx.db.rows('userIdentities').some((identity) => identity.userId === 'temp_user')
+      ctx.db
+        .rows('userIdentities')
+        .some((identity) => identity.userId === 'temp_user')
     ).toBe(false);
   });
 
@@ -1211,11 +1211,13 @@ describe('verified email OTP account linking', () => {
         }),
       ])
     );
-    expect(ctx.db.rows('users').find((user) => user._id === 'temp_user')).toEqual(
-      beforeTombstone
-    );
     expect(
-      ctx.db.rows('userIdentities').some((identity) => identity.userId === 'temp_user')
+      ctx.db.rows('users').find((user) => user._id === 'temp_user')
+    ).toEqual(beforeTombstone);
+    expect(
+      ctx.db
+        .rows('userIdentities')
+        .some((identity) => identity.userId === 'temp_user')
     ).toBe(false);
   });
 
@@ -1235,15 +1237,16 @@ describe('verified email OTP account linking', () => {
 
     expect(result.userId).toBe('google_user');
     expect(ctx.db.rows('users')).toHaveLength(2);
-    expect(ctx.db.rows('users').find((user) => user._id === 'google_user'))
-      .toMatchObject({
-        externalId: 'google:google_subject',
-        fullName: 'Noa Levi',
-        avatarUrl: 'https://example.com/google.png',
-        email: PERSON_EMAIL,
-        emailVerified: true,
-        isActive: true,
-      });
+    expect(
+      ctx.db.rows('users').find((user) => user._id === 'google_user')
+    ).toMatchObject({
+      externalId: 'google:google_subject',
+      fullName: 'Noa Levi',
+      avatarUrl: 'https://example.com/google.png',
+      email: PERSON_EMAIL,
+      emailVerified: true,
+      isActive: true,
+    });
     expectEmailShellTombstone(
       ctx.db.rows('users').find((user) => user._id === 'temp_user')
     );
@@ -1253,11 +1256,14 @@ describe('verified email OTP account linking', () => {
         .find((identity) => identity.provider === 'google')
     ).toEqual(beforeIdentity);
     expect(
-      ctx.db.rows('authSessions').every((session) => session.userId === 'google_user')
+      ctx.db
+        .rows('authSessions')
+        .every((session) => session.userId === 'google_user')
     ).toBe(true);
     expect(
-      ctx.db.rows('authAccounts').find((account) => account.provider === 'email')
-        .userId
+      ctx.db
+        .rows('authAccounts')
+        .find((account) => account.provider === 'email').userId
     ).toBe('google_user');
   });
 
@@ -1291,7 +1297,9 @@ describe('verified email OTP account linking', () => {
     expect(expired.result).toBeNull();
     expect(expired.calls).toEqual([]);
     expect(expiredCtx.db.rows('users')).toEqual(beforeExpiredUsers);
-    expect(expiredCtx.db.rows('userIdentities')).toEqual(beforeExpiredIdentities);
+    expect(expiredCtx.db.rows('userIdentities')).toEqual(
+      beforeExpiredIdentities
+    );
     expect(expiredCtx.db.rows('authAccounts')).toEqual(beforeExpiredAccounts);
     expect(expiredCtx.db.rows('authSessions')).toEqual([]);
 
@@ -1331,8 +1339,9 @@ describe('verified email OTP account linking', () => {
       existingUserId: 'temp_user',
     });
     expect(unverifiedId).toBe('temp_user');
-    expect(unverifiedCtx.db.rows('users').find((user) => user._id === 'temp_user'))
-      .toMatchObject({ emailVerified: false });
+    expect(
+      unverifiedCtx.db.rows('users').find((user) => user._id === 'temp_user')
+    ).toMatchObject({ emailVerified: false });
     expect(
       unverifiedCtx.db
         .rows('userIdentities')
@@ -1379,7 +1388,12 @@ describe('verified email OTP account linking', () => {
       ],
       authAccounts: [
         ...google.authAccounts,
-        providerAccount('apple_account', 'apple_user', 'apple', 'apple_subject'),
+        providerAccount(
+          'apple_account',
+          'apple_user',
+          'apple',
+          'apple_subject'
+        ),
       ],
     });
     const beforeGoogle = clone(
@@ -1404,22 +1418,24 @@ describe('verified email OTP account linking', () => {
     expectStillActiveEmailUser(
       ctx.db.rows('users').find((user) => user._id === 'temp_user')
     );
-    expect(ctx.db.rows('users').find((user) => user._id === 'temp_user'))
-      .toMatchObject({ emailVerified: true });
-    expect(ctx.db.rows('users').find((user) => user._id === 'google_user')).toEqual(
-      beforeGoogle
-    );
-    expect(ctx.db.rows('users').find((user) => user._id === 'apple_user')).toEqual(
-      beforeApple
-    );
+    expect(
+      ctx.db.rows('users').find((user) => user._id === 'temp_user')
+    ).toMatchObject({ emailVerified: true });
+    expect(
+      ctx.db.rows('users').find((user) => user._id === 'google_user')
+    ).toEqual(beforeGoogle);
+    expect(
+      ctx.db.rows('users').find((user) => user._id === 'apple_user')
+    ).toEqual(beforeApple);
     expect(ctx.db.rows('userIdentities')).toEqual(beforeIdentities);
     expect(
-      ctx.db.rows('authAccounts').find((account) => account.provider === 'email')
-        .userId
+      ctx.db
+        .rows('authAccounts')
+        .find((account) => account.provider === 'email').userId
     ).toBe('temp_user');
-    expect(ctx.db.rows('authSessions').map((session) => session.userId)).toEqual([
-      'temp_user',
-    ]);
+    expect(
+      ctx.db.rows('authSessions').map((session) => session.userId)
+    ).toEqual(['temp_user']);
   });
 
   test('a verified user without a matching OAuth identity stays on the email user', async () => {
@@ -1467,8 +1483,9 @@ describe('verified email OTP account linking', () => {
     expectStillActiveEmailUser(
       ctx.db.rows('users').find((user) => user._id === 'temp_user')
     );
-    expect(ctx.db.rows('users').find((user) => user._id === 'temp_user'))
-      .toMatchObject({ emailVerified: true });
+    expect(
+      ctx.db.rows('users').find((user) => user._id === 'temp_user')
+    ).toMatchObject({ emailVerified: true });
     expect(
       ctx.db.rows('users').find((user) => user._id === 'historical_email_user')
     ).toEqual(beforeHistorical);
@@ -1497,11 +1514,12 @@ describe('verified email OTP account linking', () => {
     expectStillActiveEmailUser(
       ctx.db.rows('users').find((user) => user._id === 'temp_user')
     );
-    expect(ctx.db.rows('users').find((user) => user._id === 'temp_user'))
-      .toMatchObject({ emailVerified: true });
-    expect(ctx.db.rows('users').find((user) => user._id === 'google_user')).toEqual(
-      beforeGoogle
-    );
+    expect(
+      ctx.db.rows('users').find((user) => user._id === 'temp_user')
+    ).toMatchObject({ emailVerified: true });
+    expect(
+      ctx.db.rows('users').find((user) => user._id === 'google_user')
+    ).toEqual(beforeGoogle);
     expect(ctx.db.rows('userIdentities')).toEqual(beforeIdentities);
   });
 
@@ -1527,11 +1545,12 @@ describe('verified email OTP account linking', () => {
     expectStillActiveEmailUser(
       ctx.db.rows('users').find((user) => user._id === 'temp_user')
     );
-    expect(ctx.db.rows('users').find((user) => user._id === 'temp_user'))
-      .toMatchObject({ emailVerified: true });
-    expect(ctx.db.rows('users').find((user) => user._id === 'apple_user')).toEqual(
-      beforeApple
-    );
+    expect(
+      ctx.db.rows('users').find((user) => user._id === 'temp_user')
+    ).toMatchObject({ emailVerified: true });
+    expect(
+      ctx.db.rows('users').find((user) => user._id === 'apple_user')
+    ).toEqual(beforeApple);
     expect(ctx.db.rows('userIdentities')).toEqual(beforeIdentities);
   });
 
@@ -1584,7 +1603,12 @@ describe('verified email OTP account linking', () => {
           'google',
           'google_subject'
         ),
-        providerAccount('apple_account', 'apple_user', 'apple', 'apple_subject'),
+        providerAccount(
+          'apple_account',
+          'apple_user',
+          'apple',
+          'apple_subject'
+        ),
       ],
       memberships: [
         { _id: 'email_membership', userId: 'email_user', currentStamps: 1 },
@@ -1608,20 +1632,21 @@ describe('verified email OTP account linking', () => {
 
     expect(userId).toBe('email_user');
     expect(ctx.db.rows('users')).toHaveLength(3);
-    expect(ctx.db.rows('users').find((user) => user._id === 'email_user'))
-      .toMatchObject({
-        fullName: 'Established Email',
-        emailVerified: true,
-        isActive: true,
-        email: PERSON_EMAIL,
-        externalId: `email:${PERSON_EMAIL}`,
-      });
-    expect(ctx.db.rows('users').find((user) => user._id === 'google_user')).toEqual(
-      beforeGoogle
-    );
-    expect(ctx.db.rows('users').find((user) => user._id === 'apple_user')).toEqual(
-      beforeApple
-    );
+    expect(
+      ctx.db.rows('users').find((user) => user._id === 'email_user')
+    ).toMatchObject({
+      fullName: 'Established Email',
+      emailVerified: true,
+      isActive: true,
+      email: PERSON_EMAIL,
+      externalId: `email:${PERSON_EMAIL}`,
+    });
+    expect(
+      ctx.db.rows('users').find((user) => user._id === 'google_user')
+    ).toEqual(beforeGoogle);
+    expect(
+      ctx.db.rows('users').find((user) => user._id === 'apple_user')
+    ).toEqual(beforeApple);
     expect(ctx.db.rows('userIdentities')).toEqual(beforeIdentities);
     expect(ctx.db.rows('memberships')).toEqual(beforeMemberships);
   });
@@ -1629,7 +1654,12 @@ describe('verified email OTP account linking', () => {
   test('a different email stays a separate user', async () => {
     const ctx = createOAuthCtx({
       users: [
-        oauthUser('google_user', 'google', 'google_subject', 'other@example.com'),
+        oauthUser(
+          'google_user',
+          'google',
+          'google_subject',
+          'other@example.com'
+        ),
         shellUser('temp_user', PERSON_EMAIL),
       ],
       userIdentities: [
@@ -1677,22 +1707,24 @@ describe('verified email OTP account linking', () => {
     expectStillActiveEmailUser(
       ctx.db.rows('users').find((user) => user._id === 'temp_user')
     );
-    expect(ctx.db.rows('users').find((user) => user._id === 'temp_user'))
-      .toMatchObject({ emailVerified: true });
-    expect(ctx.db.rows('users').find((user) => user._id === 'google_user')).toEqual(
-      beforeGoogle
-    );
+    expect(
+      ctx.db.rows('users').find((user) => user._id === 'temp_user')
+    ).toMatchObject({ emailVerified: true });
+    expect(
+      ctx.db.rows('users').find((user) => user._id === 'google_user')
+    ).toEqual(beforeGoogle);
     expect(
       ctx.db
         .rows('userIdentities')
         .find((identity) => identity.provider === 'google')
     ).toEqual(beforeIdentity);
-    expect(ctx.db.rows('authSessions').map((session) => session.userId)).toEqual([
-      'temp_user',
-    ]);
     expect(
-      ctx.db.rows('authAccounts').find((account) => account.provider === 'email')
-        .userId
+      ctx.db.rows('authSessions').map((session) => session.userId)
+    ).toEqual(['temp_user']);
+    expect(
+      ctx.db
+        .rows('authAccounts')
+        .find((account) => account.provider === 'email').userId
     ).toBe('temp_user');
   });
 
@@ -1742,7 +1774,12 @@ describe('verified email OTP account linking', () => {
           'google',
           'google_subject'
         ),
-        providerAccount('email_account', 'temp_user', 'email', 'TeSt@Example.com'),
+        providerAccount(
+          'email_account',
+          'temp_user',
+          'email',
+          'TeSt@Example.com'
+        ),
       ],
     });
     const beforeGoogleIdentity = clone(
@@ -1901,15 +1938,16 @@ describe('verified email OTP account linking', () => {
       expectStillActiveEmailUser(
         ctx.db.rows('users').find((user) => user._id === 'temp_user')
       );
-      expect(ctx.db.rows('users').find((user) => user._id === 'temp_user'))
-        .toMatchObject({ emailVerified: true });
+      expect(
+        ctx.db.rows('users').find((user) => user._id === 'temp_user')
+      ).toMatchObject({ emailVerified: true });
       expect(
         ctx.db.rows('users').find((user) => user._id === 'google_user')
       ).toEqual(beforeGoogle);
       expect(ctx.db.rows('userIdentities')).toEqual(beforeIdentities);
-      expect(
-        ctx.db.rows(table).some((row) => row[field] === 'temp_user')
-      ).toBe(true);
+      expect(ctx.db.rows(table).some((row) => row[field] === 'temp_user')).toBe(
+        true
+      );
     });
   }
 
@@ -1935,8 +1973,9 @@ describe('verified email OTP account linking', () => {
     expectStillActiveEmailUser(
       ctx.db.rows('users').find((user) => user._id === 'temp_user')
     );
-    expect(ctx.db.rows('users').find((user) => user._id === 'temp_user'))
-      .toMatchObject({ emailVerified: true });
+    expect(
+      ctx.db.rows('users').find((user) => user._id === 'temp_user')
+    ).toMatchObject({ emailVerified: true });
     expect(ctx.db.rows('userIdentities')).toEqual(beforeIdentities);
     expect(ctx.db.rows('authSessions')).toEqual([
       expect.objectContaining({ _id: 'temp_session', userId: 'temp_user' }),
@@ -1966,12 +2005,14 @@ describe('verified email OTP account linking', () => {
     expectStillActiveEmailUser(
       ctx.db.rows('users').find((user) => user._id === 'temp_user')
     );
-    expect(ctx.db.rows('users').find((user) => user._id === 'temp_user'))
-      .toMatchObject({ emailVerified: true });
+    expect(
+      ctx.db.rows('users').find((user) => user._id === 'temp_user')
+    ).toMatchObject({ emailVerified: true });
     expect(ctx.db.rows('userIdentities')).toEqual(beforeIdentities);
     expect(
-      ctx.db.rows('authAccounts').find((account) => account._id === 'extra_google_account')
-        .userId
+      ctx.db
+        .rows('authAccounts')
+        .find((account) => account._id === 'extra_google_account').userId
     ).toBe('temp_user');
   });
 });

@@ -1,11 +1,8 @@
 import { makeFunctionReference } from 'convex/server';
 import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
-import {
-  internalAction,
-  internalMutation,
-} from './_generated/server';
 import type { MutationCtx } from './_generated/server';
+import { internalAction, internalMutation } from './_generated/server';
 
 export type RevocableProvider = 'apple' | 'google';
 
@@ -73,10 +70,8 @@ export const OIDC_ISSUANCE_CLOCK_TOLERANCE_MS = 30_000;
 
 export const PROVIDER_CREDENTIAL_PROFILE_FIELD =
   '__stampixEncryptedProviderCredential';
-export const PROVIDER_OAUTH_ISSUED_AT_PROFILE_FIELD =
-  '__stampixOAuthIssuedAt';
-export const PROVIDER_REAUTH_RETRY_REQUIRED =
-  'PROVIDER_REAUTH_RETRY_REQUIRED';
+export const PROVIDER_OAUTH_ISSUED_AT_PROFILE_FIELD = '__stampixOAuthIssuedAt';
+export const PROVIDER_REAUTH_RETRY_REQUIRED = 'PROVIDER_REAUTH_RETRY_REQUIRED';
 
 type ProviderRevocationRunResult =
   | { status: 'stale' }
@@ -324,10 +319,16 @@ function resolveAccessTokenExpiresAt(
   tokens: OAuthTokenSetLike,
   now: number
 ): number | undefined {
-  if (typeof tokens.expires_at === 'number' && Number.isFinite(tokens.expires_at)) {
+  if (
+    typeof tokens.expires_at === 'number' &&
+    Number.isFinite(tokens.expires_at)
+  ) {
     return Math.floor(tokens.expires_at * 1000);
   }
-  if (typeof tokens.expires_in === 'number' && Number.isFinite(tokens.expires_in)) {
+  if (
+    typeof tokens.expires_in === 'number' &&
+    Number.isFinite(tokens.expires_in)
+  ) {
     return now + Math.floor(tokens.expires_in * 1000);
   }
   return undefined;
@@ -463,12 +464,11 @@ export async function providerReauthRetryRequired(
   if (!isValidProviderIssuedAtMilliseconds(providerIssuedAt)) {
     return true;
   }
-  const providerAccountFingerprint =
-    await createProviderAccountFingerprint(
-      args.provider,
-      args.providerAccountId,
-      args.env
-    );
+  const providerAccountFingerprint = await createProviderAccountFingerprint(
+    args.provider,
+    args.providerAccountId,
+    args.env
+  );
   const fingerprintMatches = await ctx.db
     .query('providerRevocationJobs')
     .withIndex('by_provider_providerAccountFingerprint', (q) =>
@@ -736,7 +736,10 @@ async function fetchWithTimeout(
   fetchImpl: typeof fetch
 ) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), PROVIDER_HTTP_TIMEOUT_MS);
+  const timeout = setTimeout(
+    () => controller.abort(),
+    PROVIDER_HTTP_TIMEOUT_MS
+  );
   try {
     return await fetchImpl(url, { ...init, signal: controller.signal });
   } finally {
@@ -937,7 +940,8 @@ export async function retryProviderRevocationJobImpl(
       now,
     });
   }
-  const delay = RETRY_DELAYS_MS[job.attemptCount - 1] ?? RETRY_DELAYS_MS.at(-1)!;
+  const delay =
+    RETRY_DELAYS_MS[job.attemptCount - 1] ?? RETRY_DELAYS_MS.at(-1)!;
   const nextAttemptAt = now + delay;
   await ctx.db.patch(job._id, {
     status: 'queued',
@@ -958,8 +962,7 @@ export const retryProviderRevocationJobInternal = internalMutation({
     jobId: v.id('providerRevocationJobs'),
     terminalCode: v.string(),
   },
-  handler: async (ctx, args) =>
-    await retryProviderRevocationJobImpl(ctx, args),
+  handler: async (ctx, args) => await retryProviderRevocationJobImpl(ctx, args),
 });
 
 export const runProviderRevocationInternal = internalAction({

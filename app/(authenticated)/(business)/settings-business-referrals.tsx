@@ -1,11 +1,15 @@
 import type { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMutation, useQuery } from 'convex/react';
-import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  type Href,
+  Redirect,
+  useLocalSearchParams,
+  useRouter,
+} from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,7 +17,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import {
   BusinessSettingsSubpageHeader,
   useSettingsContentWidth,
@@ -27,11 +30,14 @@ import {
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { Alert } from '@/lib/alert';
+import { BUSINESS_WEB_TOKENS as WEB } from '@/lib/design/businessWebTokens';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
+import { NATIVE_REFERRAL_DESTINATIONS } from '@/lib/navigation/referralSettingsDestinations';
 import { flexDirection } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
@@ -128,7 +134,16 @@ function EmptyReferralActionState({
   );
 }
 
-export default function BusinessReferralSettingsScreen() {
+export default function BusinessReferralSettingsScreen({
+  settingsHref = NATIVE_REFERRAL_DESTINATIONS.settings,
+  campaignsHref = NATIVE_REFERRAL_DESTINATIONS.campaigns,
+  webPresentation = false,
+}: {
+  settingsHref?: Href;
+  campaignsHref?: string;
+  webPresentation?: boolean;
+} = {}) {
+  const styles = webPresentation ? webStyles : nativeStyles;
   const router = useRouter();
   const contentWidth = useSettingsContentWidth();
   const params = useLocalSearchParams<{ tab?: string }>();
@@ -311,34 +326,57 @@ export default function BusinessReferralSettingsScreen() {
   };
 
   if (activeBusiness && !canViewSettings) {
-    return <Redirect href="/(authenticated)/(business)/settings" />;
+    return <Redirect href={settingsHref} />;
   }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <ScrollView
-        stickyHeaderIndices={[0]}
+        stickyHeaderIndices={webPresentation ? undefined : [0]}
+        scrollEnabled={!webPresentation}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.content,
           {
-            paddingBottom: tabBarHeight + 24,
-            width: contentWidth,
+            paddingBottom: webPresentation ? 16 : tabBarHeight + 24,
+            width: webPresentation ? '100%' : contentWidth,
           },
         ]}
       >
-        <BusinessSettingsSubpageHeader
-          title="קמפיין חבר מביא חבר"
-          subtitle="הגדרת תבנית, הפעלה וביצועים"
-          fallbackHref="/(authenticated)/(business)/campaigns"
-        />
+        {webPresentation ? (
+          <View style={{ gap: 4 }}>
+            <Text
+              accessibilityRole="header"
+              aria-level={1}
+              style={webStyles.pageTitle}
+            >
+              הזמנת חברים
+            </Text>
+            <Text style={webStyles.description}>
+              מגדירים למי ניתנת ההטבה, ומה מקבלים כשהחבר מצטרף.
+            </Text>
+          </View>
+        ) : (
+          <BusinessSettingsSubpageHeader
+            title="קמפיין חבר מביא חבר"
+            subtitle="הגדרת תבנית, הפעלה וביצועים"
+            fallbackHref={campaignsHref}
+          />
+        )}
 
-        <View style={styles.tabRow}>
+        <View
+          style={styles.tabRow}
+          accessibilityRole={webPresentation ? 'tablist' : undefined}
+        >
           {(
             ['settings', 'customers', 'rewards', 'performance'] as ReferralTab[]
           ).map((tab) => (
             <Pressable
               key={tab}
+              accessibilityRole={webPresentation ? 'tab' : undefined}
+              accessibilityState={
+                webPresentation ? { selected: activeTab === tab } : undefined
+              }
               onPress={() => setActiveTab(tab)}
               style={[
                 styles.tabButton,
@@ -738,7 +776,7 @@ export default function BusinessReferralSettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const nativeStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#E9F0FF',
@@ -942,5 +980,107 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.65,
+  },
+});
+
+const webStyles = StyleSheet.create({
+  ...nativeStyles,
+  safeArea: { flex: 1, backgroundColor: WEB.colors.pageBackground },
+  content: { gap: 16, alignSelf: 'center', maxWidth: 980 },
+  pageTitle: {
+    ...WEB.typography.pageTitle,
+    color: WEB.colors.textPrimary,
+    textAlign: 'right',
+  },
+  description: {
+    ...WEB.typography.body,
+    color: WEB.colors.textSecondary,
+    textAlign: 'right',
+  },
+  tabRow: {
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    gap: 4,
+    padding: 4,
+    backgroundColor: WEB.colors.elevatedSurface,
+    borderRadius: 12,
+  },
+  tabButton: {
+    flexGrow: 1,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  tabButtonActive: { backgroundColor: WEB.colors.primarySubtle },
+  tabButtonText: { ...WEB.typography.label, color: WEB.colors.textSecondary },
+  tabButtonTextActive: { color: WEB.colors.primary },
+  card: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: WEB.colors.border,
+    backgroundColor: WEB.colors.elevatedSurface,
+    padding: 16,
+    gap: 12,
+  },
+  sectionTitle: {
+    ...WEB.typography.sectionTitle,
+    color: WEB.colors.textPrimary,
+    textAlign: 'right',
+  },
+  label: {
+    ...WEB.typography.body,
+    color: WEB.colors.textPrimary,
+    textAlign: 'right',
+  },
+  quotaNote: {
+    ...WEB.typography.secondaryBody,
+    color: WEB.colors.textSecondary,
+    backgroundColor: WEB.colors.subtleSurface,
+    padding: 12,
+    borderRadius: 8,
+    textAlign: 'right',
+  },
+  segmentButton: {
+    ...nativeStyles.segmentButton,
+    minHeight: 44,
+    borderColor: WEB.colors.borderStrong,
+    backgroundColor: WEB.colors.elevatedSurface,
+  },
+  segmentButtonCompact: {
+    ...nativeStyles.segmentButtonCompact,
+    minHeight: 44,
+    minWidth: 44,
+    borderColor: WEB.colors.borderStrong,
+    backgroundColor: WEB.colors.elevatedSurface,
+  },
+  segmentButtonActive: {
+    borderColor: WEB.colors.primary,
+    backgroundColor: WEB.colors.primarySubtle,
+  },
+  segmentText: {
+    ...WEB.typography.label,
+    color: WEB.colors.textPrimary,
+    textAlign: 'center',
+  },
+  input: {
+    ...nativeStyles.input,
+    minHeight: 48,
+    borderColor: WEB.colors.borderStrong,
+    backgroundColor: WEB.colors.elevatedSurface,
+    fontSize: 14,
+  },
+  primaryButton: {
+    ...nativeStyles.primaryButton,
+    minHeight: 48,
+    borderColor: WEB.colors.primary,
+    backgroundColor: WEB.colors.primary,
+  },
+  primaryButtonText: {
+    ...WEB.typography.body,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
 });

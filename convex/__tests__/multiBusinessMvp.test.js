@@ -1,8 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
-
-import { MVP_FEATURE_FLAGS } from '../lib/billing/productionContract';
 import { assertMvpAdditionalBusinessCreationAllowed } from '../business';
+import { MVP_FEATURE_FLAGS } from '../lib/billing/productionContract';
 
 describe('multi-business MVP disablement', () => {
   test('canonical flag disables additional business creation', () => {
@@ -32,7 +31,9 @@ describe('multi-business MVP disablement', () => {
       'components/business-settings/AddBusinessCta.tsx',
       'utf8'
     );
-    expect(source).toContain('MVP_FEATURE_FLAGS.additionalBusinessCreationEnabled');
+    expect(source).toContain(
+      'MVP_FEATURE_FLAGS.additionalBusinessCreationEnabled'
+    );
     expect(source).toContain('return null');
   });
 });

@@ -1,0 +1,17 @@
+{
+  "branch": "integration/release-hardening-20261111",
+  "pendingSourceReviews": [],
+  "requiredAncestors": {
+    "launchHardening": "715594c2ed5731ff490ccb57457ed33da0a289a0",
+    "cursorScannerQA": "2579919eca6073de6825aebbdeabbd89594a73b2",
+    "cursorBusinessUI": "83c2109d3edc2558ad44844a3f02dcdcbf080694"
+  },
+  "reviewedSourceSnapshots": [
+    {
+      "id": "cursor-business-ui-20261113",
+      "head": "2579919eca6073de6825aebbdeabbd89594a73b2",
+      "sha256": "1efc8e2b0145abf30e1960e04ae86d68eadfb29731aaf2219c0526c917bbe182",
+      "inventory": "docs/audits/CURSOR_UI_INTEGRATION_20261113.md"
+    }
+  ]
+}

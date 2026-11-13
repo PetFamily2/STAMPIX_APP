@@ -5,7 +5,6 @@ import { Component, type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
-  Alert,
   Animated,
   ScrollView,
   StyleSheet,
@@ -14,7 +13,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { CompactActivitySummaryRow } from '@/components/business-dashboard/CompactActivitySummaryRow';
 import { DashboardHeader } from '@/components/business-dashboard/DashboardHeader';
 import {
@@ -37,6 +35,7 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { Alert } from '@/lib/alert';
 import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { getBusinessReferralDashboardCopy } from '@/lib/dashboard/businessReferralCopy';

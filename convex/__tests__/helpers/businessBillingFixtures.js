@@ -52,10 +52,7 @@ export function buildCanonicalBusinessBillingAccount({
   };
 }
 
-export function seedCanonicalBusinessBillingAccounts(
-  businesses,
-  extras = {}
-) {
+export function seedCanonicalBusinessBillingAccounts(businesses, extras = {}) {
   return businesses.map((business, index) =>
     buildCanonicalBusinessBillingAccount({
       _id: extras._id ?? `billing_${index + 1}`,

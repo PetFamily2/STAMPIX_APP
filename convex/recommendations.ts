@@ -7,8 +7,8 @@ import {
   getCustomerExpectedCycleDays,
 } from './customerLifecycle';
 import {
-  getBusinessEntitlementsForBusinessId,
   type BusinessEntitlements,
+  getBusinessEntitlementsForBusinessId,
 } from './entitlements';
 import {
   getBusinessStaffStatus,
@@ -16,9 +16,16 @@ import {
 } from './guards';
 import {
   CAMPAIGN_LIFECYCLE_SOURCE_VERSION,
-  classifyCampaignState,
   type CampaignProductState,
+  classifyCampaignState,
 } from './lib/campaignState';
+import { getRetentionThresholdsForBusiness } from './lib/customerIntelligence';
+import type {
+  BusinessRecommendation,
+  RecommendationCatalogInput,
+  RecommendationGuideId,
+  RecommendationStableId,
+} from './lib/recommendationCatalog';
 import {
   buildBusinessRecommendationCatalog,
   buildRecommendationEvidenceFingerprint,
@@ -26,24 +33,17 @@ import {
   RECOMMENDATION_GUIDE_IDS,
 } from './lib/recommendationCatalog';
 import { isRecommendationCompletionSatisfied } from './lib/recommendationGuideCompletion';
-import type {
-  BusinessRecommendation,
-  RecommendationCatalogInput,
-  RecommendationGuideId,
-  RecommendationStableId,
-} from './lib/recommendationCatalog';
-import type {
-  BusinessCapability,
-  BusinessCapabilityMap,
-  StaffRole,
-} from './lib/staffPermissions';
-import { getRetentionThresholdsForBusiness } from './lib/customerIntelligence';
-import { resolveProgramLifecycle } from './loyaltyPrograms';
 import {
   getSmartManagerInteractionPolicy,
   loadActiveSmartManagerPolicy,
   type SmartManagerPolicyConfig,
 } from './lib/smartManagerPolicy';
+import type {
+  BusinessCapability,
+  BusinessCapabilityMap,
+  StaffRole,
+} from './lib/staffPermissions';
+import { resolveProgramLifecycle } from './loyaltyPrograms';
 
 const RECOMMENDATION_FACTS_SCHEMA_VERSION = 1;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -81,11 +81,7 @@ const recommendationGuideIdValidator = v.union(
   v.literal('quota-review')
 );
 
-type InteractionState =
-  | 'dismissed'
-  | 'snoozed'
-  | 'completed'
-  | 'invalidated';
+type InteractionState = 'dismissed' | 'snoozed' | 'completed' | 'invalidated';
 
 type GuideStatusState = 'active' | 'completed' | 'invalidated';
 
@@ -136,10 +132,7 @@ export type RestrictedFact = {
   requiredCapability: BusinessCapability;
 };
 
-export type RecommendationFact<T> =
-  | KnownFact<T>
-  | UnknownFact
-  | RestrictedFact;
+export type RecommendationFact<T> = KnownFact<T> | UnknownFact | RestrictedFact;
 
 type RecommendationActorAuthorization = {
   staffRole: StaffRole;
@@ -180,10 +173,7 @@ export type BusinessRecommendationFactSourceBundle = {
     plan: BusinessEntitlements['plan'];
     subscriptionStatus: BusinessEntitlements['subscriptionStatus'];
     limits: Pick<BusinessEntitlements['limits'], 'maxCampaigns'>;
-    usage: Pick<
-      BusinessEntitlements['usage'],
-      'activeManagementCampaigns'
-    >;
+    usage: Pick<BusinessEntitlements['usage'], 'activeManagementCampaigns'>;
   } | null;
 };
 
@@ -270,11 +260,13 @@ function compareCampaignsByRecency(
   left: CampaignFactRow,
   right: CampaignFactRow
 ) {
-  const updatedDelta = Number(right.updatedAt ?? 0) - Number(left.updatedAt ?? 0);
+  const updatedDelta =
+    Number(right.updatedAt ?? 0) - Number(left.updatedAt ?? 0);
   if (updatedDelta !== 0) {
     return updatedDelta;
   }
-  const createdDelta = Number(right.createdAt ?? 0) - Number(left.createdAt ?? 0);
+  const createdDelta =
+    Number(right.createdAt ?? 0) - Number(left.createdAt ?? 0);
   if (createdDelta !== 0) {
     return createdDelta;
   }
@@ -289,8 +281,7 @@ export function buildCampaignLifecycleFactValue(args: {
   const campaignIdsWithRuns = new Set(
     args.campaignRuns
       .filter(
-        (run) =>
-          typeof run.sentAt === 'number' && Number.isFinite(run.sentAt)
+        (run) => typeof run.sentAt === 'number' && Number.isFinite(run.sentAt)
       )
       .map((run) => String(run.campaignId))
   );
@@ -371,7 +362,9 @@ export function isCanonicalRecommendationEventEffective(event: {
   revertsEventId?: unknown;
   reversalEventId?: unknown;
 }) {
-  return event.revertsEventId === undefined && event.reversalEventId === undefined;
+  return (
+    event.revertsEventId === undefined && event.reversalEventId === undefined
+  );
 }
 
 export function buildCustomerSegmentFacts(args: {
@@ -447,9 +440,7 @@ export function buildCustomerSegmentFacts(args: {
     history.push(event.createdAt);
     stampHistoryByCustomer.set(customerKey, history);
   }
-  const repeatVisitEvidenceCount = [
-    ...stampHistoryByCustomer.values(),
-  ].filter(
+  const repeatVisitEvidenceCount = [...stampHistoryByCustomer.values()].filter(
     (stampTimestamps) =>
       getCustomerExpectedCycleDays(stampTimestamps, args.now) !== null
   ).length;
@@ -480,9 +471,7 @@ export function buildCustomerSegmentFacts(args: {
     nearReward: knownFact(
       {
         count: nearRewardCustomerIds.size,
-        evidenceFingerprint: buildOpaqueFingerprint(
-          nearRewardEvidence.sort()
-        ),
+        evidenceFingerprint: buildOpaqueFingerprint(nearRewardEvidence.sort()),
       },
       args.now
     ),
@@ -560,103 +549,105 @@ export async function loadBusinessRecommendationFacts(
     authorization.capabilities.view_billing_state === true;
 
   const sourceBundle = options?.sourceBundle;
-  const loadedSources: Omit<BusinessRecommendationFactSourceBundle, 'business'> =
-    sourceBundle
-      ? {
-          programs: sourceBundle.programs,
-          memberships: canViewCustomers ? sourceBundle.memberships : null,
-          campaigns: canViewCampaigns ? sourceBundle.campaigns : null,
-          campaignRuns: canViewCampaigns ? sourceBundle.campaignRuns : null,
-          events: canViewCustomers ? sourceBundle.events : null,
-          staffRows: canManageTeam ? sourceBundle.staffRows : null,
-          pendingInvites: canManageTeam ? sourceBundle.pendingInvites : null,
-          entitlements:
-            canViewUsageQuota || canViewBillingState
-              ? sourceBundle.entitlements
-              : null,
-        }
-      : await (async () => {
-          const [
-            programs,
-            memberships,
-            campaigns,
-            campaignRuns,
-            events,
-            staffRows,
-            pendingInvites,
-            entitlements,
-          ] = await Promise.all([
-            options?.programsSourceAvailable === false
-              ? Promise.resolve(null)
-              : ctx.db
-                  .query('loyaltyPrograms')
-                  .withIndex('by_businessId', (q: any) =>
-                    q.eq('businessId', businessId)
-                  )
-                  .collect(),
-            canViewCustomers
-              ? ctx.db
-                  .query('memberships')
-                  .withIndex('by_businessId', (q: any) =>
-                    q.eq('businessId', businessId)
-                  )
-                  .collect()
-              : Promise.resolve(null),
-            canViewCampaigns
-              ? ctx.db
-                  .query('campaigns')
-                  .withIndex('by_businessId', (q: any) =>
-                    q.eq('businessId', businessId)
-                  )
-                  .collect()
-              : Promise.resolve(null),
-            canViewCampaigns
-              ? ctx.db
-                  .query('campaignRuns')
-                  .withIndex('by_businessId', (q: any) =>
-                    q.eq('businessId', businessId)
-                  )
-                  .collect()
-              : Promise.resolve(null),
-            canViewCustomers
-              ? ctx.db
-                  .query('events')
-                  .withIndex('by_businessId', (q: any) =>
-                    q.eq('businessId', businessId)
-                  )
-                  .collect()
-              : Promise.resolve(null),
-            canManageTeam
-              ? ctx.db
-                  .query('businessStaff')
-                  .withIndex('by_businessId', (q: any) =>
-                    q.eq('businessId', businessId)
-                  )
-                  .collect()
-              : Promise.resolve(null),
-            canManageTeam
-              ? ctx.db
-                  .query('staffInvites')
-                  .withIndex('by_businessId_status', (q: any) =>
-                    q.eq('businessId', businessId).eq('status', 'pending')
-                  )
-                  .collect()
-              : Promise.resolve(null),
-            canViewUsageQuota || canViewBillingState
-              ? getBusinessEntitlementsForBusinessId(ctx, businessId)
-              : Promise.resolve(null),
-          ]);
-          return {
-            programs,
-            memberships,
-            campaigns,
-            campaignRuns,
-            events,
-            staffRows,
-            pendingInvites,
-            entitlements,
-          };
-        })();
+  const loadedSources: Omit<
+    BusinessRecommendationFactSourceBundle,
+    'business'
+  > = sourceBundle
+    ? {
+        programs: sourceBundle.programs,
+        memberships: canViewCustomers ? sourceBundle.memberships : null,
+        campaigns: canViewCampaigns ? sourceBundle.campaigns : null,
+        campaignRuns: canViewCampaigns ? sourceBundle.campaignRuns : null,
+        events: canViewCustomers ? sourceBundle.events : null,
+        staffRows: canManageTeam ? sourceBundle.staffRows : null,
+        pendingInvites: canManageTeam ? sourceBundle.pendingInvites : null,
+        entitlements:
+          canViewUsageQuota || canViewBillingState
+            ? sourceBundle.entitlements
+            : null,
+      }
+    : await (async () => {
+        const [
+          programs,
+          memberships,
+          campaigns,
+          campaignRuns,
+          events,
+          staffRows,
+          pendingInvites,
+          entitlements,
+        ] = await Promise.all([
+          options?.programsSourceAvailable === false
+            ? Promise.resolve(null)
+            : ctx.db
+                .query('loyaltyPrograms')
+                .withIndex('by_businessId', (q: any) =>
+                  q.eq('businessId', businessId)
+                )
+                .collect(),
+          canViewCustomers
+            ? ctx.db
+                .query('memberships')
+                .withIndex('by_businessId', (q: any) =>
+                  q.eq('businessId', businessId)
+                )
+                .collect()
+            : Promise.resolve(null),
+          canViewCampaigns
+            ? ctx.db
+                .query('campaigns')
+                .withIndex('by_businessId', (q: any) =>
+                  q.eq('businessId', businessId)
+                )
+                .collect()
+            : Promise.resolve(null),
+          canViewCampaigns
+            ? ctx.db
+                .query('campaignRuns')
+                .withIndex('by_businessId', (q: any) =>
+                  q.eq('businessId', businessId)
+                )
+                .collect()
+            : Promise.resolve(null),
+          canViewCustomers
+            ? ctx.db
+                .query('events')
+                .withIndex('by_businessId', (q: any) =>
+                  q.eq('businessId', businessId)
+                )
+                .collect()
+            : Promise.resolve(null),
+          canManageTeam
+            ? ctx.db
+                .query('businessStaff')
+                .withIndex('by_businessId', (q: any) =>
+                  q.eq('businessId', businessId)
+                )
+                .collect()
+            : Promise.resolve(null),
+          canManageTeam
+            ? ctx.db
+                .query('staffInvites')
+                .withIndex('by_businessId_status', (q: any) =>
+                  q.eq('businessId', businessId).eq('status', 'pending')
+                )
+                .collect()
+            : Promise.resolve(null),
+          canViewUsageQuota || canViewBillingState
+            ? getBusinessEntitlementsForBusinessId(ctx, businessId)
+            : Promise.resolve(null),
+        ]);
+        return {
+          programs,
+          memberships,
+          campaigns,
+          campaignRuns,
+          events,
+          staffRows,
+          pendingInvites,
+          entitlements,
+        };
+      })();
   const {
     programs,
     memberships,
@@ -729,12 +720,10 @@ export async function loadBusinessRecommendationFacts(
           authorization.capabilities.activate_send_campaigns,
         viewUsageQuota: authorization.capabilities.view_usage_quota,
         viewBillingState: authorization.capabilities.view_billing_state,
-        manageSubscription:
-          authorization.capabilities.manage_subscription,
+        manageSubscription: authorization.capabilities.manage_subscription,
         manageTeam: authorization.capabilities.manage_team,
         editLoyaltyCards: authorization.capabilities.edit_loyalty_cards,
-        editBusinessProfile:
-          authorization.capabilities.edit_business_profile,
+        editBusinessProfile: authorization.capabilities.edit_business_profile,
       },
     },
     facts: {
@@ -767,10 +756,7 @@ export async function loadBusinessRecommendationFacts(
       customers:
         uniqueActiveCustomerCount === null
           ? restrictedFact('access_customers')
-          : knownFact(
-              { uniqueActiveCustomerCount },
-              generatedAt
-            ),
+          : knownFact({ uniqueActiveCustomerCount }, generatedAt),
       campaigns:
         campaignFacts === null
           ? restrictedFact('access_campaigns')
@@ -891,9 +877,7 @@ async function loadVisibleRecommendationResponse(
   const interactions = await ctx.db
     .query('recommendationInteractions')
     .withIndex('by_actor_business', (q: any) =>
-      q
-        .eq('actorUserId', authorization.actor._id)
-        .eq('businessId', businessId)
+      q.eq('actorUserId', authorization.actor._id).eq('businessId', businessId)
     )
     .collect();
   const suppressEvidence = new Set<string>();
@@ -960,8 +944,7 @@ async function upsertRecommendationInteraction(
         }
       : {}),
     updatedAt: args.now,
-    completedAt:
-      args.interactionState === 'completed' ? args.now : undefined,
+    completedAt: args.interactionState === 'completed' ? args.now : undefined,
     invalidatedAt:
       args.interactionState === 'invalidated' ? args.now : undefined,
   };
@@ -1020,8 +1003,7 @@ async function persistUserInteraction(
     actorUserId: authorization.actor._id,
     stableId: args.stableId,
     evidenceFingerprint: args.evidenceFingerprint,
-    interactionState:
-      args.action === 'dismiss' ? 'dismissed' : 'snoozed',
+    interactionState: args.action === 'dismiss' ? 'dismissed' : 'snoozed',
     hiddenUntil: policy.hiddenUntil,
     reasonCode: policy.reasonCode,
     policyVersion: activePolicy.version,
@@ -1076,9 +1058,7 @@ function getRecommendationGuideEntityKind(
 function deriveServerRecommendationEntityBinding(
   recommendation: BusinessRecommendation
 ) {
-  const entityKind = getRecommendationGuideEntityKind(
-    recommendation.stableId
-  );
+  const entityKind = getRecommendationGuideEntityKind(recommendation.stableId);
   if (!entityKind) {
     return {};
   }
@@ -1171,8 +1151,7 @@ export const startBusinessRecommendationGuide = mutation({
       (session: any) =>
         session.expiresAt > now &&
         session.guideId === args.guideId &&
-        session.evidenceFingerprint ===
-          recommendation.evidenceFingerprint &&
+        session.evidenceFingerprint === recommendation.evidenceFingerprint &&
         (session.entityId ?? undefined) ===
           (entityBinding.entityId ?? undefined) &&
         (session.entityKind ?? undefined) ===
@@ -1182,19 +1161,16 @@ export const startBusinessRecommendationGuide = mutation({
       return publicGuideSessionResult(reusable, recommendation.action);
     }
     const expiresAt = now + GUIDE_SESSION_TTL_MS;
-    const guideSessionId = await ctx.db.insert(
-      'recommendationGuideSessions',
-      {
-        businessId: args.businessId,
-        actorUserId: authorization.actor._id,
-        stableId: recommendation.stableId,
-        guideId: recommendation.guideId,
-        evidenceFingerprint: recommendation.evidenceFingerprint,
-        ...entityBinding,
-        issuedAt: now,
-        expiresAt,
-      }
-    );
+    const guideSessionId = await ctx.db.insert('recommendationGuideSessions', {
+      businessId: args.businessId,
+      actorUserId: authorization.actor._id,
+      stableId: recommendation.stableId,
+      guideId: recommendation.guideId,
+      evidenceFingerprint: recommendation.evidenceFingerprint,
+      ...entityBinding,
+      issuedAt: now,
+      expiresAt,
+    });
     return publicGuideSessionResult(
       {
         _id: guideSessionId,
@@ -1338,9 +1314,7 @@ async function loadValidatedGuideSession(
   ) {
     publicRecommendationError();
   }
-  const expectedEntityKind = getRecommendationGuideEntityKind(
-    session.stableId
-  );
+  const expectedEntityKind = getRecommendationGuideEntityKind(session.stableId);
   if (!expectedEntityKind) {
     if (session.entityId !== undefined || session.entityKind !== undefined) {
       publicRecommendationError();
@@ -1403,20 +1377,9 @@ async function evaluateRecommendationGuide(
     return binding.entityEvaluation;
   }
   const args = binding.session;
-  const {
-    facts,
-    catalogInput,
-    allEligible,
-  } = await loadEligibleRecommendations(
-    ctx,
-    args.businessId,
-    authorization,
-    now
-  );
-  const access = getRecommendationAccessDecision(
-    catalogInput,
-    args.stableId
-  );
+  const { facts, catalogInput, allEligible } =
+    await loadEligibleRecommendations(ctx, args.businessId, authorization, now);
+  const access = getRecommendationAccessDecision(catalogInput, args.stableId);
   if (access.state === 'restricted') {
     return {
       state: 'restricted',
@@ -1427,16 +1390,11 @@ async function evaluateRecommendationGuide(
   const currentForStableId = allEligible.find(
     (recommendation) => recommendation.stableId === args.stableId
   );
-  if (
-    currentForStableId?.evidenceFingerprint === args.evidenceFingerprint
-  ) {
-    const expectedEntityKind = getRecommendationGuideEntityKind(
-      args.stableId
-    );
+  if (currentForStableId?.evidenceFingerprint === args.evidenceFingerprint) {
+    const expectedEntityKind = getRecommendationGuideEntityKind(args.stableId);
     if (
       expectedEntityKind &&
-      String(currentForStableId.entityId ?? '') !==
-        String(args.entityId ?? '')
+      String(currentForStableId.entityId ?? '') !== String(args.entityId ?? '')
     ) {
       return {
         state: 'invalidated',
@@ -1490,12 +1448,7 @@ async function evaluateRecommendationGuide(
         ? values.campaignQuota.value.campaignDefinitionLimit
         : undefined,
   };
-  if (
-    isRecommendationCompletionSatisfied(
-      args.stableId,
-      completionSnapshot
-    )
-  ) {
+  if (isRecommendationCompletionSatisfied(args.stableId, completionSnapshot)) {
     return {
       state: 'completed',
       reasonCode: 'SERVER_COMPLETED',

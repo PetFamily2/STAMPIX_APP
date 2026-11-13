@@ -1,15 +1,9 @@
 import { useConvexAuth, useMutation } from 'convex/react';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Platform,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
+import { AppText as Text } from '@/components/ui/AppText';
 import { PaintedPressable } from '@/components/ui/PaintedPressable';
 import { useSessionContext, useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
@@ -19,6 +13,13 @@ import {
   resolvePlatformPostAuthHref,
   resolvePostAuthRoute,
 } from '@/lib/auth/postAuthRouting';
+import {
+  productAccent,
+  webAccentFill,
+  webBody,
+  webPage,
+} from '@/lib/design/webProductChrome';
+import { webLegalAcceptanceArgs } from '@/lib/legalWebContract';
 
 const POST_AUTH_TIMEOUT_MS = 8000;
 
@@ -90,7 +91,10 @@ export default function OAuthCallbackScreen() {
     }
 
     acceptanceStartedRef.current = true;
-    void acceptCurrentTerms({ source: acceptanceSource })
+    void acceptCurrentTerms({
+      source: acceptanceSource,
+      ...webLegalAcceptanceArgs(Platform.OS),
+    })
       .then(() => setHasRecordedTerms(true))
       .catch(() => {
         acceptanceStartedRef.current = false;
@@ -160,7 +164,7 @@ export default function OAuthCallbackScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         {showFailure ? null : (
-          <ActivityIndicator size="small" color="#2563eb" />
+          <ActivityIndicator size="small" color={productAccent} />
         )}
         <Text style={styles.title}>
           {showFailure ? TEXT.failure : TEXT.loading}
@@ -183,6 +187,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F7F4',
+    ...webPage,
   },
   content: {
     flex: 1,
@@ -200,12 +205,14 @@ const styles = StyleSheet.create({
     color: '#1f2937',
     textAlign: 'center',
     writingDirection: 'rtl',
+    ...webBody,
   },
   retryButton: {
     marginTop: 8,
     minHeight: 48,
     borderRadius: 999,
     backgroundColor: '#2563eb',
+    ...webAccentFill,
     paddingHorizontal: 20,
     paddingVertical: 10,
   },

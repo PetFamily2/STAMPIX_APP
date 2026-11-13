@@ -1,27 +1,27 @@
-import { v } from 'convex/values';
 import { makeFunctionReference } from 'convex/server';
+import { v } from 'convex/values';
 import type { Doc } from './_generated/dataModel';
 import { internalMutation, query } from './_generated/server';
 import { requireActorIsActiveStaffForBusiness } from './guards';
-import { requirePreparedWinbackAuthorization } from './lib/smartManagerPreparedActions';
 import {
   isQualifyingSmartManagerReturnEvent,
+  markSmartManagerOutcomeDirty,
+  normalizeSmartManagerOutcomeCounters,
+  SMART_MANAGER_BINDING_VALIDATION_LIMIT,
+  SMART_MANAGER_OUTCOME_CLEANUP_BATCH_SIZE,
+  SMART_MANAGER_OUTCOME_CONTINUATION_DELAY_MS,
   SMART_MANAGER_OUTCOME_DIRTY_BATCH_SIZE,
   SMART_MANAGER_OUTCOME_EVENT_BATCH_SIZE,
   SMART_MANAGER_OUTCOME_EXPIRY_BATCH_SIZE,
-  SMART_MANAGER_OUTCOME_CLEANUP_BATCH_SIZE,
-  SMART_MANAGER_OUTCOME_CONTINUATION_DELAY_MS,
-  SMART_MANAGER_OUTCOME_REVERSAL_BATCH_SIZE,
   SMART_MANAGER_OUTCOME_RETENTION_MS,
+  SMART_MANAGER_OUTCOME_REVERSAL_BATCH_SIZE,
   SMART_MANAGER_OVERLAP_LIMIT,
-  SMART_MANAGER_BINDING_VALIDATION_LIMIT,
+  shouldContinueSmartManagerOutcomeSweep,
   smartManagerRecipientBindingsAreStructurallyValid,
   sortEligibleLastTouchOutcomes,
-  markSmartManagerOutcomeDirty,
-  normalizeSmartManagerOutcomeCounters,
   transitionSmartManagerOutcomeState,
-  shouldContinueSmartManagerOutcomeSweep,
 } from './lib/smartManagerOutcomes';
+import { requirePreparedWinbackAuthorization } from './lib/smartManagerPreparedActions';
 
 const OUTCOME_SINGLETON_LIMIT = 2;
 const outcomeSweepContinuationRef = makeFunctionReference<
@@ -66,14 +66,12 @@ async function loadEligibleOutcomeCandidates(
     states.map((state) =>
       ctx.db
         .query('smartManagerRecipientOutcomes')
-        .withIndex(
-          'by_businessId_userId_state_contactEvidenceAt',
-          (q: any) =>
-            q
-              .eq('businessId', event.businessId)
-              .eq('userId', event.customerUserId)
-              .eq('state', state)
-              .lt('contactEvidenceAt', event.createdAt)
+        .withIndex('by_businessId_userId_state_contactEvidenceAt', (q: any) =>
+          q
+            .eq('businessId', event.businessId)
+            .eq('userId', event.customerUserId)
+            .eq('state', state)
+            .lt('contactEvidenceAt', event.createdAt)
         )
         .order('desc')
         .take(SMART_MANAGER_OVERLAP_LIMIT + 1)
@@ -110,8 +108,7 @@ async function supersedeOlderCandidates(
       supersededAt: args.event.createdAt,
       supersededByOutcomeId: args.winner._id,
       terminalAt: args.event.createdAt,
-      purgeAfter:
-        args.event.createdAt + SMART_MANAGER_OUTCOME_RETENTION_MS,
+      purgeAfter: args.event.createdAt + SMART_MANAGER_OUTCOME_RETENTION_MS,
       updatedAt: args.event.createdAt,
     });
   }
@@ -184,12 +181,12 @@ export async function attributeQualifyingEvent(
     winner,
     'returned_after_campaign',
     {
-    qualifyingActivityAt: event.createdAt,
-    qualifyingEventId: event._id,
-    recordedAt: Date.now(),
-    terminalAt: event.createdAt,
-    purgeAfter: event.createdAt + SMART_MANAGER_OUTCOME_RETENTION_MS,
-    updatedAt: Date.now(),
+      qualifyingActivityAt: event.createdAt,
+      qualifyingEventId: event._id,
+      recordedAt: Date.now(),
+      terminalAt: event.createdAt,
+      purgeAfter: event.createdAt + SMART_MANAGER_OUTCOME_RETENTION_MS,
+      updatedAt: Date.now(),
     }
   );
 
@@ -239,9 +236,7 @@ export async function retractReversedQualifyingEvent(
       return { retracted: false, restored: 0 };
     }
     const winnerNextState =
-      winner.outcomeWindowEndsAt > now
-        ? 'awaiting_return'
-        : 'window_expired';
+      winner.outcomeWindowEndsAt > now ? 'awaiting_return' : 'window_expired';
     await transitionSmartManagerOutcomeState(ctx, winner, winnerNextState, {
       qualifyingActivityAt: undefined,
       qualifyingEventId: undefined,
@@ -264,9 +259,7 @@ export async function retractReversedQualifyingEvent(
         continue;
       }
       const nextState =
-        older.outcomeWindowEndsAt > now
-          ? 'awaiting_return'
-          : 'window_expired';
+        older.outcomeWindowEndsAt > now ? 'awaiting_return' : 'window_expired';
       await transitionSmartManagerOutcomeState(ctx, older, nextState, {
         supersededAt: undefined,
         supersededByOutcomeId: undefined,
@@ -370,23 +363,16 @@ export const sweepSmartManagerOutcomesInternal = internalMutation({
     const expired = await (ctx.db as any)
       .query('smartManagerRecipientOutcomes')
       .withIndex('by_state_outcomeWindowEndsAt', (q: any) =>
-        q
-          .eq('state', 'awaiting_return')
-          .lte('outcomeWindowEndsAt', now)
+        q.eq('state', 'awaiting_return').lte('outcomeWindowEndsAt', now)
       )
       .take(SMART_MANAGER_OUTCOME_EXPIRY_BATCH_SIZE);
     for (const outcome of expired) {
-      await transitionSmartManagerOutcomeState(
-        ctx,
-        outcome,
-        'window_expired',
-        {
+      await transitionSmartManagerOutcomeState(ctx, outcome, 'window_expired', {
         terminalAt: outcome.outcomeWindowEndsAt,
         purgeAfter:
           outcome.outcomeWindowEndsAt + SMART_MANAGER_OUTCOME_RETENTION_MS,
         updatedAt: now,
-        }
-      );
+      });
     }
     const purgeable = await (ctx.db as any)
       .query('smartManagerRecipientOutcomes')
@@ -435,10 +421,8 @@ async function buildRunResultSummary(ctx: any, run: Doc<'campaignRuns'>) {
   );
   return {
     contactedOrAvailableCount:
-      (counters?.pushAcceptedCount ?? 0) +
-      (counters?.inAppAvailableCount ?? 0),
-    returnedAfterCampaignCount:
-      outcomeCounters.returnedAfterCampaignCount,
+      (counters?.pushAcceptedCount ?? 0) + (counters?.inAppAvailableCount ?? 0),
+    returnedAfterCampaignCount: outcomeCounters.returnedAfterCampaignCount,
     openOutcomeWindowCount: outcomeCounters.awaitingReturnCount,
     expiredOutcomeWindowCount: outcomeCounters.windowExpiredCount,
     supersededOutcomeWindowCount: outcomeCounters.supersededCount,
