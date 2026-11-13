@@ -1,14 +1,8 @@
-import Editor from '@/app/(authenticated)/(business)/settings-business-referrals';
-import { WebManagementSurface } from '@/components/business-web/WebManagementSurface';
-import { WEB_REFERRAL_DESTINATIONS } from '@/lib/navigation/referralSettingsDestinations';
+import { BusinessWebReferrals } from '@/components/business-web/BusinessWebReferrals';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 export default function Referrals() {
+  const { activeBusinessId, isSwitchingBusiness } = useActiveBusiness();
   return (
-    <WebManagementSurface>
-      <Editor
-        webPresentation={true}
-        campaignsHref={WEB_REFERRAL_DESTINATIONS.campaigns}
-        settingsHref={WEB_REFERRAL_DESTINATIONS.settings}
-      />
-    </WebManagementSurface>
+    <BusinessWebReferrals key={`${activeBusinessId}:${isSwitchingBusiness}`} />
   );
 }

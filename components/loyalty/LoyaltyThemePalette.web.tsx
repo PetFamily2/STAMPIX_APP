@@ -1,0 +1,97 @@
+import { LinearGradient } from 'expo-linear-gradient';
+import { useState } from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
+import { CARD_THEMES } from '@/constants/cardThemes';
+import { resolveClassicStampPalette } from '@/lib/loyalty/classicStampPalette';
+import { flexDirection } from '@/lib/rtl';
+import {
+  VISUAL_PICKER_COLUMNS,
+  VISUAL_PICKER_GAP,
+  VisualSelectionTile,
+} from './VisualSelectionTile.web';
+
+export function LoyaltyThemePalette({
+  value,
+  onChange,
+  disabledThemeIds = [],
+  disabled = false,
+}: {
+  value: string;
+  onChange: (themeId: string) => void;
+  disabledThemeIds?: readonly string[];
+  disabled?: boolean;
+}) {
+  const [width, setWidth] = useState(0);
+  const tileWidth =
+    width > 0
+      ? Math.floor(
+          (width - VISUAL_PICKER_GAP * (VISUAL_PICKER_COLUMNS - 1)) /
+            VISUAL_PICKER_COLUMNS
+        )
+      : 0;
+  const unavailable = new Set(disabledThemeIds);
+
+  return (
+    <View
+      testID="loyalty-theme-palette"
+      style={styles.grid}
+      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+    >
+      {CARD_THEMES.map((theme) => {
+        const selected = value === theme.id;
+        const inUse = unavailable.has(theme.id) && !selected;
+        return (
+          <VisualSelectionTile
+            key={theme.id}
+            width={tileWidth > 0 ? tileWidth : '18%'}
+            label={`ערכת נושא ${theme.name}`}
+            selected={selected}
+            disabled={disabled || inUse}
+            inUse={inUse}
+            onPress={() => onChange(theme.id)}
+          >
+            {Platform.OS === 'web' ? (
+              <View
+                style={[
+                  styles.swatch,
+                  styles.paperSwatch,
+                  {
+                    backgroundColor: resolveClassicStampPalette(theme.id).paper,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.inkMark,
+                    {
+                      backgroundColor: resolveClassicStampPalette(theme.id).ink,
+                    },
+                  ]}
+                />
+              </View>
+            ) : (
+              <LinearGradient
+                colors={theme.gradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.swatch}
+              />
+            )}
+          </VisualSelectionTile>
+        );
+      })}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  grid: {
+    width: '100%',
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    gap: VISUAL_PICKER_GAP,
+  },
+  swatch: { width: '100%', height: '100%' },
+  paperSwatch: { alignItems: 'center', justifyContent: 'center' },
+  inkMark: { borderRadius: 999, height: 12, width: 12 },
+});

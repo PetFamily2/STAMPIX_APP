@@ -52,8 +52,11 @@ const LINKED_ROUTE_PREFIXES: Partial<
     readonly string[]
   >
 > = {
-  [BUSINESS_WEB_ROUTES.loyalty]: ['/business/cards'],
-  [BUSINESS_WEB_ROUTES.campaigns]: ['/business/campaign/'],
+  [BUSINESS_WEB_ROUTES.loyalty]: [
+    '/business/cards',
+    '/business/campaign/',
+    '/business/campaigns',
+  ],
   [BUSINESS_WEB_ROUTES.settings]: ['/business/qr'],
 };
 
@@ -138,8 +141,8 @@ export const BUSINESS_WEB_NAV_CATALOG: readonly BusinessWebNavItem[] = [
   },
   {
     key: 'referrals',
-    label: 'הזמנת חברים',
-    shortLabel: 'חברים',
+    label: 'עסק מביא עסק',
+    shortLabel: 'עסקים',
     href: BUSINESS_WEB_ROUTES.referrals,
     access: { type: 'capability', capability: 'invite_businesses' },
   },
@@ -171,7 +174,6 @@ const SIDEBAR_ORDER: readonly BusinessWebNavKey[] = [
   'customers',
   'scanner',
   'loyalty',
-  'campaigns',
   'referrals',
   'team',
   'inbox',
@@ -184,7 +186,6 @@ const BOTTOM_PRIORITY: readonly BusinessWebNavKey[] = [
   'customers',
   'scanner',
   'loyalty',
-  'campaigns',
   'referrals',
   'inbox',
   'settings',
@@ -218,8 +219,12 @@ function canSeeBusinessNavItem(
   if (item.key === 'scanner' && !scannerEnabled) {
     return false;
   }
-  if (item.key === 'analytics') {
+  if (item.key === 'analytics' || item.key === 'campaigns') {
     return false;
+  }
+  if (item.key === 'loyalty' && role) {
+    const capabilities = getRoleCapabilities(role);
+    return capabilities.edit_loyalty_cards || capabilities.access_campaigns;
   }
   if (!role) {
     return item.key === 'dashboard' || item.key === 'settings';

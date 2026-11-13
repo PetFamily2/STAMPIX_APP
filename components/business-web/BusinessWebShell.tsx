@@ -1,4 +1,4 @@
-import type { Href } from 'expo-router';
+import { type Href, usePathname } from 'expo-router';
 import { ChevronDown, LogOut, Menu, X } from 'lucide-react-native';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
@@ -154,9 +154,9 @@ function NavItemButton({
       ]}
     >
       <Icon
-        color={isActive ? TOKENS.colors.primary : TOKENS.colors.textMuted}
-        size={TOKENS.icons.navigation}
-        strokeWidth={TOKENS.icons.strokeWidth}
+        color={isActive ? TOKENS.colors.primary : TOKENS.colors.textPrimary}
+        size={TOKENS.icons.prominent}
+        strokeWidth={2}
       />
       <Text style={[styles.navLabel, isActive ? styles.navLabelActive : null]}>
         {item.label}
@@ -453,6 +453,9 @@ function AccountBlock({
 
 export function BusinessWebShell(props: BusinessWebShellProps) {
   const { width, height } = useWindowDimensions();
+  const pathname = usePathname();
+  const wideCardEditor =
+    pathname.includes('/cards/') && !pathname.endsWith('/cards/new');
   const responsiveLayout = getBusinessWebResponsiveLayout(width);
   const navigationMode = useBusinessNavigationMode(width, height);
   const showSidebar = navigationMode === 'sidebar';
@@ -763,7 +766,12 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
             contentContainerStyle={[
               styles.content,
               isCompact ? styles.contentCompact : null,
-              { paddingTop: responsiveLayout.pageTopPadding },
+              wideCardEditor ? styles.contentCardEditor : null,
+              {
+                paddingTop: wideCardEditor
+                  ? 8
+                  : responsiveLayout.pageTopPadding,
+              },
             ]}
             keyboardShouldPersistTaps="handled"
             role="main"
@@ -939,7 +947,6 @@ const styles = StyleSheet.create({
     gap: TOKENS.space.sm,
     borderRadius: TOKENS.radii.md,
     paddingHorizontal: TOKENS.space.sm,
-    opacity: 0.78,
   },
   navItemActive: {
     backgroundColor: TOKENS.colors.primarySubtle,
@@ -1312,6 +1319,11 @@ const styles = StyleSheet.create({
   },
   contentCompact: {
     paddingHorizontal: TOKENS.space.lg,
+  },
+  contentCardEditor: {
+    maxWidth: 1280,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
   },
   controlPressed: { opacity: 0.72 },
 });

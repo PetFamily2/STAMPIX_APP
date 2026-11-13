@@ -6,10 +6,11 @@ import { WebWinbackCampaignSetup } from '@/components/business-web/WebWinbackCam
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 
 export default function WebCampaignEditor() {
-  const { campaignId, template, businessId } = useLocalSearchParams<{
+  const { campaignId, template, businessId, goal } = useLocalSearchParams<{
     campaignId?: string;
     template?: string;
     businessId?: string;
+    goal?: string;
   }>();
   const { activeBusinessId } = useActiveBusiness();
   return (
@@ -22,6 +23,7 @@ export default function WebCampaignEditor() {
       ) : campaignId === 'new' ? (
         <CampaignDraftWizard
           key={String(activeBusinessId)}
+          initialGoal={goal}
           requestedBusinessId={businessId}
         />
       ) : (

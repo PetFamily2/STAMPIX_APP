@@ -14,6 +14,8 @@ export function businessHref(platform: string, path: string): Href & string {
     '/(authenticated)/(business)/cards/campaigns': '/business/campaigns',
     '/(authenticated)/(business)/settings-business-referrals':
       '/business/referrals',
+    '/(authenticated)/(business)/settings-business-invite-businesses':
+      '/business/referrals',
   };
   return (mappings[path] ?? path) as Href & string;
 }

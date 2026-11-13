@@ -1,11 +1,4 @@
-import { BusinessWebCampaigns } from '@/components/business-web/BusinessWebCampaigns';
-import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { Redirect } from 'expo-router';
 export default function Campaigns() {
-  const { activeBusinessId } = useActiveBusiness();
-  return activeBusinessId ? (
-    <BusinessWebCampaigns
-      key={String(activeBusinessId)}
-      businessId={activeBusinessId}
-    />
-  ) : null;
+  return <Redirect href="/business/loyalty?segment=campaigns" />;
 }

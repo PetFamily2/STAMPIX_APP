@@ -53,5 +53,6 @@ export function verifyReleaseSource({
     revision,
     requiredAncestors: policy.requiredAncestors,
     pendingSourceReviews: policy.pendingSourceReviews ?? [],
+    reviewedSourceSnapshots: policy.reviewedSourceSnapshots ?? [],
   };
 }

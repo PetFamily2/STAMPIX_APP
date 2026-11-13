@@ -108,7 +108,7 @@ export function BusinessWebCampaigns({
           <PwaButton
             label="חבר מביא חבר"
             variant="secondary"
-            onPress={() => router.push('/business/referrals')}
+            onPress={() => router.push('/business/customer-referrals')}
           />
         ) : null}
       </View>
@@ -167,7 +167,7 @@ export function BusinessWebCampaigns({
               accessibilityRole="button"
               accessibilityLabel="פתיחת חבר מביא חבר"
               style={[styles.card, filter === 'active' && styles.activeCard]}
-              onPress={() => router.push('/business/referrals')}
+              onPress={() => router.push('/business/customer-referrals')}
             >
               <Text style={styles.cardTitle}>חבר מביא חבר</Text>
               <Text style={styles.body}>הטבה ללקוחות שמזמינים חברים לעסק</Text>

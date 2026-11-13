@@ -1,9 +1,9 @@
 import { useQuery } from 'convex/react';
-import { type Href, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { LoyaltyManagementEntry } from '@/components/business-web/LoyaltyManagementEntry';
-import { PwaButton } from '@/components/pwa-ui/PwaButton';
+import { PwaButton } from '@/components/pwa-ui/PwaButton.web';
 import { PwaEmptyState } from '@/components/pwa-ui/PwaEmptyState';
 import { AppText as Text } from '@/components/ui/AppText';
 import { api } from '@/convex/_generated/api';
@@ -17,6 +17,7 @@ import {
   rtlBaseText,
   selfStart,
 } from '@/lib/rtl';
+import { BusinessWebCampaigns } from './BusinessWebCampaigns';
 
 const LIFECYCLE_LABEL: Record<string, string> = {
   active: 'פעיל',
@@ -25,7 +26,7 @@ const LIFECYCLE_LABEL: Record<string, string> = {
   inactive: 'טיוטה',
 };
 
-type ClubSegment = 'cards' | 'campaigns' | 'friends';
+type ClubSegment = 'cards' | 'campaigns';
 
 export function BusinessWebLoyalty({
   activeBusinessId,
@@ -35,13 +36,18 @@ export function BusinessWebLoyalty({
   const router = useRouter();
   const { width } = useWindowDimensions();
   const wide = width >= 768;
+  const { segment: segmentParam } = useLocalSearchParams<{
+    segment?: string;
+  }>();
   const { activeBusiness } = useActiveBusiness();
   const canEdit = activeBusiness?.capabilities?.edit_loyalty_cards === true;
-  const [segment, setSegment] = useState<ClubSegment>('cards');
+  const initialSegment: ClubSegment =
+    segmentParam === 'campaigns' ? 'campaigns' : 'cards';
+  const [segment, setSegment] = useState<ClubSegment>(initialSegment);
+  useEffect(() => {
+    setSegment(segmentParam === 'campaigns' ? 'campaigns' : 'cards');
+  }, [segmentParam]);
   const data = useQuery(api.loyaltyPrograms.listManagementByBusiness, {
-    businessId: activeBusinessId,
-  });
-  const campaigns = useQuery(api.campaigns.listManagementCampaignsByBusiness, {
     businessId: activeBusinessId,
   });
   const programs = data ?? [];
@@ -63,7 +69,6 @@ export function BusinessWebLoyalty({
           [
             ['cards', 'כרטיסיות'],
             ['campaigns', 'קמפיינים'],
-            ['friends', 'חברים'],
           ] as const
         ).map(([key, label]) => (
           <Pressable
@@ -134,7 +139,6 @@ export function BusinessWebLoyalty({
                   <LoyaltyManagementEntry
                     key={String(program.loyaltyProgramId)}
                     businessName={activeBusiness?.name ?? 'העסק'}
-                    canEdit={canEdit}
                     lifecycle={program.lifecycle}
                     lifecycleLabel={
                       LIFECYCLE_LABEL[program.lifecycle] ?? program.lifecycle
@@ -143,7 +147,6 @@ export function BusinessWebLoyalty({
                     maxStamps={program.maxStamps}
                     memberCount={program.metrics.activeMembers}
                     onDetails={openProgram}
-                    onEdit={openProgram}
                     progress={{ kind: 'none' }}
                     themeId={program.cardThemeId}
                     title={program.title}
@@ -156,68 +159,9 @@ export function BusinessWebLoyalty({
       ) : null}
 
       {segment === 'campaigns' ? (
-        <View style={styles.stack}>
-          <PwaButton
-            fullWidth={!wide}
-            label="קמפיין חדש"
-            onPress={() => router.push('/business/campaign/new' as Href)}
-          />
-          {campaigns === undefined ? (
-            <Text style={styles.loading}>טוענים קמפיינים</Text>
-          ) : campaigns.length === 0 ? (
-            <PwaEmptyState
-              body="אפשר להתחיל מברכה, יום הולדת או מבצע."
-              title="עדיין אין קמפיינים"
-            />
-          ) : (
-            campaigns.map((campaign) => (
-              <Pressable
-                accessibilityRole="button"
-                key={String(campaign.campaignId)}
-                onPress={() =>
-                  router.push({
-                    pathname: '/business/campaign/[campaignId]' as Href,
-                    params: { campaignId: String(campaign.campaignId) },
-                  } as Href)
-                }
-                style={styles.row}
-              >
-                <View style={styles.programCopy}>
-                  <Text style={styles.programTitle}>
-                    {campaign.messageTitle ||
-                      resolveCampaignManagementVisualMeta(campaign.type).label}
-                  </Text>
-                  <Text style={styles.rewardName}>
-                    {resolveCampaignManagementVisualMeta(campaign.type).label}
-                  </Text>
-                </View>
-                <Text
-                  style={[
-                    styles.lifecycle,
-                    campaign.lifecycle === 'active'
-                      ? styles.lifecycleLive
-                      : null,
-                  ]}
-                >
-                  {LIFECYCLE_LABEL[campaign.lifecycle] ?? campaign.lifecycle}
-                </Text>
-              </Pressable>
-            ))
-          )}
-        </View>
-      ) : null}
-
-      {segment === 'friends' ? (
-        <PwaEmptyState
-          action={
-            <PwaButton
-              label="הגדרת הטבת חברים"
-              onPress={() => router.push('/business/referrals' as Href)}
-              variant="secondary"
-            />
-          }
-          body="זו הגדרה נפרדת מקמפיין. ההטבה נרשמת אחרי החותמת הראשונה של החבר."
-          title="הטבת חברים"
+        <BusinessWebCampaigns
+          key={String(activeBusinessId)}
+          businessId={activeBusinessId}
         />
       ) : null}
     </View>

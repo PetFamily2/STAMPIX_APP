@@ -1,7 +1,6 @@
 import type { Href } from 'expo-router';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 
-import { PwaButton } from '@/components/pwa-ui/PwaButton';
 import { AppText as Text } from '@/components/ui/AppText';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
 import { resolveClassicStampPalette } from '@/lib/loyalty/classicStampPalette';
@@ -16,8 +15,6 @@ type LoyaltyManagementEntryProps = {
   maxStamps: number;
   memberCount: number;
   themeId: string | null;
-  canEdit: boolean;
-  onEdit: () => void;
   onDetails: () => void;
   progress: { kind: 'none' };
 };
@@ -31,8 +28,6 @@ export function LoyaltyManagementEntry({
   maxStamps,
   memberCount,
   themeId,
-  canEdit,
-  onEdit,
   onDetails,
   progress,
 }: LoyaltyManagementEntryProps) {
@@ -41,13 +36,17 @@ export function LoyaltyManagementEntry({
   void progress;
 
   return (
-    <View style={[styles.row, lifecycle === 'active' ? styles.rowLive : null]}>
-      <Pressable
-        accessibilityLabel={`${title}. ${lifecycleLabel}. ${maxStamps} חותמות. ${memberCount} חברים.`}
-        accessibilityRole="button"
-        onPress={onDetails}
-        style={({ pressed }) => [styles.main, pressed ? styles.pressed : null]}
-      >
+    <Pressable
+      accessibilityLabel={`${title}. ${lifecycleLabel}. ${maxStamps} חותמות. ${memberCount} חברים.`}
+      accessibilityRole="button"
+      onPress={onDetails}
+      style={({ pressed }) => [
+        styles.row,
+        lifecycle === 'active' ? styles.rowLive : null,
+        pressed ? styles.pressed : null,
+      ]}
+    >
+      <View style={styles.main}>
         <View style={[styles.thumb, { backgroundColor: palette.paper }]}>
           {logoUrl ? (
             <Image
@@ -84,23 +83,8 @@ export function LoyaltyManagementEntry({
             {lifecycle === 'active' ? `✓ ${lifecycleLabel}` : lifecycleLabel}
           </Text>
         </View>
-      </Pressable>
-      <View style={styles.actions}>
-        {canEdit ? (
-          <PwaButton
-            accessibilityLabel={`עריכת ${title}`}
-            label="עריכה"
-            onPress={onEdit}
-          />
-        ) : null}
-        <PwaButton
-          accessibilityLabel={`פרטי ${title}`}
-          label="פרטים"
-          onPress={onDetails}
-          variant="secondary"
-        />
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -177,5 +161,4 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   badgeDraft: { color: TOKENS.colors.warning },
-  actions: { gap: 6, width: 92 },
 });

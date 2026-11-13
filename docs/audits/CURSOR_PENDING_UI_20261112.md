@@ -1,3 +1,5 @@
+Current status: RESOLVED by [13 November integration review](CURSOR_UI_INTEGRATION_20261113.md). The original snapshot and pending findings below are retained as history.
+
 # Cursor pending UI snapshot — 12 November 2026
 
 Read-only original worktree inspection confirmed `qa/cloudflare-scanner-onboarding-20261110` at `2579919eca6073de6825aebbdeabbd89594a73b2` with 35 modified tracked code/test files and one new BusinessWebReferrals component. Their exact contents were captured to ignored `.tmp/cursor-uncommitted-ui-20261112.json` and rehashed against the source without changing it. These UNCOMMITTED changes are NOT included by merging the committed scanner QA tip. Review/integration is still required before claiming latest Cursor business-UI parity. The remaining untracked Cursor settings, preview archive/folder and debug log were excluded deliberately. No game or private art files were copied.

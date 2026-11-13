@@ -244,16 +244,120 @@ export function BusinessWebBilling({
     hasCurrentPaidAccess && currentBillingPeriod
       ? currentBillingPeriod
       : billingPeriod;
+  const visiblePlans = PLAN_ORDER.map((plan) => plan).sort(
+    (left, right) =>
+      planConfig[left].pricing[displayedBillingPeriod] -
+      planConfig[right].pricing[displayedBillingPeriod]
+  );
+
+  const periodLabel = overview?.billingPeriod
+    ? PERIOD_LABELS[overview.billingPeriod]
+    : null;
+  const statusSummary = [planName, periodLabel].filter(Boolean).join(' · ');
+  const periodEndAt = isTrialing
+    ? overview?.trialEndsAt
+    : overview?.currentPeriodEndAt;
+  function focusRenewalPlans() {
+    if (typeof document === 'undefined') {
+      return;
+    }
+    document
+      .getElementById('billing-plans')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  const bannerTone =
+    status === 'active'
+      ? 'success'
+      : status === 'past_due' || status === 'canceled'
+        ? 'warning'
+        : status === 'trialing'
+          ? 'neutral'
+          : 'danger';
 
   return (
     <View style={styles.page}>
-      <View style={styles.pageHeader}>
-        <View style={styles.pageHeaderCopy}>
-          <Text style={styles.pageTitle}>חיוב ומסמכי תשלום</Text>
-          <Text style={styles.pageSubtitle}>
-            המנוי, התשלומים ומסמכי התשלום של {businessName}.
+      <View
+        accessibilityRole="summary"
+        style={[
+          styles.statusBanner,
+          bannerTone === 'success'
+            ? styles.statusBannerSuccess
+            : bannerTone === 'warning'
+              ? styles.statusBannerWarning
+              : bannerTone === 'neutral'
+                ? styles.statusBannerNeutral
+                : styles.statusBannerDanger,
+        ]}
+      >
+        <Text
+          style={[
+            styles.statusLabel,
+            bannerTone === 'success'
+              ? styles.statusLabelSuccess
+              : bannerTone === 'warning'
+                ? styles.statusLabelWarning
+                : bannerTone === 'neutral'
+                  ? styles.statusLabelNeutral
+                  : styles.statusLabelDanger,
+          ]}
+        >
+          {STATUS_LABELS[status] ?? 'לא פעיל'}
+        </Text>
+        <Text
+          style={[
+            styles.statusMeta,
+            bannerTone === 'danger' ? styles.statusOnDanger : null,
+          ]}
+        >
+          {statusSummary || 'אין מסלול פעיל'}
+        </Text>
+        {bannerTone === 'danger' ? (
+          <Text style={styles.statusImpact}>
+            לקוח חדש לא מצטרף ולא מקבל חותמת. מבצע חדש לא נפתח.
           </Text>
-        </View>
+        ) : null}
+        {typeof periodEndAt === 'number' ? (
+          <Text
+            style={[
+              styles.statusNote,
+              bannerTone === 'danger' ? styles.statusOnDanger : null,
+            ]}
+          >
+            {isTrialing ? 'ניסיון עד' : 'פעיל עד'} {formatDate(periodEndAt)}
+          </Text>
+        ) : null}
+        {overview?.canceledAt ? (
+          <Text style={styles.statusNote}>
+            החידוש בוטל ב-{formatDate(overview.canceledAt)}.
+          </Text>
+        ) : null}
+        {overview?.canCancel ? (
+          <Pressable
+            accessibilityLabel="ביטול חידוש המנוי"
+            accessibilityRole="button"
+            onPress={() => setShowCancelDialog(true)}
+            style={({ pressed }) => [
+              styles.dangerOutlineButton,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Text style={styles.dangerOutlineText}>ביטול חידוש</Text>
+          </Pressable>
+        ) : null}
+        {bannerTone === 'danger' ? (
+          <Pressable
+            accessibilityLabel="חידוש המנוי"
+            accessibilityRole="button"
+            onPress={focusRenewalPlans}
+            style={({ pressed }) => [
+              styles.renewButton,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Text style={styles.renewButtonText}>חידוש המנוי</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       {actionError ? (
@@ -267,77 +371,29 @@ export function BusinessWebBilling({
         </View>
       ) : null}
 
-      <SectionCard
-        description="מצב המנוי המעודכן של העסק."
-        icon={ShieldCheck}
-        title="המנוי הנוכחי"
-      >
-        <View style={styles.detailsGrid}>
-          <Detail
-            label="מסלול"
-            value={planName ?? 'אין מסלול פעיל'}
-            ltr={true}
-          />
-          <Detail label="סטטוס" value={STATUS_LABELS[status] ?? 'לא פעיל'} />
-          <Detail
-            label="מחזור חיוב"
-            value={
-              overview?.billingPeriod
-                ? PERIOD_LABELS[overview.billingPeriod]
-                : '—'
-            }
-          />
-          <Detail
-            label={isTrialing ? 'סיום תקופת הניסיון' : 'סוף התקופה ששולמה'}
-            value={formatDate(
-              isTrialing ? overview?.trialEndsAt : overview?.currentPeriodEndAt
-            )}
-          />
-        </View>
-        {overview?.canceledAt ? (
-          <Text style={styles.cancellationState}>
-            החידוש בוטל בתאריך {formatDate(overview.canceledAt)}. הגישה אינה
-            נפסקת לפני סוף התקופה ששולמה.
-          </Text>
-        ) : null}
-        {overview?.canCancel ? (
-          <View style={styles.subscriptionActions}>
-            <Pressable
-              accessibilityLabel="ביטול חידוש המנוי"
-              accessibilityRole="button"
-              onPress={() => setShowCancelDialog(true)}
-              style={({ pressed }) => [
-                styles.dangerOutlineButton,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <Text style={styles.dangerOutlineText}>ביטול חידוש המנוי</Text>
-            </Pressable>
-          </View>
-        ) : null}
-      </SectionCard>
-
       {checkoutAvailability?.available === false && !hasCurrentPaidAccess ? (
         <View accessibilityLiveRegion="polite" style={styles.errorBanner}>
-          <Text style={styles.errorText}>
-            התשלום אינו זמין כרגע. אפשר לעיין במסלולים; המנוי לא ישתנה ללא תשלום
-            מאומת. אפשר לשמור טיוטה ולחזור לתשלום בהמשך.
-          </Text>
+          <Text style={styles.errorText}>התשלום אינו זמין כרגע.</Text>
         </View>
       ) : null}
 
-      <View style={styles.plansHeader}>
-        <View style={styles.plansHeaderCopy}>
-          <Text style={styles.sectionHeading}>בחירת מסלול</Text>
+      <View nativeID="billing-plans" style={styles.plansBar}>
+        <Text style={styles.sectionHeading}>מסלולים</Text>
+        <Text style={styles.sectionDescription}>
+          {WEB_TAX_POLICY.priceNotice}
+        </Text>
+        {!hasCurrentPaidAccess ? (
           <Text style={styles.sectionDescription}>
-            {WEB_TAX_POLICY.priceNotice}
+            הפעלה מחייבת חיוב מיידי בכרטיס אשראי. ב־14 הימים הראשונים מהתשלום
+            הראשון אפשר לבקש החזר מלא דרך שירות הלקוחות. התשלום מתבצע בעמוד
+            המאובטח של SUMIT.
           </Text>
+        ) : null}
+        {hasCurrentPaidAccess ? (
           <Text style={styles.sectionDescription}>
-            {hasCurrentPaidAccess
-              ? 'המנוי הנוכחי מוצג למטה. שינוי מסלול או מחזור חיוב עדיין לא זמין בגרסה זו.'
-              : 'הפעלה מחייבת חיוב מיידי בכרטיס אשראי. ב־14 הימים הראשונים מהתשלום הראשון אפשר לבקש החזר מלא דרך שירות הלקוחות. התשלום מתבצע בעמוד המאובטח של SUMIT.'}
+            שינוי מסלול או מחזור חיוב עדיין לא זמין בגרסה זו.
           </Text>
-        </View>
+        ) : null}
         <View accessibilityLabel="מחזור חיוב" style={styles.cadenceToggle}>
           {(['monthly', 'yearly'] as const).map((period) => {
             const selected = displayedBillingPeriod === period;
@@ -368,7 +424,12 @@ export function BusinessWebBilling({
             );
           })}
         </View>
+        <Text style={styles.taxLine}>{WEB_TAX_POLICY.priceNotice}</Text>
       </View>
+      {displayedBillingPeriod === 'yearly' ? (
+        <Text style={styles.yearlyNote}>{YEARLY_COPY}</Text>
+      ) : null}
+
       {!hasCurrentPaidAccess ? (
         <View style={styles.plansHeaderCopy}>
           <Pressable
@@ -410,44 +471,61 @@ export function BusinessWebBilling({
           שירות לקוחות ובקשת החזר: {WEB_BUSINESS_OPERATOR.supportEmail}
         </Text>
       </Pressable>
-      {displayedBillingPeriod === 'yearly' ? (
-        <View style={styles.yearlyBanner}>
-          <CalendarDays color={TOKENS.colors.success} size={19} />
-          <Text style={styles.yearlyBannerText}>{YEARLY_COPY}</Text>
-        </View>
-      ) : null}
 
       <View
         style={[styles.planGrid, plansStacked ? styles.planGridStacked : null]}
       >
-        {PLAN_ORDER.map((plan) => {
+        {visiblePlans.map((plan) => {
           const definition = planConfig[plan];
           const price = definition.pricing[displayedBillingPeriod];
+          const fullYearPrice = definition.pricing.monthly * 12;
+          const discount =
+            displayedBillingPeriod === 'yearly'
+              ? fullYearPrice - definition.pricing.yearly
+              : 0;
           const isCurrent = hasCurrentPaidAccess && overview?.plan === plan;
           const busy = pendingPlan === plan;
           const checkoutDisabled =
             hasCurrentPaidAccess ||
-            !termsAccepted ||
             pendingPlan !== null ||
-            checkoutAvailability?.available !== true;
-          return (
+            checkoutAvailability?.available !== true ||
+            !termsAccepted;
+          const pulseYearlyPro =
+            plan === 'pro' && displayedBillingPeriod === 'yearly';
+          const card = (
             <View
               key={plan}
+              nativeID={pulseYearlyPro ? 'yearly-pro-plan' : undefined}
               style={[
                 styles.planCard,
                 plan === 'pro' ? styles.planCardFeatured : null,
               ]}
             >
-              {plan === 'pro' ? (
-                <Text style={styles.featuredBadge}>הבחירה הפופולרית</Text>
-              ) : null}
-              <Text style={styles.planName}>{definition.displayName}</Text>
-              <View style={styles.priceRow}>
+              <View style={styles.planTitleRow}>
+                <Text style={styles.planName}>{definition.displayName}</Text>
+                {pulseYearlyPro ? (
+                  <Text style={styles.featuredBadge}>הנמכר ביותר</Text>
+                ) : null}
+              </View>
+              <View style={styles.priceBlock}>
+                {discount > 0 ? (
+                  <View style={styles.priceCompare}>
+                    <Text
+                      accessibilityLabel={`מחיר לפני הנחה ${fullYearPrice} שקלים`}
+                      style={styles.priceWas}
+                    >
+                      ₪{fullYearPrice.toLocaleString('he-IL')}
+                    </Text>
+                    <Text style={styles.discountLabel}>
+                      הנחה ₪{discount.toLocaleString('he-IL')}
+                    </Text>
+                  </View>
+                ) : null}
                 <Text style={styles.price}>
                   ₪{price.toLocaleString('he-IL')}
                 </Text>
                 <Text style={styles.pricePeriod}>
-                  / {displayedBillingPeriod === 'monthly' ? 'חודש' : 'שנה'}
+                  {displayedBillingPeriod === 'monthly' ? 'לחודש' : 'לשנה'}
                 </Text>
               </View>
               <View style={styles.planFacts}>
@@ -489,11 +567,18 @@ export function BusinessWebBilling({
                         ? 'שינוי מסלול אינו זמין בגרסה זו'
                         : checkoutAvailability?.available !== true
                           ? 'התשלום אינו זמין כרגע'
-                          : isTrialing
-                            ? 'בחירת מסלול והמשך לתשלום'
-                            : 'המשך לתשלום מאובטח'}
+                          : !termsAccepted
+                            ? 'יש לאשר את תנאי העסק'
+                            : isTrialing
+                              ? 'בחירת מסלול והמשך לתשלום'
+                              : 'לתשלום'}
                 </Text>
               </Pressable>
+            </View>
+          );
+          return (
+            <View key={plan} style={styles.planSlot}>
+              {card}
             </View>
           );
         })}
@@ -523,13 +608,9 @@ export function BusinessWebBilling({
         </ScrollView>
       </BusinessWebDialog>
 
-      <SectionCard
-        description="מסמכים שהתקבלו מתשלומים שאומתו על ידי השרת."
-        icon={ReceiptText}
-        title="מסמכי תשלום וקבלות"
-      >
+      <SectionCard title="מסמכים">
         {documents.length === 0 ? (
-          <Text style={styles.emptyDocuments}>אין עדיין מסמכים להצגה.</Text>
+          <Text style={styles.emptyDocuments}>אין מסמכים.</Text>
         ) : (
           <View style={styles.documentList}>
             {documents.map((document, index) => (
@@ -584,29 +665,12 @@ export function BusinessWebBilling({
   );
 }
 
-function Detail({
-  label,
-  ltr = false,
-  value,
-}: {
-  label: string;
-  ltr?: boolean;
-  value: string;
-}) {
-  return (
-    <View style={styles.detail}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={[styles.detailValue, ltr ? styles.ltrText : null]}>
-        {value}
-      </Text>
-    </View>
-  );
-}
-
 function PlanFact({ text }: { text: string }) {
   return (
     <View style={styles.planFact}>
-      <Check color={TOKENS.colors.success} size={17} />
+      <View style={styles.planFactIcon}>
+        <Check color={TOKENS.colors.success} size={16} />
+      </View>
       <Text style={styles.planFactText}>{text}</Text>
     </View>
   );
@@ -614,26 +678,14 @@ function PlanFact({ text }: { text: string }) {
 
 function SectionCard({
   children,
-  description,
-  icon: Icon,
   title,
 }: {
   children: React.ReactNode;
-  description: string;
-  icon: typeof ShieldCheck;
   title: string;
 }) {
   return (
     <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={styles.cardIcon}>
-          <Icon color={TOKENS.colors.primary} size={21} />
-        </View>
-        <View style={styles.cardHeaderCopy}>
-          <Text style={styles.cardTitle}>{title}</Text>
-          <Text style={styles.cardDescription}>{description}</Text>
-        </View>
-      </View>
+      <Text style={styles.cardTitle}>{title}</Text>
       <View style={styles.cardBody}>{children}</View>
     </View>
   );
@@ -664,16 +716,70 @@ const styles = StyleSheet.create({
     maxWidth: 980,
     width: '100%',
   },
-  pageHeader: { flexDirection: flexDirection.row },
-  pageHeaderCopy: { flex: 1, gap: TOKENS.space.xs },
-  pageTitle: {
-    ...TOKENS.typography.pageTitle,
+  statusBanner: {
+    borderRadius: TOKENS.radii.lg,
+    borderWidth: 1,
+    gap: 4,
+    paddingHorizontal: TOKENS.space.lg,
+    paddingVertical: TOKENS.space.lg,
+    width: '100%',
+  },
+  statusBannerDanger: {
+    backgroundColor: '#B91C1C',
+    borderColor: '#B91C1C',
+  },
+  statusBannerSuccess: {
+    backgroundColor: TOKENS.colors.successSubtle,
+    borderColor: '#A7F3D0',
+  },
+  statusBannerWarning: {
+    backgroundColor: TOKENS.colors.warningSubtle,
+    borderColor: '#FED7AA',
+  },
+  statusBannerNeutral: {
+    backgroundColor: TOKENS.colors.primarySubtle,
+    borderColor: TOKENS.colors.border,
+  },
+  statusLabel: {
+    fontSize: 22,
+    fontWeight: '600',
+    lineHeight: 30,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  statusLabelDanger: { color: '#FFFFFF' },
+  statusOnDanger: { color: '#FFFFFF' },
+  statusImpact: {
+    ...TOKENS.typography.secondaryBody,
+    color: '#FFFFFF',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  renewButton: {
+    alignSelf: selfStart,
+    backgroundColor: '#FFFFFF',
+    borderRadius: TOKENS.radii.sm,
+    justifyContent: 'center',
+    marginTop: TOKENS.space.sm,
+    minHeight: 42,
+    paddingHorizontal: TOKENS.space.md,
+  },
+  renewButtonText: {
+    ...TOKENS.typography.label,
+    color: '#B91C1C',
+    textAlign: 'center',
+  },
+  statusLabelSuccess: { color: TOKENS.colors.success },
+  statusLabelWarning: { color: TOKENS.colors.warning },
+  statusLabelNeutral: { color: TOKENS.colors.primary },
+  statusMeta: {
+    ...TOKENS.typography.cardTitle,
     color: TOKENS.colors.textPrimary,
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  pageSubtitle: {
-    ...TOKENS.typography.body,
+  statusNote: {
+    ...TOKENS.typography.secondaryBody,
     color: TOKENS.colors.textSecondary,
     textAlign: 'right',
     writingDirection: 'rtl',
@@ -711,78 +817,19 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     width: '100%',
   },
-  cardHeader: {
-    alignItems: alignItems.start,
-    flexDirection: flexDirection.row,
-    gap: TOKENS.space.sm,
-    paddingBottom: 8,
-  },
-  cardIcon: {
-    display: 'none',
-  },
-  cardHeaderCopy: { flex: 1, gap: 2 },
   cardTitle: {
     ...TOKENS.typography.sectionTitle,
     color: TOKENS.colors.textPrimary,
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  cardDescription: {
-    ...TOKENS.typography.secondaryBody,
-    color: TOKENS.colors.textMuted,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
   cardBody: { gap: 10, paddingTop: 10 },
-  detailsGrid: {
-    flexDirection: flexDirection.row,
-    flexWrap: 'wrap',
-    gap: 0,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: TOKENS.colors.border,
-    paddingVertical: 8,
-  },
-  detail: {
-    flexGrow: 1,
-    gap: 1,
-    minWidth: 140,
-    paddingHorizontal: 12,
-    paddingVertical: 2,
-  },
-  detailLabel: {
-    ...TOKENS.typography.metadata,
-    color: TOKENS.colors.textMuted,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  detailValue: {
-    ...TOKENS.typography.cardTitle,
-    color: TOKENS.colors.textPrimary,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  ltrText: { ...ltrIslandText },
-  cancellationState: {
-    ...TOKENS.typography.secondaryBody,
-    color: TOKENS.colors.warning,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  subscriptionActions: {
-    alignItems: 'center',
-    flexDirection: flexDirection.row,
-    flexWrap: 'wrap',
-    gap: 0,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: TOKENS.colors.border,
-    paddingVertical: 8,
-  },
   dangerOutlineButton: {
+    alignSelf: selfStart,
     borderColor: TOKENS.colors.danger,
     borderRadius: TOKENS.radii.sm,
     borderWidth: 1,
+    marginTop: TOKENS.space.sm,
     minHeight: 38,
     justifyContent: 'center',
     paddingHorizontal: TOKENS.space.md,
@@ -807,18 +854,10 @@ const styles = StyleSheet.create({
     ...TOKENS.typography.label,
     color: TOKENS.colors.textMuted,
   },
-  plansHeader: {
-    alignItems: alignItems.start,
-    flexDirection: flexDirection.row,
-    flexWrap: 'wrap',
-    gap: 0,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: TOKENS.colors.border,
-    paddingVertical: 8,
-    justifyContent: 'space-between',
+  plansBar: {
+    gap: TOKENS.space.sm,
+    width: '100%',
   },
-  plansHeaderCopy: { flex: 1, gap: TOKENS.space.xs, minWidth: 260 },
   sectionHeading: {
     ...TOKENS.typography.sectionTitle,
     color: TOKENS.colors.textPrimary,
@@ -838,10 +877,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: flexDirection.row,
     padding: 4,
+    width: '100%',
   },
   cadenceOption: {
+    alignItems: 'center',
     borderRadius: TOKENS.radii.sm,
-    minWidth: 78,
+    flex: 1,
+    minHeight: 40,
+    justifyContent: 'center',
     paddingHorizontal: TOKENS.space.md,
     paddingVertical: TOKENS.space.sm,
   },
@@ -852,75 +895,145 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   cadenceOptionTextSelected: { color: '#FFFFFF' },
-  yearlyBanner: {
-    alignItems: 'center',
-    alignSelf: selfStart,
-    backgroundColor: TOKENS.colors.successSubtle,
-    borderRadius: TOKENS.radii.pill,
-    flexDirection: flexDirection.row,
-    gap: TOKENS.space.sm,
-    paddingHorizontal: TOKENS.space.md,
-    paddingVertical: TOKENS.space.sm,
+  taxLine: {
+    ...TOKENS.typography.metadata,
+    color: TOKENS.colors.textMuted,
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
-  yearlyBannerText: {
-    ...TOKENS.typography.label,
+  yearlyNote: {
+    ...TOKENS.typography.secondaryBody,
     color: TOKENS.colors.success,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  termsGate: {
+    alignItems: alignItems.start,
+    backgroundColor: TOKENS.colors.elevatedSurface,
+    borderColor: TOKENS.colors.border,
+    borderRadius: TOKENS.radii.md,
+    borderWidth: 1,
+    gap: TOKENS.space.sm,
+    padding: TOKENS.space.md,
+  },
+  termsGateText: {
+    ...TOKENS.typography.secondaryBody,
+    color: TOKENS.colors.textSecondary,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  termsGateLink: {
+    ...TOKENS.typography.label,
+    color: TOKENS.colors.primary,
+    textAlign: 'right',
+    textDecorationLine: 'underline',
     writingDirection: 'rtl',
   },
   planGrid: {
     alignItems: 'stretch',
     flexDirection: flexDirection.row,
-    gap: 10,
+    gap: 8,
+    overflow: 'visible',
   },
   planGridStacked: { flexDirection: 'column' },
+  planSlot: {
+    flex: 1,
+    minWidth: 0,
+    position: 'relative',
+  },
   planCard: {
     backgroundColor: TOKENS.colors.elevatedSurface,
     borderColor: TOKENS.colors.border,
     borderRadius: TOKENS.radii.md,
     borderWidth: 1,
     flex: 1,
-    gap: 14,
+    gap: 6,
     minWidth: 0,
-    padding: TOKENS.space.lg,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   planCardFeatured: { borderColor: TOKENS.colors.primary, borderWidth: 2 },
+  planTitleRow: {
+    alignItems: 'center',
+    flexDirection: flexDirection.row,
+    gap: 8,
+    justifyContent: 'space-between',
+    width: '100%',
+  },
   featuredBadge: {
     ...TOKENS.typography.metadata,
-    alignSelf: selfStart,
     backgroundColor: TOKENS.colors.primarySubtle,
     borderRadius: TOKENS.radii.pill,
     color: TOKENS.colors.primary,
+    overflow: 'hidden',
     paddingHorizontal: TOKENS.space.md,
     paddingVertical: TOKENS.space.xs,
   },
   planName: {
     ...ltrIslandText,
-    ...TOKENS.typography.sectionTitle,
+    ...TOKENS.typography.cardTitle,
     color: TOKENS.colors.textPrimary,
+    flexShrink: 1,
+    textAlign: 'right',
   },
-  priceRow: {
-    alignItems: 'baseline',
-    flexDirection: flexDirection.rowReverse,
-    gap: TOKENS.space.xs,
+  priceBlock: {
+    gap: 0,
+    width: '100%',
+  },
+  priceCompare: {
+    alignItems: 'center',
+    flexDirection: flexDirection.row,
+    gap: 8,
+    width: '100%',
+  },
+  priceWas: {
+    ...ltrIslandText,
+    color: TOKENS.colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+    textDecorationLine: 'line-through',
+  },
+  discountLabel: {
+    color: TOKENS.colors.success,
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 18,
+    writingDirection: 'rtl',
   },
   price: {
     ...ltrIslandText,
-    ...TOKENS.typography.kpiValue,
     color: TOKENS.colors.textPrimary,
+    fontSize: 22,
+    fontWeight: '600',
+    lineHeight: 26,
+    textAlign: 'right',
+    width: '100%',
   },
   pricePeriod: {
     ...TOKENS.typography.secondaryBody,
     color: TOKENS.colors.textMuted,
+    textAlign: 'right',
+    width: '100%',
+    writingDirection: 'rtl',
   },
-  planFacts: { flex: 1, gap: TOKENS.space.sm },
+  planFacts: { gap: 2, width: '100%' },
   planFact: {
-    alignItems: 'center',
+    alignItems: alignItems.end,
     flexDirection: flexDirection.row,
     gap: TOKENS.space.sm,
+    width: '100%',
+  },
+  planFactIcon: {
+    flexShrink: 0,
+    marginTop: 1,
   },
   planFactText: {
     ...TOKENS.typography.secondaryBody,
     color: TOKENS.colors.textSecondary,
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    textAlign: 'right',
     writingDirection: 'rtl',
   },
   checkoutButton: {
@@ -930,11 +1043,17 @@ const styles = StyleSheet.create({
     flexDirection: flexDirection.row,
     gap: TOKENS.space.sm,
     justifyContent: 'center',
-    minHeight: 38,
+    marginTop: 4,
+    minHeight: 36,
     paddingHorizontal: TOKENS.space.md,
   },
   checkoutButtonDisabled: { opacity: 0.65 },
-  checkoutButtonText: { ...TOKENS.typography.label, color: '#FFFFFF' },
+  checkoutButtonText: {
+    ...TOKENS.typography.label,
+    color: '#FFFFFF',
+    flexShrink: 1,
+    textAlign: 'center',
+  },
   documentList: { gap: TOKENS.space.sm },
   documentRow: {
     alignItems: 'center',
@@ -1014,4 +1133,111 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   pressed: { opacity: 0.82 },
+  pageHeader: { flexDirection: flexDirection.row },
+  pageHeaderCopy: { flex: 1, gap: TOKENS.space.xs },
+  pageTitle: {
+    ...TOKENS.typography.pageTitle,
+    color: TOKENS.colors.textPrimary,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  pageSubtitle: {
+    ...TOKENS.typography.body,
+    color: TOKENS.colors.textSecondary,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  cardHeader: {
+    alignItems: alignItems.start,
+    flexDirection: flexDirection.row,
+    gap: TOKENS.space.sm,
+    paddingBottom: 8,
+  },
+  cardIcon: {
+    display: 'none',
+  },
+  cardHeaderCopy: { flex: 1, gap: 2 },
+  cardDescription: {
+    ...TOKENS.typography.secondaryBody,
+    color: TOKENS.colors.textMuted,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  detailsGrid: {
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    gap: 0,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: TOKENS.colors.border,
+    paddingVertical: 8,
+  },
+  detail: {
+    flexGrow: 1,
+    gap: 1,
+    minWidth: 140,
+    paddingHorizontal: 12,
+    paddingVertical: 2,
+  },
+  detailLabel: {
+    ...TOKENS.typography.metadata,
+    color: TOKENS.colors.textMuted,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  detailValue: {
+    ...TOKENS.typography.cardTitle,
+    color: TOKENS.colors.textPrimary,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  ltrText: { ...ltrIslandText },
+  cancellationState: {
+    ...TOKENS.typography.secondaryBody,
+    color: TOKENS.colors.warning,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  subscriptionActions: {
+    alignItems: 'center',
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    gap: 0,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: TOKENS.colors.border,
+    paddingVertical: 8,
+  },
+  plansHeader: {
+    alignItems: alignItems.start,
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    gap: 0,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: TOKENS.colors.border,
+    paddingVertical: 8,
+    justifyContent: 'space-between',
+  },
+  plansHeaderCopy: { flex: 1, gap: TOKENS.space.xs, minWidth: 260 },
+  yearlyBanner: {
+    alignItems: 'center',
+    alignSelf: selfStart,
+    backgroundColor: TOKENS.colors.successSubtle,
+    borderRadius: TOKENS.radii.pill,
+    flexDirection: flexDirection.row,
+    gap: TOKENS.space.sm,
+    paddingHorizontal: TOKENS.space.md,
+    paddingVertical: TOKENS.space.sm,
+  },
+  yearlyBannerText: {
+    ...TOKENS.typography.label,
+    color: TOKENS.colors.success,
+    writingDirection: 'rtl',
+  },
+  priceRow: {
+    alignItems: 'baseline',
+    flexDirection: flexDirection.rowReverse,
+    gap: TOKENS.space.xs,
+  },
 });
