@@ -59,4 +59,3 @@ Final local verification: 2,662 tests PASS / zero failures / 204 files / 13,228 
 ## Actual browser follow-up
 
 Browser follow-up: candidate 83c2109 passed complete CI run 43473668784 and exported successfully, but actual hosted browser loading revealed a missing universal sibling for the new customer-referrals Web route. Preview 140204e3 is rejected as a usable candidate. The follow-up adds the standard Native companion fallback and a negative/positive/whole-tree route regression; the exporter now rejects missing platform siblings before building. Full follow-up local validation: 2,665 tests PASS / zero failures / 205 files / 13,233 assertions; types and scoped checks PASS. Exact follow-up CI/export and browser acceptance remain required. No backend or Production action.
-
