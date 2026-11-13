@@ -3,7 +3,8 @@
   "pendingSourceReviews": [],
   "requiredAncestors": {
     "launchHardening": "715594c2ed5731ff490ccb57457ed33da0a289a0",
-    "cursorScannerQA": "2579919eca6073de6825aebbdeabbd89594a73b2"
+    "cursorScannerQA": "2579919eca6073de6825aebbdeabbd89594a73b2",
+    "cursorBusinessUI": "83c2109d3edc2558ad44844a3f02dcdcbf080694"
   },
   "reviewedSourceSnapshots": [
     {

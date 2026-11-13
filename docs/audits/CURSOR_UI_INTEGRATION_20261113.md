@@ -55,3 +55,8 @@ Final local verification: 2,662 tests PASS / zero failures / 204 files / 13,228 
 | `lib/campaigns/campaignWizard.ts` | `581cbf133121239f08411c79bd071dd8aa9c796cffe3189edf39c7a8b89fa100` | `lib/campaigns/campaignWizard.ts` — Three-way integration; preserve current launch safeguards |
 | `lib/navigation/businessHref.ts` | `6b685532203e232bd13202e8af0202bc165aa4bdd6b2d15728a6bd21c04e1bbe` | `lib/navigation/businessHref.ts` — Three-way integration; preserve current launch safeguards |
 | `components/business-web/BusinessWebReferrals.tsx` | `7d9eb78d94da7ae849a168d3fa4f142ade5260e109c6fcb8e39f3588612689e1` | `components/business-web/BusinessWebReferrals.tsx` — Three-way integration; preserve current launch safeguards |
+
+## Actual browser follow-up
+
+Browser follow-up: candidate 83c2109 passed complete CI run 43473668784 and exported successfully, but actual hosted browser loading revealed a missing universal sibling for the new customer-referrals Web route. Preview 140204e3 is rejected as a usable candidate. The follow-up adds the standard Native companion fallback and a negative/positive/whole-tree route regression; the exporter now rejects missing platform siblings before building. Full follow-up local validation: 2,665 tests PASS / zero failures / 205 files / 13,233 assertions; types and scoped checks PASS. Exact follow-up CI/export and browser acceptance remain required. No backend or Production action.
+

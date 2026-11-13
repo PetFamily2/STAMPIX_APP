@@ -1,3 +1,7 @@
+# Browser route verification follow-up — 13 November 2026
+
+Browser follow-up: candidate 83c2109 passed complete CI run 43473668784 and exported successfully, but actual hosted browser loading revealed a missing universal sibling for the new customer-referrals Web route. Preview 140204e3 is rejected as a usable candidate. The follow-up adds the standard Native companion fallback and a negative/positive/whole-tree route regression; the exporter now rejects missing platform siblings before building. Full follow-up local validation: 2,665 tests PASS / zero failures / 205 files / 13,233 assertions; types and scoped checks PASS. Exact follow-up CI/export and browser acceptance remain required. No backend or Production action.
+
 # Cursor UI integration checkpoint — 13 November 2026
 
 Cursor confirmed finished; the 36-file snapshot was reverified unchanged and integrated for Web/PWA on the same canonical branch. Details and every source disposition: [integration review](CURSOR_UI_INTEGRATION_20261113.md). Billing/legal/onboarding safeguards, full campaign management and separate customer/business referrals are retained. Native and protected game-shared sources remain byte identical. The known source-review item is resolved with inventory evidence; 2,662 local tests, types and protected/RTL boundaries pass; final exact-head CI/export is still required. Earlier pending-review notes below are historical checkpoints. GAME-01/02 remain Post-launch and Cursor-owned. No Production/main/DNS/backend action.

@@ -1,6 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
+import { missingPlatformRouteFallbacks } from '../lib/navigation/platformRouteFallbacks.mjs';
 import {
   CLOUDFLARE_PREVIEW_BACKEND,
   prepareCloudflarePreview,
@@ -8,6 +15,18 @@ import {
 import { verifyReleaseSource } from './lib/release-source.mjs';
 
 const repo = process.cwd();
+const routeFiles = [];
+function inspectRoutes(directory) {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const file = `${directory}/${entry.name}`;
+    if (entry.isDirectory()) inspectRoutes(file);
+    else routeFiles.push(file);
+  }
+}
+inspectRoutes('app');
+if (missingPlatformRouteFallbacks(routeFiles).length) {
+  throw new Error('RELEASE_PLATFORM_ROUTE_FALLBACK_MISSING');
+}
 const source = verifyReleaseSource({
   cwd: repo,
   forExport: true,
