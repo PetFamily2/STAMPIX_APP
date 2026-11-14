@@ -127,7 +127,7 @@ export function BusinessWebBilling({
     activeBusinessId && isOwner ? { businessId: activeBusinessId } : 'skip'
   );
   const cancelRecurring = useAction(api.sumitBilling.cancelSUMITRecurring);
-  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('yearly');
   const [planChoice, setPlanChoice] = useState<BusinessPlan | null>(null);
   const [pendingPlan, setPendingPlan] = useState<BusinessPlan | null>(null);
   const [actionError, setActionError] = useState('');
@@ -244,9 +244,10 @@ export function BusinessWebBilling({
       : billingPeriod;
   const selectedPlan: BusinessPlan =
     planChoice ??
+    (hasCurrentPaidAccess &&
     (overview?.plan === 'starter' ||
-    overview?.plan === 'pro' ||
-    overview?.plan === 'premium'
+      overview?.plan === 'pro' ||
+      overview?.plan === 'premium')
       ? overview.plan
       : 'pro');
   const selectedPrice =
@@ -459,7 +460,7 @@ export function BusinessWebBilling({
                   {isCurrent ? (
                     <Text style={styles.featuredBadge}>המסלול הנוכחי</Text>
                   ) : pulseYearlyPro ? (
-                    <Text style={styles.featuredBadge}>הנמכר ביותר</Text>
+                    <Text style={styles.featuredBadge}>מומלץ</Text>
                   ) : null}
                 </View>
                 <Text style={styles.planFactText}>
