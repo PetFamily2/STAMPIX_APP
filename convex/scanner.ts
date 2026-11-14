@@ -14,6 +14,15 @@ import {
   requireCurrentUser,
 } from './guards';
 import {
+  createRedemptionCelebrationReceipt,
+  revokeRedemptionCelebrationReceipt,
+} from './lib/redemptionReceipts';
+import { markSmartManagerDirty } from './lib/smartManagerDirty';
+import {
+  markSmartManagerOutcomeDirty,
+  markSmartManagerOutcomeReversalDirty,
+} from './lib/smartManagerOutcomes';
+import {
   type BusinessCapabilityMap,
   getRoleCapabilities,
 } from './lib/staffPermissions';
@@ -26,15 +35,6 @@ import {
   parseScanToken,
   type ScanTokenPayload,
 } from './scanTokens';
-import { markSmartManagerDirty } from './lib/smartManagerDirty';
-import {
-  markSmartManagerOutcomeDirty,
-  markSmartManagerOutcomeReversalDirty,
-} from './lib/smartManagerOutcomes';
-import {
-  createRedemptionCelebrationReceipt,
-  revokeRedemptionCelebrationReceipt,
-} from './lib/redemptionReceipts';
 
 const STAMP_RATE_LIMIT_MS = 30_000;
 const SCAN_SESSION_VALID_MS = 30_000;

@@ -1,5 +1,5 @@
 {
-  "sourceSha": "7fda7a2a05bbe86fbd09029ed45f30e62204199e",
+  "sourceSha": "dae9424a70cd32c4ee7fbf94e9a112147e20c484",
   "method": "TypeScript AST references + Expo file/layout inventory; static evidence is not physical-device acceptance.",
   "routes": [
     {
@@ -15,6 +15,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -54,7 +59,7 @@
           },
           {
             "file": "components/PwaRuntime.web.tsx",
-            "line": 85,
+            "line": 188,
             "kind": "literal-route-reference"
           },
           {
@@ -64,17 +69,17 @@
           },
           {
             "file": "components/WebPushSettings.web.tsx",
-            "line": 113,
+            "line": 114,
             "kind": "literal-route-reference"
           },
           {
             "file": "components/WebPushSettings.web.tsx",
-            "line": 234,
+            "line": 235,
             "kind": "literal-route-reference"
           },
           {
             "file": "components/WebPushSettings.web.tsx",
-            "line": 278,
+            "line": 279,
             "kind": "literal-route-reference"
           },
           {
@@ -109,7 +114,7 @@
           },
           {
             "file": "convex/providerCredentials.ts",
-            "line": 137,
+            "line": 132,
             "kind": "literal-route-reference"
           },
           {
@@ -119,7 +124,7 @@
           },
           {
             "file": "lib/businessWebNavigation.ts",
-            "line": 65,
+            "line": 68,
             "kind": "literal-route-reference"
           },
           {
@@ -134,12 +139,32 @@
           },
           {
             "file": "public/pwa/welcome.js",
-            "line": 37,
+            "line": 55,
             "kind": "literal-route-reference"
           },
           {
             "file": "public/service-worker.js",
-            "line": 94,
+            "line": 127,
+            "kind": "literal-route-reference"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 20,
+            "kind": "literal-route-reference"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 99,
+            "kind": "literal-route-reference"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 100,
+            "kind": "literal-route-reference"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 129,
             "kind": "literal-route-reference"
           },
           {
@@ -164,22 +189,22 @@
           },
           {
             "file": "scripts/lib/convex-deployment-contract.mjs",
-            "line": 281,
+            "line": 294,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/lib/convex-deployment-contract.mjs",
-            "line": 357,
+            "line": 373,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/lib/convex-deployment-contract.mjs",
-            "line": 367,
+            "line": 383,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/lib/convex-deployment-contract.mjs",
-            "line": 403,
+            "line": 419,
             "kind": "literal-route-reference"
           },
           {
@@ -209,102 +234,102 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 733,
+            "line": 734,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1310,
+            "line": 1311,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1327,
+            "line": 1328,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1349,
+            "line": 1350,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1389,
+            "line": 1390,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1834,
+            "line": 1835,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2172,
+            "line": 2173,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/rtl-source-contract.mjs",
-            "line": 122,
+            "line": 125,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/rtl-source-contract.mjs",
-            "line": 309,
+            "line": 312,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/rtl-source-contract.mjs",
-            "line": 345,
+            "line": 348,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/rtl-source-contract.mjs",
-            "line": 400,
+            "line": 403,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/rtl-source-contract.mjs",
-            "line": 400,
+            "line": 403,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/rtl-source-contract.mjs",
-            "line": 407,
+            "line": 410,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/rtl-source-contract.mjs",
-            "line": 421,
+            "line": 424,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/rtl-source-contract.mjs",
-            "line": 519,
+            "line": 522,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/rtl-source-contract.mjs",
-            "line": 519,
+            "line": 522,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/rtl-source-contract.mjs",
-            "line": 527,
+            "line": 530,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/rtl-source-contract.mjs",
-            "line": 533,
+            "line": 536,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/rtl-source-contract.mjs",
-            "line": 590,
+            "line": 593,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/rtl-source-contract.mjs",
-            "line": 616,
+            "line": 619,
             "kind": "literal-route-reference"
           },
           {
@@ -332,6 +357,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -352,11 +382,6 @@
             "kind": "literal-route-reference"
           },
           {
-            "file": "components/web-permissions/BrowserPermissionsPanel.web.tsx",
-            "line": 200,
-            "kind": "literal-route-reference"
-          },
-          {
             "file": "components/web-permissions/WebPermissionOnboarding.web.tsx",
             "line": 63,
             "kind": "literal-route-reference"
@@ -373,6 +398,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -412,12 +442,12 @@
           },
           {
             "file": "app/(authenticated)/merchant/onboarding/_layout.tsx",
-            "line": 57,
+            "line": 56,
             "kind": "literal-route-reference"
           },
           {
             "file": "app/(authenticated)/merchant/onboarding/_layout.tsx",
-            "line": 63,
+            "line": 62,
             "kind": "literal-route-reference"
           },
           {
@@ -427,12 +457,12 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2882,
+            "line": 2883,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2903,
+            "line": 2904,
             "kind": "literal-route-reference"
           },
           {
@@ -447,6 +477,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -489,6 +524,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -515,6 +555,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -547,6 +592,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -573,6 +623,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -605,6 +660,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -631,6 +691,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -663,6 +728,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -689,6 +759,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -721,6 +796,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -750,6 +830,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -773,6 +858,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -793,6 +883,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -827,7 +922,7 @@
           },
           {
             "file": "app/(auth)/onboarding-client-return-motivation.tsx",
-            "line": 64,
+            "line": 63,
             "kind": "literal-route-reference"
           },
           {
@@ -842,6 +937,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -874,6 +974,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -903,6 +1008,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -923,6 +1033,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -955,6 +1070,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -975,6 +1095,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -1064,7 +1189,7 @@
           },
           {
             "file": "scripts/deploy-shared-web.mjs",
-            "line": 373,
+            "line": 383,
             "kind": "literal-route-reference"
           }
         ],
@@ -1074,6 +1199,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -1123,6 +1253,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -1207,7 +1342,7 @@
           },
           {
             "file": "app/(authenticated)/merchant/onboarding/_layout.tsx",
-            "line": 57,
+            "line": 56,
             "kind": "literal-route-reference"
           },
           {
@@ -1252,12 +1387,12 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2354,
+            "line": 2355,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2391,
+            "line": 2392,
             "kind": "literal-route-reference"
           },
           {
@@ -1287,6 +1422,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -1356,17 +1496,17 @@
           },
           {
             "file": "scripts/deploy-shared-web.mjs",
-            "line": 372,
+            "line": 382,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/deploy-shared-web.mjs",
-            "line": 384,
+            "line": 394,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2759,
+            "line": 2760,
             "kind": "literal-route-reference"
           }
         ],
@@ -1376,6 +1516,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -1445,17 +1590,17 @@
           },
           {
             "file": "scripts/deploy-shared-web.mjs",
-            "line": 372,
+            "line": 382,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/deploy-shared-web.mjs",
-            "line": 384,
+            "line": 394,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2759,
+            "line": 2760,
             "kind": "literal-route-reference"
           }
         ],
@@ -1465,6 +1610,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -1494,6 +1644,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -1529,6 +1684,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -1598,7 +1758,7 @@
           },
           {
             "file": "lib/recommendations/navigation.ts",
-            "line": 217,
+            "line": 213,
             "kind": "literal-route-reference"
           },
           {
@@ -1619,6 +1779,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -1663,7 +1828,7 @@
           },
           {
             "file": "lib/recommendations/navigation.ts",
-            "line": 205,
+            "line": 201,
             "kind": "literal-route-reference"
           },
           {
@@ -1672,18 +1837,17 @@
             "kind": "literal-route-reference"
           }
         ],
-        "imports": [
-          {
-            "file": "app/(web-business)/business/cards/[programId].tsx",
-            "line": 1,
-            "kind": "module-reference"
-          }
-        ],
+        "imports": [],
         "layout": [],
         "dynamicCandidates": [
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -1713,6 +1877,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -1757,7 +1926,7 @@
           },
           {
             "file": "lib/recommendations/navigation.ts",
-            "line": 240,
+            "line": 235,
             "kind": "literal-route-reference"
           },
           {
@@ -1783,6 +1952,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -1821,6 +1995,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -1846,6 +2025,16 @@
             "kind": "literal-route-reference"
           },
           {
+            "file": "components/business-web/BusinessWebCardEditor.web.tsx",
+            "line": 825,
+            "kind": "literal-route-reference"
+          },
+          {
+            "file": "components/business-web/BusinessWebShell.tsx",
+            "line": 458,
+            "kind": "literal-route-reference"
+          },
+          {
             "file": "lib/navigation/businessHref.ts",
             "line": 6,
             "kind": "literal-route-reference"
@@ -1863,6 +2052,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -1886,6 +2080,11 @@
             "kind": "literal-route-reference"
           },
           {
+            "file": "components/business-web/BusinessWebShell.tsx",
+            "line": 458,
+            "kind": "literal-route-reference"
+          },
+          {
             "file": "lib/navigation/businessHref.ts",
             "line": 9,
             "kind": "literal-route-reference"
@@ -1897,6 +2096,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -1945,6 +2149,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -1981,7 +2190,7 @@
           },
           {
             "file": "lib/recommendations/navigation.ts",
-            "line": 256,
+            "line": 251,
             "kind": "literal-route-reference"
           },
           {
@@ -2008,6 +2217,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -2081,6 +2295,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -2121,6 +2340,16 @@
             "kind": "literal-route-reference"
           },
           {
+            "file": "components/business-web/BusinessWebCardEditor.web.tsx",
+            "line": 413,
+            "kind": "literal-route-reference"
+          },
+          {
+            "file": "components/business-web/BusinessWebCardEditor.web.tsx",
+            "line": 902,
+            "kind": "literal-route-reference"
+          },
+          {
             "file": "components/business-web/ClassicCardWizard.tsx",
             "line": 169,
             "kind": "literal-route-reference"
@@ -2137,7 +2366,7 @@
           },
           {
             "file": "lib/recommendations/navigation.ts",
-            "line": 183,
+            "line": 179,
             "kind": "literal-route-reference"
           },
           {
@@ -2158,6 +2387,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -2208,6 +2442,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -2267,6 +2506,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -2299,6 +2543,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -2352,6 +2601,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -2378,7 +2632,7 @@
           },
           {
             "file": "lib/recommendations/navigation.ts",
-            "line": 144,
+            "line": 143,
             "kind": "literal-route-reference"
           },
           {
@@ -2399,6 +2653,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -2437,6 +2696,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -2462,6 +2726,11 @@
             "kind": "literal-route-reference"
           },
           {
+            "file": "lib/navigation/businessHref.ts",
+            "line": 17,
+            "kind": "literal-route-reference"
+          },
+          {
             "file": "lib/navigation/businessRoutes.ts",
             "line": 13,
             "kind": "literal-route-reference"
@@ -2479,6 +2748,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -2514,6 +2788,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -2553,7 +2832,7 @@
           },
           {
             "file": "lib/recommendations/navigation.ts",
-            "line": 168,
+            "line": 164,
             "kind": "literal-route-reference"
           },
           {
@@ -2574,6 +2853,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -2609,7 +2893,7 @@
         ],
         "imports": [
           {
-            "file": "app/(web-business)/business/referrals.tsx",
+            "file": "app/(web-business)/business/customer-referrals.web.tsx",
             "line": 1,
             "kind": "module-reference"
           }
@@ -2625,6 +2909,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -2659,7 +2948,7 @@
           },
           {
             "file": "lib/recommendations/navigation.ts",
-            "line": 293,
+            "line": 288,
             "kind": "literal-route-reference"
           },
           {
@@ -2685,6 +2974,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -2744,22 +3038,22 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 839,
+            "line": 840,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1746,
+            "line": 1747,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2234,
+            "line": 2235,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2947,
+            "line": 2948,
             "kind": "literal-route-reference"
           }
         ],
@@ -2775,6 +3069,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -2815,6 +3114,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -2863,6 +3167,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -2889,6 +3198,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -2921,6 +3235,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -2942,7 +3261,7 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2948,
+            "line": 2949,
             "kind": "literal-route-reference"
           }
         ],
@@ -2963,6 +3282,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -3011,6 +3335,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -3056,13 +3385,18 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 670,
+            "line": 671,
             "kind": "dynamic-prefix-only"
           }
         ]
@@ -3082,22 +3416,22 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1922,
+            "line": 1923,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1943,
+            "line": 1944,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1958,
+            "line": 1959,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2945,
+            "line": 2946,
             "kind": "literal-route-reference"
           }
         ],
@@ -3118,6 +3452,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -3142,22 +3481,22 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1922,
+            "line": 1923,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1943,
+            "line": 1944,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1958,
+            "line": 1959,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2945,
+            "line": 2946,
             "kind": "literal-route-reference"
           }
         ],
@@ -3178,6 +3517,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -3202,7 +3546,7 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2949,
+            "line": 2950,
             "kind": "literal-route-reference"
           }
         ],
@@ -3223,6 +3567,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -3247,7 +3596,7 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2946,
+            "line": 2947,
             "kind": "literal-route-reference"
           }
         ],
@@ -3268,6 +3617,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -3292,17 +3646,17 @@
           },
           {
             "file": "public/service-worker.js",
-            "line": 100,
+            "line": 133,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 682,
+            "line": 683,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2943,
+            "line": 2944,
             "kind": "literal-route-reference"
           }
         ],
@@ -3323,6 +3677,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -3372,22 +3731,22 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 839,
+            "line": 840,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1746,
+            "line": 1747,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2234,
+            "line": 2235,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2947,
+            "line": 2948,
             "kind": "literal-route-reference"
           }
         ],
@@ -3408,6 +3767,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -3432,7 +3796,7 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2944,
+            "line": 2945,
             "kind": "literal-route-reference"
           }
         ],
@@ -3456,6 +3820,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -3472,7 +3841,7 @@
         "navigation": [
           {
             "file": "app/(auth)/onboarding-client-return-motivation.tsx",
-            "line": 50,
+            "line": 49,
             "kind": "literal-route-reference"
           },
           {
@@ -3592,17 +3961,17 @@
           },
           {
             "file": "public/service-worker.js",
-            "line": 98,
+            "line": 131,
             "kind": "literal-route-reference"
           },
           {
             "file": "public/service-worker.js",
-            "line": 100,
+            "line": 133,
             "kind": "literal-route-reference"
           },
           {
             "file": "public/service-worker.js",
-            "line": 104,
+            "line": 137,
             "kind": "literal-route-reference"
           },
           {
@@ -3617,47 +3986,47 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 664,
+            "line": 665,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1004,
+            "line": 1005,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1497,
+            "line": 1498,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1761,
+            "line": 1762,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1808,
+            "line": 1809,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2233,
+            "line": 2234,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2776,
+            "line": 2777,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2942,
+            "line": 2943,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2991,
+            "line": 2992,
             "kind": "literal-route-reference"
           },
           {
@@ -3683,6 +4052,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -3702,7 +4076,7 @@
         "navigation": [
           {
             "file": "app/(auth)/onboarding-client-return-motivation.tsx",
-            "line": 50,
+            "line": 49,
             "kind": "literal-route-reference"
           },
           {
@@ -3822,17 +4196,17 @@
           },
           {
             "file": "public/service-worker.js",
-            "line": 98,
+            "line": 131,
             "kind": "literal-route-reference"
           },
           {
             "file": "public/service-worker.js",
-            "line": 100,
+            "line": 133,
             "kind": "literal-route-reference"
           },
           {
             "file": "public/service-worker.js",
-            "line": 104,
+            "line": 137,
             "kind": "literal-route-reference"
           },
           {
@@ -3847,47 +4221,47 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 664,
+            "line": 665,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1004,
+            "line": 1005,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1497,
+            "line": 1498,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1761,
+            "line": 1762,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1808,
+            "line": 1809,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2233,
+            "line": 2234,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2776,
+            "line": 2777,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2942,
+            "line": 2943,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2991,
+            "line": 2992,
             "kind": "literal-route-reference"
           },
           {
@@ -3913,6 +4287,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -3942,6 +4321,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -3980,6 +4364,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -4015,6 +4404,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -4041,6 +4435,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -4094,6 +4493,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -4125,22 +4529,22 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 839,
+            "line": 840,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1746,
+            "line": 1747,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2234,
+            "line": 2235,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2947,
+            "line": 2948,
             "kind": "literal-route-reference"
           }
         ],
@@ -4156,6 +4560,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -4182,6 +4591,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -4203,7 +4617,7 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2630,
+            "line": 2631,
             "kind": "literal-route-reference"
           }
         ],
@@ -4219,6 +4633,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -4251,6 +4670,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -4271,6 +4695,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -4300,6 +4729,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -4343,6 +4777,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -4375,6 +4814,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -4424,6 +4868,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -4470,6 +4919,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -4486,12 +4940,12 @@
         "navigation": [
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 608,
+            "line": 609,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 628,
+            "line": 629,
             "kind": "literal-route-reference"
           }
         ],
@@ -4507,6 +4961,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -4536,22 +4995,22 @@
           },
           {
             "file": "public/service-worker.js",
-            "line": 100,
+            "line": 133,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 929,
+            "line": 930,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2522,
+            "line": 2523,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2542,
+            "line": 2543,
             "kind": "literal-route-reference"
           }
         ],
@@ -4561,6 +5020,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -4595,7 +5059,7 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 686,
+            "line": 687,
             "kind": "literal-route-reference"
           }
         ],
@@ -4611,6 +5075,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -4637,6 +5106,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -4660,6 +5134,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -4680,6 +5159,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -4712,6 +5196,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -4732,6 +5221,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -4764,6 +5258,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -4793,6 +5292,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -4819,6 +5323,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -4856,6 +5365,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -4885,6 +5399,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -4905,6 +5424,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -4931,6 +5455,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -4954,6 +5483,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -4974,6 +5508,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -5012,6 +5551,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -5043,6 +5587,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -5080,6 +5629,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -5100,6 +5654,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -5132,6 +5691,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -5148,7 +5712,7 @@
         "navigation": [
           {
             "file": "components/admin-web/AdminBillingQueue.tsx",
-            "line": 41,
+            "line": 45,
             "kind": "literal-route-reference"
           },
           {
@@ -5163,6 +5727,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -5195,6 +5764,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -5211,7 +5785,7 @@
         "navigation": [
           {
             "file": "components/admin-web/AdminBusinessDetail.tsx",
-            "line": 63,
+            "line": 73,
             "kind": "literal-route-reference"
           },
           {
@@ -5264,6 +5838,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -5293,6 +5872,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -5313,6 +5897,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -5342,7 +5931,7 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2957,
+            "line": 2958,
             "kind": "literal-route-reference"
           }
         ],
@@ -5352,6 +5941,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -5370,8 +5964,18 @@
       "evidence": {
         "navigation": [
           {
+            "file": "app/(web-business)/business/scanner-preview.web.tsx",
+            "line": 137,
+            "kind": "literal-route-reference"
+          },
+          {
             "file": "components/business-web/BusinessWebCampaigns.tsx",
             "line": 158,
+            "kind": "literal-route-reference"
+          },
+          {
+            "file": "components/business-web/BusinessWebDashboard.tsx",
+            "line": 204,
             "kind": "literal-route-reference"
           },
           {
@@ -5396,17 +6000,17 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 980,
+            "line": 981,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2958,
+            "line": 2959,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2967,
+            "line": 2968,
             "kind": "literal-route-reference"
           }
         ],
@@ -5416,6 +6020,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -5434,8 +6043,18 @@
       "evidence": {
         "navigation": [
           {
+            "file": "app/(web-business)/business/scanner-preview.web.tsx",
+            "line": 137,
+            "kind": "literal-route-reference"
+          },
+          {
             "file": "components/business-web/BusinessWebCampaigns.tsx",
             "line": 158,
+            "kind": "literal-route-reference"
+          },
+          {
+            "file": "components/business-web/BusinessWebDashboard.tsx",
+            "line": 204,
             "kind": "literal-route-reference"
           },
           {
@@ -5460,17 +6079,17 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 980,
+            "line": 981,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2958,
+            "line": 2959,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2967,
+            "line": 2968,
             "kind": "literal-route-reference"
           }
         ],
@@ -5480,6 +6099,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -5508,13 +6132,8 @@
             "kind": "literal-route-reference"
           },
           {
-            "file": "components/business-web/BusinessWebLoyalty.tsx",
-            "line": 179,
-            "kind": "literal-route-reference"
-          },
-          {
             "file": "components/business-web/CampaignDraftWizard.web.tsx",
-            "line": 124,
+            "line": 131,
             "kind": "literal-route-reference"
           },
           {
@@ -5549,6 +6168,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -5577,13 +6201,8 @@
             "kind": "literal-route-reference"
           },
           {
-            "file": "components/business-web/BusinessWebLoyalty.tsx",
-            "line": 179,
-            "kind": "literal-route-reference"
-          },
-          {
             "file": "components/business-web/CampaignDraftWizard.web.tsx",
-            "line": 124,
+            "line": 131,
             "kind": "literal-route-reference"
           },
           {
@@ -5621,6 +6240,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -5632,17 +6256,22 @@
       "file": "app/(web-business)/business/campaigns.tsx",
       "identity": "/(web-business)/business/campaigns",
       "publicPath": "/business/campaigns",
-      "category": "ACTIVE",
+      "category": "COMPATIBILITY",
       "evidence": {
         "navigation": [
           {
             "file": "components/business-web/CampaignDraftWizard.web.tsx",
-            "line": 322,
+            "line": 329,
             "kind": "literal-route-reference"
           },
           {
             "file": "lib/businessWebNavigation.ts",
             "line": 18,
+            "kind": "literal-route-reference"
+          },
+          {
+            "file": "lib/businessWebNavigation.ts",
+            "line": 58,
             "kind": "literal-route-reference"
           },
           {
@@ -5667,27 +6296,27 @@
           },
           {
             "file": "public/service-worker.js",
-            "line": 100,
+            "line": 133,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 727,
+            "line": 728,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 865,
+            "line": 866,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 971,
+            "line": 972,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2959,
+            "line": 2960,
             "kind": "literal-route-reference"
           }
         ],
@@ -5697,6 +6326,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -5716,12 +6350,12 @@
         "navigation": [
           {
             "file": "components/business-web/BusinessWebLoyalty.tsx",
-            "line": 127,
+            "line": 132,
             "kind": "literal-route-reference"
           },
           {
             "file": "components/business-web/LoyaltyManagementEntry.tsx",
-            "line": 112,
+            "line": 96,
             "kind": "literal-route-reference"
           },
           {
@@ -5744,6 +6378,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -5760,12 +6399,12 @@
         "navigation": [
           {
             "file": "components/business-web/BusinessWebLoyalty.tsx",
-            "line": 104,
+            "line": 109,
             "kind": "literal-route-reference"
           },
           {
             "file": "components/business-web/BusinessWebLoyalty.tsx",
-            "line": 115,
+            "line": 120,
             "kind": "literal-route-reference"
           },
           {
@@ -5775,12 +6414,12 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 779,
+            "line": 780,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2955,
+            "line": 2956,
             "kind": "literal-route-reference"
           }
         ],
@@ -5790,6 +6429,89 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/lib/cloudflare-web-export.mjs",
+            "line": 94,
+            "kind": "dynamic-prefix-only"
+          }
+        ]
+      }
+    },
+    {
+      "file": "app/(web-business)/business/customer-referrals.tsx",
+      "identity": "/(web-business)/business/customer-referrals",
+      "publicPath": "/business/customer-referrals",
+      "category": "ACTIVE",
+      "evidence": {
+        "navigation": [
+          {
+            "file": "components/business-web/BusinessWebCampaigns.tsx",
+            "line": 111,
+            "kind": "literal-route-reference"
+          },
+          {
+            "file": "components/business-web/BusinessWebCampaigns.tsx",
+            "line": 170,
+            "kind": "literal-route-reference"
+          }
+        ],
+        "imports": [],
+        "layout": [],
+        "dynamicCandidates": [
+          {
+            "file": "app/(authenticated)/_layout.tsx",
+            "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/lib/cloudflare-web-export.mjs",
+            "line": 94,
+            "kind": "dynamic-prefix-only"
+          }
+        ]
+      }
+    },
+    {
+      "file": "app/(web-business)/business/customer-referrals.web.tsx",
+      "identity": "/(web-business)/business/customer-referrals",
+      "publicPath": "/business/customer-referrals",
+      "category": "ACTIVE",
+      "evidence": {
+        "navigation": [
+          {
+            "file": "components/business-web/BusinessWebCampaigns.tsx",
+            "line": 111,
+            "kind": "literal-route-reference"
+          },
+          {
+            "file": "components/business-web/BusinessWebCampaigns.tsx",
+            "line": 170,
+            "kind": "literal-route-reference"
+          }
+        ],
+        "imports": [],
+        "layout": [],
+        "dynamicCandidates": [
+          {
+            "file": "app/(authenticated)/_layout.tsx",
+            "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -5834,17 +6556,17 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 725,
+            "line": 726,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 969,
+            "line": 970,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2953,
+            "line": 2954,
             "kind": "literal-route-reference"
           }
         ],
@@ -5854,6 +6576,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -5878,17 +6605,17 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 729,
+            "line": 730,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 973,
+            "line": 974,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2961,
+            "line": 2962,
             "kind": "literal-route-reference"
           }
         ],
@@ -5898,6 +6625,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -5932,52 +6664,52 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 724,
+            "line": 725,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 739,
+            "line": 740,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 965,
+            "line": 966,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1938,
+            "line": 1939,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2235,
+            "line": 2236,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2237,
+            "line": 2238,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2779,
+            "line": 2780,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2952,
+            "line": 2953,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2966,
+            "line": 2967,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 3003,
+            "line": 3004,
             "kind": "literal-route-reference"
           },
           {
@@ -5995,6 +6727,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -6009,6 +6746,11 @@
       "category": "ACTIVE",
       "evidence": {
         "navigation": [
+          {
+            "file": "app/(web-business)/business/campaigns.tsx",
+            "line": 3,
+            "kind": "literal-route-reference"
+          },
           {
             "file": "lib/businessWebNavigation.ts",
             "line": 13,
@@ -6036,22 +6778,22 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 726,
+            "line": 727,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 970,
+            "line": 971,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2236,
+            "line": 2237,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2954,
+            "line": 2955,
             "kind": "literal-route-reference"
           }
         ],
@@ -6061,6 +6803,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -6080,27 +6827,27 @@
         "navigation": [
           {
             "file": "components/business-web/BusinessWebSettings.tsx",
-            "line": 384,
+            "line": 386,
             "kind": "literal-route-reference"
           },
           {
             "file": "lib/businessWebNavigation.ts",
-            "line": 57,
+            "line": 60,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 731,
+            "line": 732,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 975,
+            "line": 976,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2963,
+            "line": 2964,
             "kind": "literal-route-reference"
           }
         ],
@@ -6110,6 +6857,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -6128,21 +6880,6 @@
       "evidence": {
         "navigation": [
           {
-            "file": "components/business-web/BusinessWebCampaigns.tsx",
-            "line": 111,
-            "kind": "literal-route-reference"
-          },
-          {
-            "file": "components/business-web/BusinessWebCampaigns.tsx",
-            "line": 170,
-            "kind": "literal-route-reference"
-          },
-          {
-            "file": "components/business-web/BusinessWebLoyalty.tsx",
-            "line": 215,
-            "kind": "literal-route-reference"
-          },
-          {
             "file": "lib/businessWebNavigation.ts",
             "line": 19,
             "kind": "literal-route-reference"
@@ -6153,18 +6890,23 @@
             "kind": "literal-route-reference"
           },
           {
-            "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 728,
+            "file": "lib/navigation/businessHref.ts",
+            "line": 18,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 972,
+            "line": 729,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2960,
+            "line": 973,
+            "kind": "literal-route-reference"
+          },
+          {
+            "file": "scripts/phase3-preview/hosted-qa.mjs",
+            "line": 2961,
             "kind": "literal-route-reference"
           }
         ],
@@ -6174,6 +6916,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -6198,7 +6945,7 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1655,
+            "line": 1656,
             "kind": "literal-route-reference"
           }
         ],
@@ -6208,6 +6955,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -6232,7 +6984,7 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1655,
+            "line": 1656,
             "kind": "literal-route-reference"
           }
         ],
@@ -6248,6 +7000,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -6297,17 +7054,17 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 730,
+            "line": 731,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 974,
+            "line": 975,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2962,
+            "line": 2963,
             "kind": "literal-route-reference"
           }
         ],
@@ -6317,6 +7074,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -6346,7 +7108,7 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2956,
+            "line": 2957,
             "kind": "literal-route-reference"
           }
         ],
@@ -6356,6 +7118,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -6379,6 +7146,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -6408,6 +7180,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -6442,32 +7219,32 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 984,
+            "line": 985,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 991,
+            "line": 992,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2238,
+            "line": 2239,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2778,
+            "line": 2779,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2856,
+            "line": 2857,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2970,
+            "line": 2971,
             "kind": "literal-route-reference"
           },
           {
@@ -6482,6 +7259,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -6516,37 +7298,37 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1068,
+            "line": 1069,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1426,
+            "line": 1427,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1500,
+            "line": 1501,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1581,
+            "line": 1582,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2242,
+            "line": 2243,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2832,
+            "line": 2833,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2972,
+            "line": 2973,
             "kind": "literal-route-reference"
           }
         ],
@@ -6556,6 +7338,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -6590,37 +7377,37 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1068,
+            "line": 1069,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1426,
+            "line": 1427,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1500,
+            "line": 1501,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 1581,
+            "line": 1582,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2242,
+            "line": 2243,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2832,
+            "line": 2833,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2972,
+            "line": 2973,
             "kind": "literal-route-reference"
           }
         ],
@@ -6630,6 +7417,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -6664,7 +7456,7 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2971,
+            "line": 2972,
             "kind": "literal-route-reference"
           }
         ],
@@ -6674,6 +7466,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -6700,6 +7497,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -6720,6 +7522,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -6746,6 +7553,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -6766,6 +7578,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -6792,6 +7609,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -6815,6 +7637,11 @@
             "kind": "dynamic-prefix-only"
           },
           {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
+            "kind": "dynamic-prefix-only"
+          },
+          {
             "file": "scripts/lib/cloudflare-web-export.mjs",
             "line": 94,
             "kind": "dynamic-prefix-only"
@@ -6835,6 +7662,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -6869,12 +7701,12 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2879,
+            "line": 2880,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2900,
+            "line": 2901,
             "kind": "literal-route-reference"
           }
         ],
@@ -6884,6 +7716,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -6918,12 +7755,12 @@
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2879,
+            "line": 2880,
             "kind": "literal-route-reference"
           },
           {
             "file": "scripts/phase3-preview/hosted-qa.mjs",
-            "line": 2900,
+            "line": 2901,
             "kind": "literal-route-reference"
           }
         ],
@@ -6933,6 +7770,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {
@@ -6956,6 +7798,11 @@
           {
             "file": "app/(authenticated)/_layout.tsx",
             "line": 115,
+            "kind": "dynamic-prefix-only"
+          },
+          {
+            "file": "scripts/audit-route-reachability.mjs",
+            "line": 8,
             "kind": "dynamic-prefix-only"
           },
           {

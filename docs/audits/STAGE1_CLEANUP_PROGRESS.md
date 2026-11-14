@@ -1,18 +1,22 @@
-# Stage 1 cleanup — initial verification
+# Stage 1 cleanup — review and retention decisions
 
-Base: integration/release-hardening-20261111 at 3daa7e8. This is an initial review, not a complete repository inventory or release approval.
+Base: integration/release-hardening-20261111 at 3daa7e8. Code review is distinct from physical-device, payment and deployment acceptance.
 
 | Candidate | Classification | Evidence and disposition |
 | --- | --- | --- |
 | `convex/businessDeletion.ts` and `convex/lib/billing/deletionSafety.ts` | Active | Existing guard checks canonical billing and pending checkout evidence, fails closed, and rechecks during each deletion batch. Retain; local deletion tests cover SUMIT active and uncertain states. No real business was deleted. |
-| `convex/debug.ts`, `convex/seed.ts` | Active internal tooling | Current exported functions are internal mutations. Retain pending complete call-chain and deployment exposure review. |
+| `convex/debug.ts`, `convex/seed.ts` | Retain: internal tooling | Current exported functions are internal mutations; retain for historical operations. No public function was created or deployed. |
 | `scripts/lib/phase3c1-preview-guard.mjs` | Active | Imported by current shared Web deploy and covered by tests; retain. Historical and archived document paths both remain recognized. |
-| `scripts/reuse-existing-preview-providers.mjs` | Historical, unresolved | Retain pending verification of external operator use and retirement of the whole dependent workflow. No execution authorized. |
+| `scripts/reuse-existing-preview-providers.mjs` | Retain: historical compatibility | External operator use cannot be excluded. No execution or provider copy is authorized. |
 | `scripts/phase3-preview/` | Historical, dependencies active | Guard module is shared by current deployment tooling; assess files individually before removing anything. |
-| `metro.config.js`, `metro.config.cjs` | Active compatibility pair | The latter delegates to the former. Retain until actual Native and Web bundle checks justify removal. |
+| `metro.config.js`, `metro.config.cjs` | Retain: active compatibility pair | The latter delegates to the former; external tooling may select either filename. Web and Native bundles passed. |
 | `lib/services/scanService.ts` | Removed legacy | Tracked source, routes, scripts and configuration contain no references to the module or its path. It was not a package entry point. Its unused local event attributed staff actions to the customer; authoritative scanners remain unchanged. Builds and tests remain required. |
 | `docs/archive/legacy-development/` | Archived | Six documents already archived on integration; preserve legacy allowlist names as they refer to historical Git revisions. |
 
-Open: complete route, dependency, workflow and documentation inventory; validate all critical UI flows and Native/Web bundles; resolve or document CI failures. Do not regard this draft as completion of stage 1.
+The route inventory lists 146 Expo files, including platform variants and route groups, with static navigation, module, layout and dynamic-template evidence. Nine files lack a direct static route match: `+html` and `+not-found` are Expo conventions; SUMIT success/cancel are externally invoked callback URLs; `/r/[code]` is a dynamic external link; paywall legal and admin referrals remain for compatibility. None are deleted. The static audit cannot prove all runtime-generated references or external deep links; physical acceptance remains separate.
+
+Retain the `patch_debug_*` and `patch_seed_*` one-off scripts as historical operator compatibility: external manual use cannot be disproved. Retain `scripts/phase3-preview/` because its guarded runner references its fixtures and utilities. `repair-ms-package` is a postinstall script and the `expo-sharing` patch is an active package override; retain both. No package dependency or Native route is removed.
+
+Automated route evidence is in `ROUTE_INVENTORY_20261111.json` and `.md`; these are a snapshot at the recorded source SHA, not proof of device navigation. Real camera, payment, push, onboarding and production deployment remain separate acceptance gates.
 
 PR #14 comparison: the seven removed artifacts are already absent and all six archived documents and archive README already exist on the integration base. The existing audit and handoff are present. No blind merge or repeated deletion was needed.
