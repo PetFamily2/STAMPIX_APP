@@ -18,6 +18,7 @@ import { getConvexUrl } from '@/utils/convexConfig';
 import { SystemTeamEntry } from './system-team/SystemTeamEntry.web';
 import { PUSH_OWNER_KEY } from './WebPushLifecycle.web';
 import { BrowserPermissionsPanel } from './web-permissions/BrowserPermissionsPanel.web';
+import { PermissionIcon } from './web-permissions/PermissionIcon.web';
 
 export default function WebPushSettings() {
   const { user } = useUser();
@@ -330,65 +331,45 @@ export function BrowserPushControl({
   useImperativeHandle(activationRef, () => ({
     enable: () => (enabled ? Promise.resolve(true) : toggle()),
   }));
+  const blocked =
+    permission === 'denied'
+      ? 'ההתראות חסומות. שנו אותן בהגדרות האתר בדפדפן.'
+      : !user
+        ? 'התחברו כדי להפעיל התראות.'
+        : failure
+          ? pushFailureMessage(failure)
+          : '';
   return (
-    <section dir="rtl" className="permission-row" aria-label="הרשאת התראות">
-      <h3>התראות בדפדפן</h3>
-      <output className="permission-status" aria-live="polite">
-        {checking
-          ? 'בודקים את מצב ההתראות…'
-          : enabled
-            ? 'התראות מחוברות לחשבון'
-            : permission === 'denied'
-              ? 'חסומות בדפדפן'
-              : permission === 'granted'
-                ? 'הרשאה אושרה; החיבור לחשבון אינו פעיל'
-                : 'התראות אינן פעילות'}
-      </output>
-      {!compact ? (
-        <p>אישור התראות אינו מפעיל דיוור שיווקי ואינו שולח הודעת בדיקה.</p>
+    <div>
+      <div className="permission-row" data-compact={compact ? 'true' : 'false'}>
+        <span className="permission-main">
+          <PermissionIcon name="bell" />
+          <span className="permission-name">התראות</span>
+        </span>
+        <button
+          type="button"
+          className="sx-switch"
+          role="switch"
+          aria-label="התראות"
+          aria-checked={enabled}
+          disabled={
+            busy ||
+            checking ||
+            !user ||
+            !token ||
+            (!enabled &&
+              (!!failure || !config?.enabled || permission === 'denied'))
+          }
+          onClick={() => void toggle()}
+        >
+          <span>
+            <i />
+          </span>
+        </button>
+      </div>
+      {blocked || message ? (
+        <p className="permission-note">{message || blocked}</p>
       ) : null}
-      {failure ? (
-        <output aria-live="polite">{pushFailureMessage(failure)}</output>
-      ) : null}
-      {permission === 'denied' ? <p>{pushFailureMessage('DENIED')}</p> : null}
-      {!user ? <p>התחברו לחשבון כדי להפעיל התראות.</p> : null}
-      {!compact ? (
-        <div className="permission-actions">
-          <button
-            type="button"
-            role="switch"
-            aria-label="התראות לחשבון"
-            aria-checked={enabled}
-            disabled={
-              busy ||
-              checking ||
-              !user ||
-              !token ||
-              (!enabled &&
-                (!!failure || !config?.enabled || permission === 'denied'))
-            }
-            onClick={() => void toggle()}
-          >
-            {busy
-              ? 'מעדכנים…'
-              : enabled
-                ? 'כיבוי התראות לחשבון'
-                : 'אישור והפעלת התראות'}
-          </button>
-          <button
-            type="button"
-            className="secondary"
-            disabled={busy || checking}
-            onClick={() => {
-              setMessage('');
-              refreshRef.current();
-            }}
-          >
-            בדיקה מחדש
-          </button>
-        </div>
-      ) : null}
-      {message ? <output aria-live="polite">{message}</output> : null}
-    </section>
+    </div>
   );
 }

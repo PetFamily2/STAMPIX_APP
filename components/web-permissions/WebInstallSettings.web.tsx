@@ -3,6 +3,7 @@ import {
   requestWebInstall,
   useWebInstall,
 } from '@/lib/web-permissions/installPrompt';
+import { PermissionIcon } from './PermissionIcon.web';
 
 export function WebInstallSettings({
   onAccepted,
@@ -37,35 +38,36 @@ export function WebInstallSettings({
       setBusy(false);
     }
   };
+  const hint = installed
+    ? ''
+    : available
+      ? ''
+      : appleMobile
+        ? 'בתפריט השיתוף בחרו ״הוספה למסך הבית״.'
+        : 'בתפריט הדפדפן בחרו התקנה או הוספה למסך הבית.';
   return (
-    <section className="permission-row" aria-label="התקנה למסך הבית">
-      <h3>התקנה למסך הבית</h3>
-      <span className="permission-status">
-        {installed ? 'פועל כאפליקציה מותקנת' : 'האתר פתוח בדפדפן'}
-      </span>
-      <p>
-        הוסיפו את StampAix למסך הבית לגישה מהירה. ההתקנה אינה מאשרת מצלמה, מיקום
-        או דיוור שיווקי.
-      </p>
-      {!installed ? (
-        <>
-          {available ? (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void install()}
-            >
-              {busy ? 'פותחים התקנה…' : 'התקנה למסך הבית'}
-            </button>
-          ) : null}
-          <p>
-            {appleMobile
-              ? 'ב־iPhone או iPad: פתחו את תפריט השיתוף בדפדפן, בחרו הוספה למסך הבית, ואז פתחו מהסמל החדש. התראות אתר דורשות פתיחה מהסמל ומערכת תומכת.'
-              : 'אם לא מוצע כפתור התקנה, פתחו את תפריט הדפדפן וחפשו התקנת אפליקציה או הוספה למסך הבית. אם האפשרות חסרה, נסו דפדפן מעודכן.'}
-          </p>
-        </>
+    <div>
+      <div className="permission-row">
+        <span className="permission-main">
+          <PermissionIcon name="install" />
+          <span className="permission-name">התקנה למסך הבית</span>
+        </span>
+        {installed ? (
+          <span className="permission-name">מותקן</span>
+        ) : (
+          <button
+            type="button"
+            className="install-button"
+            disabled={busy || !available}
+            onClick={() => void install()}
+          >
+            {busy ? 'פותחים…' : 'התקנה'}
+          </button>
+        )}
+      </div>
+      {hint || message ? (
+        <p className="permission-note">{message || hint}</p>
       ) : null}
-      {message ? <output aria-live="polite">{message}</output> : null}
-    </section>
+    </div>
   );
 }

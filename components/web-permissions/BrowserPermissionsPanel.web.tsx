@@ -4,30 +4,27 @@ import {
   type BrowserPermissionState,
   checkCameraAccess,
   checkLocationAccess,
-  permissionLabels,
   readBrowserPermission,
 } from '@/lib/web-permissions/browserPermissions';
+import { PermissionIcon } from './PermissionIcon.web';
 import { WebInstallSettings } from './WebInstallSettings.web';
 
 export const PERMISSION_STYLES = `
-  .sx-permissions{direction:rtl;text-align:right;background:${TOKENS.colors.elevatedSurface};color:${TOKENS.colors.textPrimary};border:1px solid ${TOKENS.colors.border};border-radius:${TOKENS.radii.lg}px;padding:16px;margin:16px 0;font:inherit;line-height:1.6;overflow-wrap:anywhere}
-  .sx-permissions h2{font-size:18px;margin:0 0 8px}.sx-permissions h3{font-size:16px;margin:0}
-  .sx-permissions p{margin:8px 0;color:${TOKENS.colors.textSecondary}}
-  .sx-permissions .permission-row{padding:16px 0;border-top:1px solid ${TOKENS.colors.border};margin-top:12px}
-  .sx-permissions .permission-status{display:block;font-weight:600;color:${TOKENS.colors.primary}}
-  .sx-permissions .permission-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-  .sx-permissions button,.sx-permissions a.permission-link{font:inherit;font-weight:600;min-height:44px;border:1px solid ${TOKENS.colors.primary};border-radius:12px;background:${TOKENS.colors.primary};color:${TOKENS.colors.elevatedSurface};padding:10px 16px;cursor:pointer;text-decoration:none;box-sizing:border-box;max-width:100%;white-space:normal}
-  .sx-permissions button.secondary{background:${TOKENS.colors.elevatedSurface};color:${TOKENS.colors.primary}}
-  .sx-permissions button[role=switch]{display:inline-flex;align-items:center;gap:12px;background:transparent;color:inherit;border:0;padding-inline:0}
-  .sx-permissions button[role=switch]::before{content:"";width:46px;height:28px;border-radius:20px;background:#CBD5E1;box-shadow:inset 0 0 0 1px #64748B}
-  .sx-permissions button[role=switch]::after{content:"";position:absolute;width:20px;height:20px;border-radius:50%;background:white;right:4px;top:50%;transform:translateY(-50%);pointer-events:none}
-  .sx-permissions button[role=switch]{position:relative}
-  .sx-permissions button[role=switch][aria-checked=true]::before{background:${TOKENS.colors.primary}}
-  .sx-permissions button[role=switch][aria-checked=true]::after{right:22px}
+  .sx-permissions{direction:rtl;text-align:right;background:${TOKENS.colors.elevatedSurface};color:${TOKENS.colors.textPrimary};border:1px solid ${TOKENS.colors.border};border-radius:${TOKENS.radii.lg}px;padding:8px 14px 10px;margin:12px 0;font:inherit;line-height:1.35}
+  .sx-permissions h2{font-size:16px;line-height:22px;font-weight:700;margin:8px 0 2px}
+  .sx-permissions .permission-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px}
+  .sx-permissions .permission-main{display:flex;align-items:center;gap:10px;min-width:0}
+  .sx-permissions .permission-icon{width:18px;height:18px;flex:none;color:${TOKENS.colors.textSecondary}}
+  .sx-permissions .permission-name{font-size:15px;line-height:20px;font-weight:600}
+  .sx-permissions .permission-note{margin:0 28px 8px 0;color:${TOKENS.colors.textSecondary};font-size:12px;line-height:17px}
+  .sx-permissions button.sx-switch{width:44px;height:44px;min-height:44px;padding:0;border:0;border-radius:12px;background:transparent;color:inherit;display:flex;align-items:center;justify-content:center;flex:none;cursor:pointer}
+  .sx-permissions button.sx-switch span{width:46px;height:28px;border-radius:999px;background:${TOKENS.colors.borderStrong};display:flex;align-items:center;padding:2px;box-sizing:border-box}
+  .sx-permissions button.sx-switch[aria-checked=true] span{background:${TOKENS.colors.primary};justify-content:flex-end}
+  .sx-permissions button.sx-switch i{width:24px;height:24px;border-radius:50%;background:${TOKENS.colors.elevatedSurface};display:block}
+  .sx-permissions button.install-button{min-height:36px;height:36px;padding:0 12px;border:0;border-radius:999px;background:${TOKENS.colors.primary};color:${TOKENS.colors.elevatedSurface};font:inherit;font-size:13px;font-weight:700;cursor:pointer;flex:none}
   .sx-permissions button:disabled{opacity:.55;cursor:default}
-  .sx-permissions button:focus-visible,.sx-permissions a:focus-visible,.sx-permissions summary:focus-visible{outline:3px solid ${TOKENS.colors.primary};outline-offset:3px}
-  .sx-permissions output{display:block;margin-top:12px;color:${TOKENS.colors.textSecondary}}
-  .sx-permissions summary{cursor:pointer;min-height:44px;align-content:center;font-weight:600}
+  .sx-permissions button:focus-visible{outline:3px solid ${TOKENS.colors.primary};outline-offset:3px}
+  .sx-permissions output{display:block}
 `;
 
 function DevicePermission({ kind }: { kind: 'camera' | 'geolocation' }) {
@@ -134,40 +131,52 @@ function DevicePermission({ kind }: { kind: 'camera' | 'geolocation' }) {
       }
     }
   };
+  const granted = state === 'granted';
+  const label = camera ? 'מצלמה לסריקה' : 'מיקום';
+  const blocked =
+    state === 'denied'
+      ? `ה${camera ? 'מצלמה' : 'מיקום'} חסום. שנו את ההרשאה בהגדרות האתר בדפדפן.`
+      : state === 'unsupported'
+        ? 'הדפדפן לא תומך באפשרות הזו.'
+        : '';
+  const turnOff = () => {
+    setMessage(
+      camera
+        ? 'כיבוי המצלמה נעשה בהגדרות האתר בדפדפן.'
+        : 'כיבוי המיקום נעשה בהגדרות האתר בדפדפן.'
+    );
+  };
   return (
-    <section
-      className="permission-row"
-      aria-label={camera ? 'הרשאת מצלמה' : 'הרשאת מיקום'}
-    >
-      <h3>{camera ? 'מצלמה' : 'מיקום'}</h3>
-      <output className="permission-status" aria-live="polite">
-        {permissionLabels[state]}
-      </output>
-      <p>
-        {camera
-          ? 'לסריקת קוד לקוח. בדיקת הגישה אינה מצלמת או מקליטה.'
-          : 'למציאת עסקים בסביבה. בדיקת הגישה אינה שומרת או שולחת מיקום.'}
-      </p>
-      {state === 'denied' ? (
-        <p>
-          פתחו את הרשאות האתר בדפדפן או את הגדרות האפליקציה המותקנת ואפשרו{' '}
-          {camera ? 'מצלמה' : 'מיקום'}. אחר כך חזרו לכאן.
-        </p>
-      ) : (
+    <div>
+      <div className="permission-row">
+        <span className="permission-main">
+          <PermissionIcon name={camera ? 'camera' : 'location'} />
+          <span className="permission-name">{label}</span>
+        </span>
         <button
           type="button"
-          disabled={busy || state === 'unsupported'}
-          onClick={() => void request()}
+          className="sx-switch"
+          role="switch"
+          aria-checked={granted}
+          aria-label={label}
+          disabled={busy || state === 'unsupported' || state === 'denied'}
+          onClick={() => {
+            if (granted) {
+              turnOff();
+              return;
+            }
+            void request();
+          }}
         >
-          {busy
-            ? 'בודקים גישה…'
-            : state === 'granted'
-              ? 'בדיקת גישה'
-              : `אישור ${camera ? 'מצלמה' : 'מיקום'}`}
+          <span>
+            <i />
+          </span>
         </button>
-      )}
-      {message ? <output aria-live="polite">{message}</output> : null}
-    </section>
+      </div>
+      {blocked || message ? (
+        <p className="permission-note">{message || blocked}</p>
+      ) : null}
+    </div>
   );
 }
 
@@ -180,39 +189,11 @@ export function BrowserPermissionsPanel({ children }: { children: ReactNode }) {
       dir="rtl"
     >
       <style>{PERMISSION_STYLES}</style>
-      <details>
-        <summary>הרשאות והתקנה</summary>
-        <p>
-          בחרו מה להפעיל. שינוי או ביטול הרשאת מצלמה ומיקום נעשים בהגדרות האתר
-          בדפדפן.
-        </p>
-        {children}
-        <DevicePermission kind="camera" />
-        <DevicePermission kind="geolocation" />
-        <WebInstallSettings />
-        <details>
-          <summary>איך משנים או מבטלים הרשאה?</summary>
-          <p>
-            בדפדפן: פתחו את פרטי האתר ליד שורת הכתובת, בחרו הרשאות או הגדרות אתר
-            ושנו את ההרשאה הרצויה. באפליקציה שהותקנה למסך הבית, בדקו גם את
-            הגדרות המכשיר עבור האפליקציה או הדפדפן. חזרו למסך הזה כדי לרענן את
-            המצב.
-          </p>
-          <p>
-            אישור התראות אינו אישור לדיוור שיווקי. העדפת הדיוור מנוהלת בנפרד
-            בהגדרות החשבון.
-          </p>
-        </details>
-        <p>
-          <a
-            href="/legal?document=privacy"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            מדיניות הפרטיות (נפתחת בחלון חדש)
-          </a>
-        </p>
-      </details>
+      <h2>הרשאות והתקנה</h2>
+      {children}
+      <DevicePermission kind="camera" />
+      <DevicePermission kind="geolocation" />
+      <WebInstallSettings />
     </section>
   );
 }
