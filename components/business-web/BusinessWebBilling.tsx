@@ -1,11 +1,9 @@
 import { useAction, useMutation, useQuery } from 'convex/react';
 import {
-  CalendarDays,
   Check,
   ExternalLink,
   FileText,
   ReceiptText,
-  ShieldCheck,
 } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import {
@@ -14,7 +12,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import {
@@ -101,7 +98,6 @@ export function BusinessWebBilling({
   businessNameOverride?: string;
   onBeforeCheckout?: () => Promise<void>;
 } = {}) {
-  const { width } = useWindowDimensions();
   const active = useActiveBusiness();
   const activeBusinessId = businessIdOverride ?? active.activeBusinessId;
   const businessName =
@@ -132,6 +128,7 @@ export function BusinessWebBilling({
   );
   const cancelRecurring = useAction(api.sumitBilling.cancelSUMITRecurring);
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
+  const [planChoice, setPlanChoice] = useState<BusinessPlan | null>(null);
   const [pendingPlan, setPendingPlan] = useState<BusinessPlan | null>(null);
   const [actionError, setActionError] = useState('');
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -145,7 +142,9 @@ export function BusinessWebBilling({
     if (!activeBusinessId || pendingPlan || overview?.hasCurrentPaidAccess) {
       return;
     }
-    if (checkoutAvailability?.available !== true || !termsAccepted) return;
+    if (checkoutAvailability?.available !== true || !termsAccepted) {
+      return;
+    }
     setActionError('');
     setPendingPlan(plan);
     try {
@@ -228,7 +227,6 @@ export function BusinessWebBilling({
     );
   }
 
-  const plansStacked = width < 1040;
   const planName = overview?.plan
     ? planConfig[overview.plan as BusinessPlan]?.displayName
     : null;
@@ -244,6 +242,20 @@ export function BusinessWebBilling({
     hasCurrentPaidAccess && currentBillingPeriod
       ? currentBillingPeriod
       : billingPeriod;
+  const selectedPlan: BusinessPlan =
+    planChoice ??
+    (overview?.plan === 'starter' ||
+    overview?.plan === 'pro' ||
+    overview?.plan === 'premium'
+      ? overview.plan
+      : 'pro');
+  const selectedPrice =
+    planConfig[selectedPlan].pricing[displayedBillingPeriod];
+  const checkoutDisabled =
+    hasCurrentPaidAccess ||
+    pendingPlan !== null ||
+    checkoutAvailability?.available !== true ||
+    !termsAccepted;
   const visiblePlans = PLAN_ORDER.map((plan) => plan).sort(
     (left, right) =>
       planConfig[left].pricing[displayedBillingPeriod] -
@@ -378,17 +390,6 @@ export function BusinessWebBilling({
       ) : null}
 
       <View nativeID="billing-plans" style={styles.plansBar}>
-        <Text style={styles.sectionHeading}>מסלולים</Text>
-        <Text style={styles.sectionDescription}>
-          {WEB_TAX_POLICY.priceNotice}
-        </Text>
-        {!hasCurrentPaidAccess ? (
-          <Text style={styles.sectionDescription}>
-            הפעלה מחייבת חיוב מיידי בכרטיס אשראי. ב־14 הימים הראשונים מהתשלום
-            הראשון אפשר לבקש החזר מלא דרך שירות הלקוחות. התשלום מתבצע בעמוד
-            המאובטח של SUMIT.
-          </Text>
-        ) : null}
         {hasCurrentPaidAccess ? (
           <Text style={styles.sectionDescription}>
             שינוי מסלול או מחזור חיוב עדיין לא זמין בגרסה זו.
@@ -430,8 +431,61 @@ export function BusinessWebBilling({
         <Text style={styles.yearlyNote}>{YEARLY_COPY}</Text>
       ) : null}
 
+      <View accessibilityRole="radiogroup" style={styles.planList}>
+        {visiblePlans.map((plan) => {
+          const definition = planConfig[plan];
+          const price = definition.pricing[displayedBillingPeriod];
+          const selected = selectedPlan === plan;
+          const isCurrent = hasCurrentPaidAccess && overview?.plan === plan;
+          const pulseYearlyPro =
+            plan === 'pro' && displayedBillingPeriod === 'yearly';
+          return (
+            <Pressable
+              accessibilityLabel={`בחירת מסלול ${definition.displayName}`}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
+              key={plan}
+              nativeID={pulseYearlyPro ? 'yearly-pro-plan' : undefined}
+              onPress={() => setPlanChoice(plan)}
+              style={({ pressed }) => [
+                styles.planRow,
+                selected ? styles.planRowSelected : null,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              <View style={styles.planRowCopy}>
+                <View style={styles.planTitleRow}>
+                  <Text style={styles.planName}>{definition.displayName}</Text>
+                  {isCurrent ? (
+                    <Text style={styles.featuredBadge}>המסלול הנוכחי</Text>
+                  ) : pulseYearlyPro ? (
+                    <Text style={styles.featuredBadge}>הנמכר ביותר</Text>
+                  ) : null}
+                </View>
+                <Text style={styles.planFactText}>
+                  {planCapabilityLine(plan)}
+                </Text>
+              </View>
+              <View style={styles.planRowPrice}>
+                <Text style={styles.price}>
+                  ₪{price.toLocaleString('he-IL')}
+                </Text>
+                <Text style={styles.pricePeriod}>
+                  {displayedBillingPeriod === 'monthly' ? 'לחודש' : 'לשנה'}
+                </Text>
+              </View>
+              {selected ? (
+                <Check color={TOKENS.colors.primary} size={18} />
+              ) : (
+                <View style={styles.planMark} />
+              )}
+            </Pressable>
+          );
+        })}
+      </View>
+
       {!hasCurrentPaidAccess ? (
-        <View style={styles.plansHeaderCopy}>
+        <View style={styles.termsGate}>
           <Pressable
             accessibilityRole="checkbox"
             accessibilityState={{ checked: termsAccepted }}
@@ -445,144 +499,65 @@ export function BusinessWebBilling({
               termsAcceptance?.accepted === true || pendingPlan !== null
             }
           >
-            <Text style={styles.sectionDescription}>
-              {termsAccepted ? '☑' : '☐'} אני מאשר/ת את תנאי המנוי: חיוב מיידי,
-              חידוש לפי המסלול שנבחר ואפשרות לבקש החזר מלא דרך השירות ב־14 הימים
-              הראשונים מהתשלום הראשון.
+            <Text style={styles.termsGateText}>
+              {termsAccepted ? '☑' : '☐'} אני מאשר/ת חיוב מיידי, חידוש לפי
+              המסלול, והחזר מלא דרך השירות ב־14 הימים הראשונים.
             </Text>
           </Pressable>
           <Pressable
             accessibilityRole="link"
             onPress={() => setShowTerms(true)}
           >
-            <Text style={styles.planName}>קריאת תנאי המנוי וההחזר</Text>
+            <Text style={styles.termsGateLink}>תנאי המנוי וההחזר</Text>
           </Pressable>
         </View>
       ) : null}
+
       <Pressable
+        accessibilityLabel={`תשלום עבור ${planConfig[selectedPlan].displayName}`}
+        accessibilityRole="button"
+        accessibilityState={{
+          busy: pendingPlan !== null,
+          disabled: checkoutDisabled,
+        }}
+        disabled={checkoutDisabled}
+        onPress={() => void handleCheckout(selectedPlan)}
+        style={({ pressed }) => [
+          styles.payButton,
+          checkoutDisabled ? styles.checkoutButtonDisabled : null,
+          pressed && !checkoutDisabled ? styles.pressed : null,
+        ]}
+      >
+        {pendingPlan ? (
+          <ActivityIndicator color="#FFFFFF" size="small" />
+        ) : null}
+        <Text style={styles.checkoutButtonText}>
+          {pendingPlan
+            ? 'מעבירים לתשלום…'
+            : hasCurrentPaidAccess && overview?.plan === selectedPlan
+              ? 'המסלול הנוכחי'
+              : hasCurrentPaidAccess
+                ? 'שינוי מסלול אינו זמין בגרסה זו'
+                : checkoutAvailability?.available !== true
+                  ? 'התשלום אינו זמין כרגע'
+                  : !termsAccepted
+                    ? 'יש לאשר את תנאי העסק'
+                    : `לתשלום ₪${selectedPrice.toLocaleString('he-IL')}`}
+        </Text>
+      </Pressable>
+
+      <Pressable
+        accessibilityLabel="שירות לקוחות"
         accessibilityRole="link"
         onPress={() =>
           void Linking.openURL(
             `mailto:${WEB_BUSINESS_OPERATOR.supportEmail}?subject=${encodeURIComponent(`בקשת שירות או החזר למנוי — ${businessName}`)}`
           )
         }
+        style={styles.helpLink}
       >
-        <Text style={styles.sectionDescription}>
-          שירות לקוחות ובקשת החזר: {WEB_BUSINESS_OPERATOR.supportEmail}
-        </Text>
+        <Text style={styles.helpLinkText}>שירות לקוחות</Text>
       </Pressable>
-
-      <View
-        style={[styles.planGrid, plansStacked ? styles.planGridStacked : null]}
-      >
-        {visiblePlans.map((plan) => {
-          const definition = planConfig[plan];
-          const price = definition.pricing[displayedBillingPeriod];
-          const fullYearPrice = definition.pricing.monthly * 12;
-          const discount =
-            displayedBillingPeriod === 'yearly'
-              ? fullYearPrice - definition.pricing.yearly
-              : 0;
-          const isCurrent = hasCurrentPaidAccess && overview?.plan === plan;
-          const busy = pendingPlan === plan;
-          const checkoutDisabled =
-            hasCurrentPaidAccess ||
-            pendingPlan !== null ||
-            checkoutAvailability?.available !== true ||
-            !termsAccepted;
-          const pulseYearlyPro =
-            plan === 'pro' && displayedBillingPeriod === 'yearly';
-          const card = (
-            <View
-              key={plan}
-              nativeID={pulseYearlyPro ? 'yearly-pro-plan' : undefined}
-              style={[
-                styles.planCard,
-                plan === 'pro' ? styles.planCardFeatured : null,
-              ]}
-            >
-              <View style={styles.planTitleRow}>
-                <Text style={styles.planName}>{definition.displayName}</Text>
-                {pulseYearlyPro ? (
-                  <Text style={styles.featuredBadge}>הנמכר ביותר</Text>
-                ) : null}
-              </View>
-              <View style={styles.priceBlock}>
-                {discount > 0 ? (
-                  <View style={styles.priceCompare}>
-                    <Text
-                      accessibilityLabel={`מחיר לפני הנחה ${fullYearPrice} שקלים`}
-                      style={styles.priceWas}
-                    >
-                      ₪{fullYearPrice.toLocaleString('he-IL')}
-                    </Text>
-                    <Text style={styles.discountLabel}>
-                      הנחה ₪{discount.toLocaleString('he-IL')}
-                    </Text>
-                  </View>
-                ) : null}
-                <Text style={styles.price}>
-                  ₪{price.toLocaleString('he-IL')}
-                </Text>
-                <Text style={styles.pricePeriod}>
-                  {displayedBillingPeriod === 'monthly' ? 'לחודש' : 'לשנה'}
-                </Text>
-              </View>
-              <View style={styles.planFacts}>
-                <PlanFact
-                  text={`עד ${definition.limits.maxCustomers.toLocaleString('he-IL')} לקוחות`}
-                />
-                <PlanFact
-                  text={`עד ${definition.limits.maxCards} כרטיסי נאמנות`}
-                />
-                <PlanFact
-                  text={
-                    definition.limits.maxTeamSeats > 0
-                      ? `עד ${definition.limits.maxTeamSeats} חברי צוות`
-                      : 'ללא מושבי צוות'
-                  }
-                />
-              </View>
-              <Pressable
-                accessibilityLabel={`בחירת מסלול ${definition.displayName}`}
-                accessibilityRole="button"
-                accessibilityState={{ busy, disabled: checkoutDisabled }}
-                disabled={checkoutDisabled}
-                onPress={() => void handleCheckout(plan)}
-                style={({ pressed }) => [
-                  styles.checkoutButton,
-                  checkoutDisabled ? styles.checkoutButtonDisabled : null,
-                  pressed ? styles.pressed : null,
-                ]}
-              >
-                {busy ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : null}
-                <Text style={styles.checkoutButtonText}>
-                  {busy
-                    ? 'מעבירים לתשלום…'
-                    : isCurrent
-                      ? 'המסלול הנוכחי'
-                      : hasCurrentPaidAccess
-                        ? 'שינוי מסלול אינו זמין בגרסה זו'
-                        : checkoutAvailability?.available !== true
-                          ? 'התשלום אינו זמין כרגע'
-                          : !termsAccepted
-                            ? 'יש לאשר את תנאי העסק'
-                            : isTrialing
-                              ? 'בחירת מסלול והמשך לתשלום'
-                              : 'לתשלום'}
-                </Text>
-              </Pressable>
-            </View>
-          );
-          return (
-            <View key={plan} style={styles.planSlot}>
-              {card}
-            </View>
-          );
-        })}
-      </View>
 
       <BusinessWebDialog
         visible={showTerms}
@@ -608,10 +583,8 @@ export function BusinessWebBilling({
         </ScrollView>
       </BusinessWebDialog>
 
-      <SectionCard title="מסמכים">
-        {documents.length === 0 ? (
-          <Text style={styles.emptyDocuments}>אין מסמכים.</Text>
-        ) : (
+      {documents.length > 0 ? (
+        <SectionCard title="מסמכים">
           <View style={styles.documentList}>
             {documents.map((document, index) => (
               <View
@@ -649,8 +622,8 @@ export function BusinessWebBilling({
               </View>
             ))}
           </View>
-        )}
-      </SectionCard>
+        </SectionCard>
+      ) : null}
 
       <BusinessWebConfirmDialog
         busy={isCanceling}
@@ -665,15 +638,13 @@ export function BusinessWebBilling({
   );
 }
 
-function PlanFact({ text }: { text: string }) {
-  return (
-    <View style={styles.planFact}>
-      <View style={styles.planFactIcon}>
-        <Check color={TOKENS.colors.success} size={16} />
-      </View>
-      <Text style={styles.planFactText}>{text}</Text>
-    </View>
-  );
+function planCapabilityLine(plan: BusinessPlan) {
+  const limits = planConfig[plan].limits;
+  const team =
+    limits.maxTeamSeats > 0
+      ? `עד ${limits.maxTeamSeats} חברי צוות`
+      : 'ללא מושבי צוות';
+  return `עד ${limits.maxCustomers.toLocaleString('he-IL')} לקוחות · עד ${limits.maxCards} כרטיסים · ${team}`;
 }
 
 function SectionCard({
@@ -925,6 +896,51 @@ const styles = StyleSheet.create({
   termsGateLink: {
     ...TOKENS.typography.label,
     color: TOKENS.colors.primary,
+    textAlign: 'right',
+    textDecorationLine: 'underline',
+    writingDirection: 'rtl',
+  },
+  planList: { gap: 8, width: '100%' },
+  planRow: {
+    alignItems: 'center',
+    backgroundColor: TOKENS.colors.elevatedSurface,
+    borderColor: TOKENS.colors.border,
+    borderRadius: TOKENS.radii.md,
+    borderWidth: 1,
+    flexDirection: flexDirection.row,
+    gap: 12,
+    minHeight: 72,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    width: '100%',
+  },
+  planRowSelected: {
+    backgroundColor: TOKENS.colors.primarySubtle,
+    borderColor: TOKENS.colors.primary,
+    borderWidth: 2,
+  },
+  planRowCopy: { flex: 1, gap: 2, minWidth: 0 },
+  planRowPrice: { alignItems: 'flex-end', flexShrink: 0 },
+  planMark: { height: 18, width: 18 },
+  payButton: {
+    alignItems: 'center',
+    backgroundColor: TOKENS.colors.primary,
+    borderRadius: TOKENS.radii.md,
+    flexDirection: flexDirection.row,
+    gap: TOKENS.space.sm,
+    justifyContent: 'center',
+    minHeight: 48,
+    paddingHorizontal: TOKENS.space.lg,
+    width: '100%',
+  },
+  helpLink: {
+    alignSelf: selfStart,
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  helpLinkText: {
+    ...TOKENS.typography.secondaryBody,
+    color: TOKENS.colors.textSecondary,
     textAlign: 'right',
     textDecorationLine: 'underline',
     writingDirection: 'rtl',
