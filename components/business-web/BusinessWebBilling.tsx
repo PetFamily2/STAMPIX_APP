@@ -920,7 +920,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   planRowCopy: { flex: 1, gap: 2, minWidth: 0 },
-  planRowPrice: { alignItems: 'flex-end', flexShrink: 0 },
+  planRowPrice: { alignItems: alignItems.start, flexShrink: 0 },
   planMark: { height: 18, width: 18 },
   payButton: {
     alignItems: 'center',
