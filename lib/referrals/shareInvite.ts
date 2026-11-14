@@ -18,10 +18,10 @@ export async function shareReferralInvite(args: {
         });
       }
     }
-    await Share.share({
-      message: args.shareText,
-      url: args.url,
-    });
+    const message = args.shareText.includes(args.url)
+      ? args.shareText
+      : `${args.shareText}\n${args.url}`;
+    await Share.share({ message });
     return { ok: true as const };
   } catch (error) {
     const message = error instanceof Error ? error.message : '';

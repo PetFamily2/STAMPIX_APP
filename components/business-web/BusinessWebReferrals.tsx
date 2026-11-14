@@ -1,8 +1,10 @@
 import { useMutation, useQuery } from 'convex/react';
+import { ChevronDown } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
+  Pressable,
   StyleSheet,
   useWindowDimensions,
   View,
@@ -27,9 +29,19 @@ import { WEB_BUSINESS_OPERATOR } from '@/lib/webBusinessOperator';
 
 const PAGE_COPY = {
   title: 'עסק מביא עסק',
-  subtitle:
-    'עסק שמצטרף דרככם ומשלם 3 חודשים מזכה אתכם בחודש מנוי. מנוי שנתי מזכה בחודשיים.',
-  note: 'הזיכוי נכנס רק אחרי תשלום מאומת.',
+  headline: 'רוצים להרוויח חודשי מנוי במתנה ולחסוך כסף? 🎁',
+  lead: 'מכירים בעלי עסקים שמפספסים לקוחות חוזרים? הגיע הזמן שיכירו את StampAix!',
+  offer:
+    'הזמינו כמה שיותר עסקים, עזרו להם להחזיר לקוחות - וצברו חודשי מנוי במתנה! 🚀',
+  closer: 'הזמינו עסקים והתחילו לחסוך 👇',
+  termsLabel: 'תנאי ההטבה',
+  terms: [
+    'עסק שמצטרף דרככם ומשלם 3 חודשים מזכה אתכם בחודש מנוי.',
+    'מנוי שנתי מזכה בחודשיים.',
+    'הזיכוי נכנס רק אחרי תשלום מאומת.',
+    'העסק שמצטרף מקבל חודש במתנה אחרי 12 חודשי מנוי בתשלום.',
+    'מימוש הטבות המנוי ב־Web נעשה דרך שירות הלקוחות, לאחר בדיקת זכאות. פתיחת הפנייה אינה משנה את המנוי.',
+  ],
   invite: 'הזמנת עסק',
   whatsapp: 'WhatsApp',
   copied: 'הקישור הועתק.',
@@ -64,6 +76,7 @@ export function BusinessWebReferrals() {
   );
   const [busy, setBusy] = useState<ShareMode | 'redeem' | null>(null);
   const [notice, setNotice] = useState('');
+  const [termsOpen, setTermsOpen] = useState(false);
   const alive = useRef(true);
   const scope = useRef({
     id: activeBusinessId,
@@ -171,13 +184,15 @@ export function BusinessWebReferrals() {
 
   return (
     <View style={styles.page}>
+      <View style={styles.headerCopy}>
+        <Text accessibilityRole="header" style={styles.headline}>
+          {PAGE_COPY.headline}
+        </Text>
+        <Text style={styles.subtitle}>{PAGE_COPY.lead}</Text>
+        <Text style={styles.subtitle}>{PAGE_COPY.offer}</Text>
+        <Text style={styles.closer}>{PAGE_COPY.closer}</Text>
+      </View>
       <View style={[styles.header, stacked ? styles.headerStacked : null]}>
-        <View style={styles.headerCopy}>
-          <Text accessibilityRole="header" style={styles.title}>
-            {PAGE_COPY.title}
-          </Text>
-          <Text style={styles.subtitle}>{PAGE_COPY.subtitle}</Text>
-        </View>
         <View style={[styles.actions, stacked ? styles.actionsStacked : null]}>
           <PwaButton
             accessibilityLabel="הזמנת עסק"
@@ -198,11 +213,35 @@ export function BusinessWebReferrals() {
           />
         </View>
       </View>
-      <Text style={styles.note}>{PAGE_COPY.note}</Text>
-      <Text style={styles.note}>
-        מימוש הטבות המנוי ב־Web נעשה דרך שירות הלקוחות, לאחר בדיקת זכאות. פתיחת
-        הפנייה אינה משנה את המנוי.
-      </Text>
+      <View style={styles.terms}>
+        <Pressable
+          accessibilityLabel={PAGE_COPY.termsLabel}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: termsOpen }}
+          onPress={() => setTermsOpen((open) => !open)}
+          style={styles.termsToggle}
+        >
+          <Text style={styles.termsLabel}>{PAGE_COPY.termsLabel}</Text>
+          <View
+            style={{ transform: [{ rotate: termsOpen ? '180deg' : '0deg' }] }}
+          >
+            <ChevronDown
+              color={TOKENS.colors.textSecondary}
+              size={TOKENS.icons.standard}
+              strokeWidth={TOKENS.icons.strokeWidth}
+            />
+          </View>
+        </Pressable>
+        {termsOpen ? (
+          <View style={styles.termsPanel}>
+            {PAGE_COPY.terms.map((term) => (
+              <Text key={term} style={styles.term}>
+                {term}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+      </View>
       {notice ? (
         <Text accessibilityLiveRegion="polite" style={styles.notice}>
           {notice}
@@ -298,8 +337,9 @@ async function shareInvite(text: string, url: string) {
   if (!share) {
     return false;
   }
+  const message = text.includes(url) ? text : `${text}\n${url}`;
   try {
-    await globalThis.navigator.share({ text, url });
+    await globalThis.navigator.share({ text: message });
     return true;
   } catch (error) {
     const name = error instanceof DOMException ? error.name : '';
@@ -343,15 +383,45 @@ const styles = StyleSheet.create({
     ...rtlBaseText,
     color: TOKENS.colors.textPrimary,
   },
+  headline: {
+    ...TOKENS.typography.pageTitle,
+    ...rtlBaseText,
+    color: TOKENS.colors.textPrimary,
+    fontWeight: '700',
+  },
+  closer: {
+    ...TOKENS.typography.cardTitle,
+    ...rtlBaseText,
+    color: TOKENS.colors.textPrimary,
+    fontWeight: '700',
+  },
   subtitle: {
     ...TOKENS.typography.body,
     ...rtlBaseText,
     color: TOKENS.colors.textSecondary,
   },
-  note: {
+  terms: { gap: TOKENS.space.sm },
+  termsToggle: {
+    alignItems: 'center',
+    flexDirection: flexDirection.row,
+    gap: TOKENS.space.xs,
+    minHeight: TOKENS.control.quietHeight,
+  },
+  termsLabel: {
+    ...TOKENS.typography.label,
+    ...rtlBaseText,
+    color: TOKENS.colors.textSecondary,
+  },
+  termsPanel: {
+    backgroundColor: TOKENS.colors.subtleSurface,
+    borderRadius: TOKENS.radii.md,
+    gap: TOKENS.space.sm,
+    padding: TOKENS.space.md,
+  },
+  term: {
     ...TOKENS.typography.secondaryBody,
     ...rtlBaseText,
-    color: TOKENS.colors.textMuted,
+    color: TOKENS.colors.textSecondary,
   },
   notice: {
     ...TOKENS.typography.body,
