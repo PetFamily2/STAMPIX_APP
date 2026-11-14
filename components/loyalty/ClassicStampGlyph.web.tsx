@@ -222,6 +222,7 @@ export function ClassicStampGlyph({ icon, color, paper, earned }: MarkProps) {
         {id === 'automotive' ? (
           <Path
             d="M8 28h32v6H8zM12 28l3-8h18l3 8M16 34a3 3 0 1 1 0 .1M32 34a3 3 0 1 1 0 .1"
+            transform="translate(0 -4.5)"
             fill={ink.fill}
             stroke={earned ? paper : color}
             strokeWidth={1.8}
