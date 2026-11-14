@@ -12,6 +12,8 @@ export const CONTROL_PATHS = new Set([
   'lib/__tests__/phase3c1PreviewGuard.test.js',
   'docs/PWA_RELEASE_CANDIDATE.md',
   'docs/PREVIEW_GOOGLE_AUTH.md',
+  'docs/archive/legacy-development/PWA_RELEASE_CANDIDATE.md',
+  'docs/archive/legacy-development/PREVIEW_GOOGLE_AUTH.md',
   'scripts/phase3-preview/hosted-qa.mjs',
   'scripts/phase3-preview/install-qa.mjs',
 ]);

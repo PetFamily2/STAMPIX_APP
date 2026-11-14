@@ -27,6 +27,7 @@ const allowedPaths = new Set([
   '.github/workflows/product-provider-reuse.yml',
   'scripts/reuse-existing-preview-providers.mjs',
   'docs/PREVIEW_PROVIDER_REUSE.md',
+  'docs/archive/legacy-development/PREVIEW_PROVIDER_REUSE.md',
 ]);
 const report = {
   status: 'RUNNING',
