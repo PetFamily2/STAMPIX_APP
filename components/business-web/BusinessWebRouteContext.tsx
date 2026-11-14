@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
 } from 'react';
+import { registerUnsavedEdits } from '@/lib/network/unsavedEdits';
 
 type NavigationGuard = {
   isDirty: boolean;
@@ -57,12 +58,16 @@ export function useBusinessWebUnsavedChanges(
     if (!isDirty) {
       return;
     }
+    const release = registerUnsavedEdits();
     function handleBeforeUnload(event: BeforeUnloadEvent) {
       event.preventDefault();
       event.returnValue = '';
     }
     window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      release();
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   }, [isDirty]);
 }
 

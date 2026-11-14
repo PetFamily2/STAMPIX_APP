@@ -149,6 +149,9 @@ export default function BusinessReferralSettingsScreen({
   const params = useLocalSearchParams<{ tab?: string }>();
   const tabBarHeight = useBottomTabBarHeight();
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
+  const [activeTab, setActiveTab] = useState<ReferralTab>(
+    normalizeTab(params.tab)
+  );
 
   const capabilities = activeBusiness
     ? resolveBusinessCapabilities(
@@ -175,27 +178,30 @@ export default function BusinessReferralSettingsScreen({
   );
   const performanceQuery = useQuery(
     api.referrals.getBusinessReferralPerformance,
-    activeBusinessId && canViewDashboard
+    activeBusinessId &&
+      canViewDashboard &&
+      (!webPresentation || activeTab === 'performance')
       ? { businessId: activeBusinessId, range: '30d' }
       : 'skip'
   );
   const customersQuery = useQuery(
     api.referrals.listBusinessReferralCustomers,
-    activeBusinessId && canViewCustomers
+    activeBusinessId &&
+      canViewCustomers &&
+      (!webPresentation || activeTab === 'customers')
       ? { businessId: activeBusinessId, limit: 80 }
       : 'skip'
   );
   const rewardsQuery = useQuery(
     api.referrals.listBusinessReferralRewards,
-    activeBusinessId && canViewCustomers
+    activeBusinessId &&
+      canViewCustomers &&
+      (!webPresentation || activeTab === 'rewards')
       ? { businessId: activeBusinessId, limit: 80 }
       : 'skip'
   );
   const saveReferralConfig = useMutation(api.referrals.saveReferralConfig);
 
-  const [activeTab, setActiveTab] = useState<ReferralTab>(
-    normalizeTab(params.tab)
-  );
   const [isEnabled, setIsEnabled] = useState(true);
   const [rewardType, setRewardType] = useState<RewardType>('STAMP');
   const [rewardValueText, setRewardValueText] = useState('1');

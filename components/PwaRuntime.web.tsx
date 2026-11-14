@@ -5,6 +5,7 @@ import {
   pendingWriteCount,
   subscribePendingWrites,
 } from '@/lib/network/pendingWrites';
+import { hasUnsavedEdits } from '@/lib/network/unsavedEdits';
 
 const UPDATE_INTERVAL_MS = 15 * 60 * 1000;
 const RELOAD_GUARD_KEY = 'stampaix:pwa-reload-at';
@@ -55,6 +56,7 @@ export default function PwaRuntime() {
     !busy.current &&
     !serverBusy.current &&
     !httpBusy.current &&
+    !hasUnsavedEdits() &&
     !uncertainty() &&
     !paymentInProgress();
   useEffect(() => {
@@ -158,6 +160,8 @@ export default function PwaRuntime() {
         !hadController ||
         busy.current ||
         httpBusy.current ||
+        serverBusy.current ||
+        hasUnsavedEdits() ||
         uncertainty() ||
         paymentInProgress()
       ) {
