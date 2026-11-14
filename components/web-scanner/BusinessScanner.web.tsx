@@ -62,12 +62,36 @@ export default function BusinessScanner(props: {
     Array<{ rewardId: string; title: string }>
   >([]);
   const [revision, setRevision] = useState(0);
+  const [visible, setVisible] = useState(
+    () =>
+      typeof document !== 'undefined' && document.visibilityState === 'visible'
+  );
+  const [feedback, setFeedback] = useState<'success' | 'error' | null>(null);
   const [armed, setArmed] = useState<{
     phase: typeof state.phase;
     action: string;
   } | null>(null);
   const isArmed = (action: string) =>
     armed?.phase === state.phase && armed.action === action;
+  useEffect(() => {
+    const update = () => setVisible(document.visibilityState === 'visible');
+    document.addEventListener('visibilitychange', update);
+    return () => document.removeEventListener('visibilitychange', update);
+  }, []);
+  useEffect(() => {
+    const next =
+      state.phase === 'SUCCESS' && state.receipt
+        ? 'success'
+        : state.phase === 'ERROR'
+          ? 'error'
+          : null;
+    setFeedback(next);
+    if (!next) {
+      return;
+    }
+    const timer = window.setTimeout(() => setFeedback(null), 900);
+    return () => window.clearTimeout(timer);
+  }, [state.phase, state.receipt]);
   useEffect(() => {
     const busy = [
       'QR_LOCKED',
@@ -401,7 +425,27 @@ export default function BusinessScanner(props: {
           muted={true}
           aria-label="מצלמת סריקת קוד לקוח"
         />
-        {cameraActive ? <div className="sx-target" aria-hidden="true" /> : null}
+        {cameraActive && visible ? (
+          <div
+            className="sx-target"
+            data-feedback={feedback ?? undefined}
+            data-scanning={
+              cameraState.status === 'scanning' &&
+              !feedback &&
+              ['CAMERA_READY', 'IDLE', 'SUCCESS', 'ERROR'].includes(state.phase)
+            }
+            aria-hidden="true"
+          >
+            <span className="sx-corner sx-top-right" />
+            <span className="sx-corner sx-top-left" />
+            <span className="sx-corner sx-bottom-right" />
+            <span className="sx-corner sx-bottom-left" />
+            <span className="sx-scan-line" />
+            {feedback === 'success' ? (
+              <span className="sx-check">✓</span>
+            ) : null}
+          </div>
+        ) : null}
       </div>
       {!cameraSaved && cameraState.cameras.length > 1 ? (
         <label>
@@ -603,7 +647,18 @@ const SCANNER_CHROME = `
 .sx-progress{font-size:22px;font-weight:600;color:${TOKENS.colors.textPrimary}}
 .sx-camera-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;box-sizing:border-box;color:${TOKENS.colors.textSecondary}}
 .sx-camera-placeholder strong{color:${TOKENS.colors.textPrimary};font-size:18px}
-.sx-target{position:absolute;inset:6% 4%;border:2px dashed ${TOKENS.colors.elevatedSurface};border-radius:${TOKENS.radii.md}px;pointer-events:none}
+.sx-target{position:absolute;inset:7% 18%;overflow:hidden;pointer-events:none;color:#4185ff}
+.sx-corner{position:absolute;width:26px;height:26px;border-color:currentColor;border-style:solid;filter:drop-shadow(0 0 4px rgba(65,133,255,.6))}
+.sx-top-right{top:0;right:0;border-width:3px 3px 0 0;border-radius:0 12px 0 0}.sx-top-left{top:0;left:0;border-width:3px 0 0 3px;border-radius:12px 0 0 0}
+.sx-bottom-right{bottom:0;right:0;border-width:0 3px 3px 0;border-radius:0 0 12px 0}.sx-bottom-left{bottom:0;left:0;border-width:0 0 3px 3px;border-radius:0 0 0 12px}
+.sx-scan-line{position:absolute;left:3%;right:3%;top:0;height:100%;opacity:0;background:linear-gradient(to bottom,rgba(110,181,255,.95),rgba(65,133,255,.25) 2px,transparent 12px);transform:translateY(0)}
+.sx-target[data-scanning=true] .sx-scan-line{opacity:.85;animation:sx-sweep 2.4s ease-in-out infinite alternate}
+.sx-target[data-feedback=success]{color:#42db90}.sx-target[data-feedback=error]{color:#f07676}
+.sx-target[data-feedback]::before{content:'';position:absolute;inset:0;border-radius:12px;background:currentColor;opacity:.12;animation:sx-feedback .9s ease-out both}
+.sx-check{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-size:48px;font-weight:700;text-shadow:0 1px 8px #16865c;animation:sx-feedback .9s ease-out both}
+@keyframes sx-sweep{from{transform:translateY(0)}to{transform:translateY(100%)}}
+@keyframes sx-feedback{0%{opacity:0}20%,65%{opacity:.85}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.sx-target[data-scanning=true] .sx-scan-line{animation:none;opacity:.65;top:50%}.sx-target[data-feedback]::before,.sx-check{animation:none}}
 .sx-copy{display:flex;flex-direction:column;gap:12px}
 .sx-actions{display:flex;flex-direction:column;gap:8px}
 .sx-scan button{min-height:${TOKENS.control.height}px;padding:12px;border-radius:${TOKENS.radii.md}px;border:1px solid ${TOKENS.colors.borderStrong};background:${TOKENS.colors.elevatedSurface};color:${TOKENS.colors.primary};font:600 16px/1.4 Heebo,Arial,sans-serif;cursor:pointer}
