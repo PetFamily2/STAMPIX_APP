@@ -25,6 +25,7 @@ const allowed = [
   'web/scanner-lab/',
   'vendor/jsqr/',
   'docs/PWA_PHASE2',
+  'docs/archive/legacy-development/PWA_PHASE2',
   'docs/qr-decoder-provenance.json',
   'lib/__tests__/webQr',
   'scripts/export-qr-lab.mjs',
