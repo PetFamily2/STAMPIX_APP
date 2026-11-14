@@ -17,6 +17,24 @@ if (
   location.protocol === 'https:' &&
   'serviceWorker' in navigator
 ) {
+  const answerUpdate = (nonce) => {
+    navigator.serviceWorker.getRegistration().then((registration) => {
+      const worker = registration?.waiting ?? registration?.active;
+      worker?.postMessage({
+        type: 'UPDATE_SAFETY',
+        nonce,
+        safe: publicEntryUpdateSafe(),
+      });
+    });
+  };
+  if (typeof BroadcastChannel === 'function') {
+    const updateChannel = new BroadcastChannel('stampaix-pwa-update');
+    updateChannel.addEventListener('message', (event) => {
+      if (event.data?.type === 'CHECK_UPDATE_SAFE') {
+        answerUpdate(event.data.nonce);
+      }
+    });
+  }
   navigator.serviceWorker.addEventListener('message', (event) => {
     if (event.data?.type !== 'CHECK_UPDATE_SAFE' || !event.source?.scriptURL)
       return;

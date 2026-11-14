@@ -43,22 +43,48 @@ self.addEventListener('fetch', (event) => {
   // All other requests are untouched, including Convex HTTP/WebSocket/auth/QR/analytics.
 });
 let audit = null;
+function activationNonce(value) {
+  return typeof value === 'string' && value.length > 0 && value.length <= 80
+    ? value
+    : crypto.randomUUID();
+}
+async function activateIfUnanimous(current) {
+  if (!current?.ids || current.safe.size !== current.ids.size) {
+    return;
+  }
+  const clients = await self.clients.matchAll({
+    type: 'window',
+    includeUncontrolled: true,
+  });
+  if (current && clients.every((client) => current.safe.has(client.id))) {
+    await self.skipWaiting();
+  }
+  if (audit === current) {
+    audit = null;
+  }
+}
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'REQUEST_SAFE_ACTIVATION') {
+    const nonce = activationNonce(event.data.nonce);
+    audit = { nonce, ids: null, safe: new Set() };
     event.waitUntil(
       (async () => {
         const clients = await self.clients.matchAll({
           type: 'window',
           includeUncontrolled: true,
         });
-        if (!clients.length) return;
-        audit = {
-          nonce: crypto.randomUUID(),
-          ids: new Set(clients.map((c) => c.id)),
-          safe: new Set(),
-        };
-        for (const client of clients)
-          client.postMessage({ type: 'CHECK_UPDATE_SAFE', nonce: audit.nonce });
+        if (!audit || audit.nonce !== nonce) {
+          return;
+        }
+        if (!clients.length) {
+          audit = null;
+          return;
+        }
+        audit.ids = new Set(clients.map((client) => client.id));
+        for (const client of clients) {
+          client.postMessage({ type: 'CHECK_UPDATE_SAFE', nonce });
+        }
+        await activateIfUnanimous(audit);
       })()
     );
   } else if (
@@ -66,7 +92,7 @@ self.addEventListener('message', (event) => {
     audit &&
     event.data.nonce === audit.nonce &&
     event.source &&
-    audit.ids.has(event.source.id)
+    (!audit.ids || audit.ids.has(event.source.id))
   ) {
     if (event.data.safe !== true) {
       const blocked = audit;
@@ -90,19 +116,9 @@ self.addEventListener('message', (event) => {
       return;
     }
     audit.safe.add(event.source.id);
-    if (audit.safe.size === audit.ids.size)
-      event.waitUntil(
-        (async () => {
-          const current = audit;
-          const clients = await self.clients.matchAll({
-            type: 'window',
-            includeUncontrolled: true,
-          });
-          if (current && clients.every((c) => current.safe.has(c.id)))
-            await self.skipWaiting();
-          if (audit === current) audit = null;
-        })()
-      );
+    if (audit.ids) {
+      event.waitUntil(activateIfUnanimous(audit));
+    }
   }
 });
 function destination(value) {

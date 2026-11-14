@@ -46,8 +46,10 @@ export default function PwaRuntime() {
   const [waiting, setWaiting] = useState<ServiceWorker | null>(null);
   const [dismissed, setDismissed] = useState<ServiceWorker | null>(null);
   const [held, setHeld] = useState(false);
+  const [applying, setApplying] = useState(false);
   const [offline, setOffline] = useState(false);
   const busy = useRef(false);
+  const attempt = useRef('');
   const safeNow = useRef<() => boolean>(() => false);
   safeNow.current = () =>
     !busy.current &&
@@ -113,8 +115,30 @@ export default function PwaRuntime() {
       network();
       checkForUpdate();
     };
+    const answerSafety = (nonce: string) => {
+      const payload = {
+        type: 'UPDATE_SAFETY',
+        nonce,
+        safe: safeNow.current(),
+      };
+      void navigator.serviceWorker.getRegistration().then((next) => {
+        next?.waiting?.postMessage(payload);
+        next?.active?.postMessage(payload);
+      });
+    };
+    const channel =
+      typeof BroadcastChannel === 'function'
+        ? new BroadcastChannel('stampaix-pwa-update')
+        : null;
+    const onChannel = (event: MessageEvent) => {
+      if (event.data?.type === 'CHECK_UPDATE_SAFE') {
+        answerSafety(event.data.nonce);
+      }
+    };
+    channel?.addEventListener('message', onChannel);
     const message = (event: MessageEvent) => {
       if (event.data?.type === 'CHECK_UPDATE_SAFE') {
+        answerSafety(event.data.nonce);
         event.source?.postMessage({
           type: 'UPDATE_SAFETY',
           nonce: event.data.nonce,
@@ -129,7 +153,14 @@ export default function PwaRuntime() {
     const hadController = !!navigator.serviceWorker.controller;
     let reloaded = false;
     const changed = () => {
-      if (reloaded || !hadController || !safeNow.current()) {
+      if (
+        reloaded ||
+        !hadController ||
+        busy.current ||
+        httpBusy.current ||
+        uncertainty() ||
+        paymentInProgress()
+      ) {
         return;
       }
       let last = 0;
@@ -143,6 +174,7 @@ export default function PwaRuntime() {
         /* Reload still proceeds once in this document. */
       }
       reloaded = true;
+      attempt.current = '';
       location.reload();
     };
     window.addEventListener('online', onOnline);
@@ -183,6 +215,8 @@ export default function PwaRuntime() {
       document.removeEventListener('visibilitychange', onVisible);
       navigator.serviceWorker.removeEventListener('message', message);
       navigator.serviceWorker.removeEventListener('controllerchange', changed);
+      channel?.removeEventListener('message', onChannel);
+      channel?.close();
     };
   }, []);
   const update = () => {
@@ -190,11 +224,31 @@ export default function PwaRuntime() {
       return;
     }
     if (!safeNow.current()) {
+      setApplying(false);
       setHeld(true);
       return;
     }
+    const nonce = crypto.randomUUID();
+    attempt.current = nonce;
     setHeld(false);
-    waiting.postMessage({ type: 'REQUEST_SAFE_ACTIVATION' });
+    setApplying(true);
+    waiting.postMessage({ type: 'REQUEST_SAFE_ACTIVATION', nonce });
+    waiting.postMessage({
+      type: 'UPDATE_SAFETY',
+      nonce,
+      safe: true,
+    });
+    if (typeof BroadcastChannel === 'function') {
+      const channel = new BroadcastChannel('stampaix-pwa-update');
+      channel.postMessage({ type: 'CHECK_UPDATE_SAFE', nonce });
+      channel.close();
+    }
+    window.setTimeout(() => {
+      if (attempt.current === nonce) {
+        setApplying(false);
+        setHeld(true);
+      }
+    }, 2500);
   };
   const showUpdate = waiting != null && waiting !== dismissed;
   return (
@@ -210,7 +264,7 @@ export default function PwaRuntime() {
           <strong style={titleStyle}>🚀 גרסה חדשה זמינה</strong>
           <span style={actionsStyle}>
             <button type="button" onClick={update} style={updateButtonStyle}>
-              עדכון עכשיו
+              {applying && !held ? 'מעדכנים…' : 'עדכון עכשיו'}
             </button>
             <button
               type="button"
@@ -230,7 +284,7 @@ export default function PwaRuntime() {
 
 const bannerStyle = {
   position: 'fixed' as const,
-  zIndex: 40,
+  zIndex: 2000,
   top: 12,
   insetInline: 12,
   marginInline: 'auto',
