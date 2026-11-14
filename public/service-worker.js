@@ -69,7 +69,24 @@ self.addEventListener('message', (event) => {
     audit.ids.has(event.source.id)
   ) {
     if (event.data.safe !== true) {
+      const blocked = audit;
       audit = null;
+      if (blocked) {
+        event.waitUntil(
+          (async () => {
+            const clients = await self.clients.matchAll({
+              type: 'window',
+              includeUncontrolled: true,
+            });
+            for (const client of clients) {
+              client.postMessage({
+                type: 'UPDATE_BLOCKED',
+                nonce: blocked.nonce,
+              });
+            }
+          })()
+        );
+      }
       return;
     }
     audit.safe.add(event.source.id);

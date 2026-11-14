@@ -1314,12 +1314,12 @@ try {
     });
     await scan.page
       .getByRole('button', {
-        name: 'גרסה חדשה זמינה — עדכון כשאין פעולה ממתינה',
+        name: 'עדכון עכשיו',
       })
       .waitFor();
     await scan.page
       .getByRole('button', {
-        name: 'גרסה חדשה זמינה — עדכון כשאין פעולה ממתינה',
+        name: 'עדכון עכשיו',
       })
       .click();
     requireThat(
@@ -1341,7 +1341,7 @@ try {
     );
     await scan.page
       .getByRole('button', {
-        name: 'גרסה חדשה זמינה — עדכון כשאין פעולה ממתינה',
+        name: 'עדכון עכשיו',
       })
       .click();
     requireThat(
@@ -1383,7 +1383,7 @@ try {
     );
     await scan.page
       .getByRole('button', {
-        name: 'גרסה חדשה זמינה — עדכון כשאין פעולה ממתינה',
+        name: 'עדכון עכשיו',
       })
       .click();
     await scan.page.waitForFunction(
