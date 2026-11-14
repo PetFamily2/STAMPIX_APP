@@ -1084,9 +1084,9 @@ describe('PayPlus canonical mapping and reconciliation', () => {
   test('a failed new checkout cannot replace an active plan', async () => {
     const ctx = createMockCtx({ businesses: [business()] });
     await seedCheckout(ctx);
-    expect((await applyVerifiedPayPlusEvidenceRecord(ctx, chargeInput())).ok).toBe(
-      true
-    );
+    expect(
+      (await applyVerifiedPayPlusEvidenceRecord(ctx, chargeInput())).ok
+    ).toBe(true);
 
     await createPayPlusCheckoutRecord(ctx, {
       actorUserId: OWNER_ID,
@@ -1133,7 +1133,10 @@ describe('PayPlus canonical mapping and reconciliation', () => {
       })
     ).toThrow('PAYPLUS_CHECKOUT_EXPIRED');
 
-    const applied = await applyVerifiedPayPlusEvidenceRecord(ctx, chargeInput());
+    const applied = await applyVerifiedPayPlusEvidenceRecord(
+      ctx,
+      chargeInput()
+    );
     expect(applied).toMatchObject({
       ok: true,
       eventKind: 'initial_payment',

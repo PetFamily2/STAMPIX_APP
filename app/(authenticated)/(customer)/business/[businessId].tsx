@@ -1,14 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMutation, useQuery } from 'convex/react';
 import { type Href, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
+  Image,
   Linking,
+  Platform,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   View,
@@ -17,11 +16,11 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
 import AnimatedActionBanner from '@/components/AnimatedActionBanner';
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
+import { LoyaltyCardClassic } from '@/components/loyalty/LoyaltyCardClassic';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import {
   PaintedPressable,
@@ -30,8 +29,17 @@ import {
 import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { useCustomerTabBarHeight } from '@/hooks/useCustomerTabBarHeight';
+import { Alert } from '@/lib/alert';
 import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import {
+  productPageBackground,
+  productPrimary,
+  webAccentFill,
+  webAccentText,
+  webPage,
+} from '@/lib/design/webProductChrome';
 import { safeBack } from '@/lib/navigation';
 import {
   CUSTOMER_BACK_FALLBACKS,
@@ -42,7 +50,10 @@ import {
   flexDirection,
   justifyContent,
   rtlBaseView,
+  selfStart,
 } from '@/lib/rtl';
+import { Share } from '@/lib/share';
+import { shareUrl } from '@/lib/shareUrl';
 
 const TEXT = {
   loading: 'טוען פרטי עסק',
@@ -117,7 +128,7 @@ function formatProgress(currentStamps: number, maxStamps: number) {
 
 export default function CustomerBusinessDetailsScreen() {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = useCustomerTabBarHeight();
   const params = useLocalSearchParams<{
     businessId?: string;
     join?: string;
@@ -252,7 +263,7 @@ export default function CustomerBusinessDetailsScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={[]}>
         <View style={styles.centerMessage}>
-          <ActivityIndicator color="#2F6BFF" />
+          <ActivityIndicator color={productPrimary} />
           <Text style={styles.centerMessageText}>{TEXT.loading}</Text>
         </View>
       </SafeAreaView>
@@ -290,8 +301,8 @@ export default function CustomerBusinessDetailsScreen() {
           : undefined,
         shareSurface: 'business_page',
       });
-      const message = buildInviteMessage(link.url);
-      const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
+      const message = buildInviteMessage(shareUrl(link.url));
+      const whatsappUrl = `${Platform.OS === 'web' ? 'https://wa.me/' : 'whatsapp://send'}?text=${encodeURIComponent(message)}`;
       const canOpenWhatsApp = await Linking.canOpenURL(whatsappUrl);
       if (canOpenWhatsApp) {
         await Linking.openURL(whatsappUrl);
@@ -325,9 +336,10 @@ export default function CustomerBusinessDetailsScreen() {
         };
       };
       if (maybeNavigator.navigator?.clipboard?.writeText) {
-        await maybeNavigator.navigator.clipboard.writeText(link.url);
+        await maybeNavigator.navigator.clipboard.writeText(shareUrl(link.url));
       } else {
-        await Share.share({ message: link.url });
+        await Share.share({ message: shareUrl(link.url) });
+        return;
       }
       Alert.alert('', TEXT.inviteLinkCopied);
     } catch {
@@ -363,9 +375,16 @@ export default function CustomerBusinessDetailsScreen() {
       >
         <StickyScrollHeader
           topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
+          backgroundColor={productPageBackground}
         >
           <View style={styles.headerRow}>
+            {Platform.OS === 'web' && business.logoUrl ? (
+              <Image
+                accessibilityLabel={`לוגו ${business.name}`}
+                source={{ uri: business.logoUrl }}
+                style={styles.businessLogo}
+              />
+            ) : null}
             <BusinessScreenHeader
               title={business.name}
               subtitle={business.formattedAddress ?? ''}
@@ -440,23 +459,42 @@ export default function CustomerBusinessDetailsScreen() {
                       selected ? styles.programCardSelected : null,
                     ]}
                   >
-                    <LoyaltyCard
-                      variant="wallet"
-                      businessName={business.name}
-                      businessLogoUrl={business.logoUrl}
-                      programImageUrl={program.programImageUrl}
-                      programTitle={program.title}
-                      rewardName={program.rewardName}
-                      maxStamps={program.maxStamps}
-                      progress={{ kind: 'actual', currentStamps: 0 }}
-                      lifecycle={program.programLifecycle}
-                      membershipStatus="available"
-                      cardThemeId={program.cardThemeId}
-                      stampIcon={program.stampIcon}
-                      stampShape={normalizeStampShape(program.stampShape)}
-                      selected={selected}
-                      onPress={() => toggleProgramSelection(key)}
-                    />
+                    {Platform.OS === 'web' ? (
+                      <LoyaltyCardClassic
+                        businessLogoUrl={business.logoUrl}
+                        businessName={business.name}
+                        cardThemeId={program.cardThemeId}
+                        lifecycle={program.programLifecycle}
+                        maxStamps={program.maxStamps}
+                        membershipStatus="available"
+                        onPress={() => toggleProgramSelection(key)}
+                        programTitle={program.title}
+                        progress={{ kind: 'actual', currentStamps: 0 }}
+                        rewardName={program.rewardName}
+                        selected={selected}
+                        stampIcon={program.stampIcon}
+                        stampShape={normalizeStampShape(program.stampShape)}
+                        variant="wallet"
+                      />
+                    ) : (
+                      <LoyaltyCard
+                        variant="wallet"
+                        businessName={business.name}
+                        businessLogoUrl={business.logoUrl}
+                        programImageUrl={program.programImageUrl}
+                        programTitle={program.title}
+                        rewardName={program.rewardName}
+                        maxStamps={program.maxStamps}
+                        progress={{ kind: 'actual', currentStamps: 0 }}
+                        lifecycle={program.programLifecycle}
+                        membershipStatus="available"
+                        cardThemeId={program.cardThemeId}
+                        stampIcon={program.stampIcon}
+                        stampShape={normalizeStampShape(program.stampShape)}
+                        selected={selected}
+                        onPress={() => toggleProgramSelection(key)}
+                      />
+                    )}
                     <Pressable
                       style={styles.programFooterRow}
                       onPress={() => toggleProgramSelection(key)}
@@ -472,7 +510,7 @@ export default function CustomerBusinessDetailsScreen() {
                             selected ? 'checkmark-circle' : 'ellipse-outline'
                           }
                           size={22}
-                          color={selected ? '#2F6BFF' : '#9AA4B8'}
+                          color={selected ? productPrimary : '#9AA4B8'}
                         />
                       </View>
                     </Pressable>
@@ -483,6 +521,7 @@ export default function CustomerBusinessDetailsScreen() {
           )}
 
           <PaintedPressable
+            accessibilityRole={Platform.OS === 'web' ? 'button' : undefined}
             onPress={handleJoinSelected}
             disabled={!canSubmitSelection}
             style={({ pressed }) => [
@@ -512,24 +551,44 @@ export default function CustomerBusinessDetailsScreen() {
                     key={String(program.programId)}
                     style={styles.programCard}
                   >
-                    <LoyaltyCard
-                      variant="wallet"
-                      businessName={business.name}
-                      businessLogoUrl={business.logoUrl}
-                      programImageUrl={program.programImageUrl}
-                      programTitle={program.title}
-                      rewardName={program.rewardName}
-                      maxStamps={program.maxStamps}
-                      progress={{
-                        kind: 'actual',
-                        currentStamps: program.currentStamps,
-                      }}
-                      lifecycle={program.programLifecycle}
-                      cardThemeId={program.cardThemeId}
-                      stampIcon={program.stampIcon}
-                      stampShape={normalizeStampShape(program.stampShape)}
-                      onPress={() => openJoinedCard(program.membershipId)}
-                    />
+                    {Platform.OS === 'web' ? (
+                      <LoyaltyCardClassic
+                        businessLogoUrl={business.logoUrl}
+                        businessName={business.name}
+                        cardThemeId={program.cardThemeId}
+                        lifecycle={program.programLifecycle}
+                        maxStamps={program.maxStamps}
+                        onPress={() => openJoinedCard(program.membershipId)}
+                        programTitle={program.title}
+                        progress={{
+                          kind: 'actual',
+                          currentStamps: program.currentStamps,
+                        }}
+                        rewardName={program.rewardName}
+                        stampIcon={program.stampIcon}
+                        stampShape={normalizeStampShape(program.stampShape)}
+                        variant="wallet"
+                      />
+                    ) : (
+                      <LoyaltyCard
+                        variant="wallet"
+                        businessName={business.name}
+                        businessLogoUrl={business.logoUrl}
+                        programImageUrl={program.programImageUrl}
+                        programTitle={program.title}
+                        rewardName={program.rewardName}
+                        maxStamps={program.maxStamps}
+                        progress={{
+                          kind: 'actual',
+                          currentStamps: program.currentStamps,
+                        }}
+                        lifecycle={program.programLifecycle}
+                        cardThemeId={program.cardThemeId}
+                        stampIcon={program.stampIcon}
+                        stampShape={normalizeStampShape(program.stampShape)}
+                        onPress={() => openJoinedCard(program.membershipId)}
+                      />
+                    )}
                     <Pressable
                       style={styles.programFooterRow}
                       onPress={() => openJoinedCard(program.membershipId)}
@@ -583,9 +642,11 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#E9F0FF',
+    ...webPage,
   },
   scrollBackground: {
     backgroundColor: '#E9F0FF',
+    ...webPage,
   },
   scrollContainer: {
     paddingHorizontal: 20,
@@ -597,6 +658,13 @@ const styles = StyleSheet.create({
   headerRow: {
     alignItems: 'stretch',
     marginBottom: 2,
+  },
+  businessLogo: {
+    alignSelf: selfStart,
+    borderRadius: 12,
+    height: 48,
+    marginBottom: 8,
+    width: 48,
   },
   backButton: {
     width: 32,
@@ -660,6 +728,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
+    ...webAccentFill,
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -741,13 +810,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     color: '#2F6BFF',
+    ...webAccentText,
     textAlign: 'right',
   },
   joinButton: {
     marginTop: 2,
     minHeight: 48,
     borderRadius: 999,
-    backgroundColor: '#2F6BFF',
+    backgroundColor: Platform.OS === 'web' ? '#1230A8' : '#2F6BFF',
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -772,12 +842,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     color: '#2F6BFF',
+    ...webAccentText,
     textAlign: 'right',
   },
   openCardText: {
     fontSize: 12,
     fontWeight: '800',
     color: '#1D4ED8',
+    ...webAccentText,
     textAlign: 'right',
   },
   redeemBadge: {

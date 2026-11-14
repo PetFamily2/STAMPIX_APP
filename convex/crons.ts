@@ -9,6 +9,7 @@ const internalAccountDeletionApi = (internal as any).accountDeletionRequests;
 const internalSmartManagerApi = (internal as any).smartManager;
 const internalSmartManagerActionsApi = (internal as any).smartManagerActions;
 const internalRedemptionReceiptsApi = (internal as any).redemptionReceipts;
+const internalGeneralFreeTrialApi = (internal as any).generalFreeTrial;
 const smartManagerDeliverySweepRef = makeFunctionReference<
   'mutation',
   Record<string, never>,
@@ -86,6 +87,27 @@ crons.hourly(
   internalProviderCredentialsApi.sweepProviderRevocationJobsInternal
 );
 
+crons.hourly(
+  'sumit billing reconciliation sweep hourly',
+  { minuteUTC: 15 },
+  internal.sumitBilling.reconcileSUMITBillingSweepInternal,
+  { limit: 25 }
+);
+
+crons.hourly(
+  'general free trial expiry hourly',
+  { minuteUTC: 25 },
+  internalGeneralFreeTrialApi.expireGeneralFreeTrialsInternal,
+  { limit: 25 }
+);
+
+crons.hourly(
+  'SUMIT payment failure reminders hourly',
+  { minuteUTC: 35 },
+  internal.sumitBilling.sendSUMITBillingReminderSweepInternal,
+  { cursor: null }
+);
+
 crons.daily(
   'smart manager audit retention cleanup daily',
   { hourUTC: 2, minuteUTC: 50 },
@@ -153,6 +175,15 @@ crons.interval(
   'smart manager delivery recovery every 5 minutes',
   { minutes: 5 },
   smartManagerDeliverySweepRef
+);
+
+crons.hourly(
+  'system team invitation and data retention',
+  { minuteUTC: 25 },
+  makeFunctionReference<'mutation', Record<string, never>, null>(
+    'systemTeam:cleanup'
+  ),
+  {}
 );
 
 export default crons;

@@ -1,5 +1,6 @@
 import { useAuthActions } from '@convex-dev/auth/react';
-import { usePathname, useRouter } from 'expo-router';
+import { useMutation } from 'convex/react';
+import { type Href, usePathname, useRouter } from 'expo-router';
 import { type ReactNode, useRef, useState } from 'react';
 import { BusinessWebConfirmDialog } from '@/components/business-web/BusinessWebDialog';
 import {
@@ -9,10 +10,15 @@ import {
 import { BusinessWebShell } from '@/components/business-web/BusinessWebShell';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { useSessionContext, useUser } from '@/contexts/UserContext';
+import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { POST_AUTH_ROUTES } from '@/lib/auth/postAuthRouting';
+import { waitForObservedSessionMode } from '@/lib/auth/waitForObservedSessionMode';
+import { isBusinessWebScannerAvailable } from '@/lib/businessWebNavigation';
 
 const TEXT = {
+  customerSwitchFailed: 'לא הצלחנו לעבור לארנק האישי. נסו שוב.',
   selectFailed: 'לא הצלחנו לבחור את העסק. נסו שוב.',
   unsavedTitle: 'יש שינויים שלא נשמרו',
   unsavedDescription:
@@ -51,9 +57,15 @@ export function BusinessWebShellRoute({ children }: { children: ReactNode }) {
     setActiveBusinessId,
   } = useActiveBusiness();
   const { guard, handleGuardChange } = useBusinessWebNavigationGuardState();
+  const setActiveMode = useMutation(api.users.setActiveMode);
   const pendingActionRef = useRef<(() => void) | null>(null);
+  const switchingToCustomerRef = useRef(false);
+  const observedModeRef = useRef(sessionContext?.activeMode);
+  observedModeRef.current = sessionContext?.activeMode;
   const [selectError, setSelectError] = useState('');
+  const [customerSwitchError, setCustomerSwitchError] = useState('');
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isSwitchingToCustomer, setIsSwitchingToCustomer] = useState(false);
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
 
   if (isUserLoading || isBusinessLoading || sessionContext === undefined) {
@@ -92,6 +104,28 @@ export function BusinessWebShellRoute({ children }: { children: ReactNode }) {
     });
   };
 
+  const switchToCustomerWallet = async () => {
+    if (switchingToCustomerRef.current || isSigningOut) {
+      return;
+    }
+    switchingToCustomerRef.current = true;
+    setIsSwitchingToCustomer(true);
+    setCustomerSwitchError('');
+    try {
+      await setActiveMode({ mode: 'customer' });
+      await waitForObservedSessionMode(
+        () => observedModeRef.current,
+        'customer'
+      );
+      router.replace(POST_AUTH_ROUTES.customerWallet as Href);
+    } catch {
+      setCustomerSwitchError(TEXT.customerSwitchFailed);
+    } finally {
+      switchingToCustomerRef.current = false;
+      setIsSwitchingToCustomer(false);
+    }
+  };
+
   const handleLogout = async () => {
     if (isSigningOut) {
       return;
@@ -111,10 +145,16 @@ export function BusinessWebShellRoute({ children }: { children: ReactNode }) {
         activeBusinessId={activeBusinessId}
         businesses={businesses}
         currentPathname={pathname}
+        customerSwitchError={customerSwitchError}
         displayName={displayName}
         email={email}
         isSigningOut={isSigningOut}
         isSwitchingBusiness={isSwitchingBusiness}
+        isSwitchingToCustomer={isSwitchingToCustomer}
+        scannerEnabled={isBusinessWebScannerAvailable({
+          userId: user?._id ? String(user._id) : null,
+          businessId: activeBusinessId ? String(activeBusinessId) : null,
+        })}
         onLogout={() => {
           requestGuardedAction(() => {
             void handleLogout();
@@ -127,6 +167,11 @@ export function BusinessWebShellRoute({ children }: { children: ReactNode }) {
           requestGuardedAction(() => router.push(href));
         }}
         onSelectBusiness={handleSelect}
+        onSwitchToCustomerWallet={() => {
+          requestGuardedAction(() => {
+            void switchToCustomerWallet();
+          });
+        }}
         selectError={selectError}
       >
         {children}

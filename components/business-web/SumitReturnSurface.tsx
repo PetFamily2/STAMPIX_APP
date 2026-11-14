@@ -5,7 +5,9 @@ import {
   ReceiptText,
   XCircle,
 } from 'lucide-react-native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+
+import { AppText as Text } from '@/components/ui/AppText';
 import { resolveBusinessSignedOutHref } from '@/lib/auth/webAuthEntry';
 import { BUSINESS_WEB_ROUTES } from '@/lib/businessWebNavigation';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';

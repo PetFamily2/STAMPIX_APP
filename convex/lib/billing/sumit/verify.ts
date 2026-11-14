@@ -71,14 +71,15 @@ function readTimestamp(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function isSuccessStatus(value: unknown): boolean {
-  return value === 'Success' || value === 'Success (0)';
+export function isSumitSuccessStatus(value: unknown): boolean {
+  // SUMIT's JSON wire format uses numeric enums; documentation may render labels.
+  return value === 0 || value === 'Success' || value === 'Success (0)';
 }
 
 function unwrapResponse(body: unknown): JsonRecord | null {
   if (
     !isRecord(body) ||
-    !isSuccessStatus(body.Status) ||
+    !isSumitSuccessStatus(body.Status) ||
     !isRecord(body.Data)
   ) {
     return null;
@@ -87,6 +88,9 @@ function unwrapResponse(body: unknown): JsonRecord | null {
 }
 
 export function normalizeSumitCurrency(value: unknown): string | null {
+  if (value === 0) {
+    return 'ILS';
+  }
   const text = readString(value);
   if (text === 'ILS' || text === 'ILS (0)') {
     return 'ILS';

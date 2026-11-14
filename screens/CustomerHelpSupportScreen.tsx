@@ -11,6 +11,7 @@ import { FaqAccordion, type FaqItemData } from '@/components/help/FaqAccordion';
 import { SupportMessageForm } from '@/components/help/SupportMessageForm';
 import { SupportWhatsAppButton } from '@/components/help/SupportWhatsAppButton';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { productPageBackground, webPage } from '@/lib/design/webProductChrome';
 import { SUPPORT_CONTACT_COPY } from '@/lib/help/supportContact';
 import { safeBack } from '@/lib/navigation';
 import { CUSTOMER_BACK_FALLBACKS } from '@/lib/navigation/customerRoutes';
@@ -60,7 +61,7 @@ export default function CustomerHelpSupportScreen() {
       >
         <StickyScrollHeader
           topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
+          backgroundColor={productPageBackground}
           style={styles.headerRow}
         >
           <BusinessScreenHeader
@@ -98,7 +99,7 @@ export default function CustomerHelpSupportScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#E9F0FF' },
+  safeArea: { flex: 1, backgroundColor: '#E9F0FF', ...webPage },
   scrollContent: {
     paddingHorizontal: 20,
     gap: 10,

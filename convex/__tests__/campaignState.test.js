@@ -237,9 +237,7 @@ describe('bounded campaign lifecycle facts', () => {
           activationStatus: 'active',
         }),
       ],
-      campaignRuns: [
-        { campaignId: 'manual_completed', sentAt: NOW - 60_000 },
-      ],
+      campaignRuns: [{ campaignId: 'manual_completed', sentAt: NOW - 60_000 }],
       now: NOW,
     });
 

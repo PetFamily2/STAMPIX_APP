@@ -30,6 +30,7 @@ import {
   consumePendingJoin,
   savePendingJoin,
 } from '@/lib/deeplink/pendingJoin';
+import { webBody, webPage, webTitle } from '@/lib/design/webProductChrome';
 import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
   BUSINESS_ONBOARDING_ROUTES,
@@ -419,6 +420,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FBFAF7',
+    ...webPage,
   },
   content: {
     flex: 1,
@@ -451,12 +453,14 @@ const styles = StyleSheet.create({
     color: '#111827',
     textAlign: 'right',
     writingDirection: 'rtl',
+    ...webTitle,
   },
   subtitle: {
     marginTop: 8,
     fontSize: 14,
     fontWeight: '600',
     color: '#6B7280',
+    ...webBody,
     textAlign: 'right',
     writingDirection: 'rtl',
     lineHeight: 20,

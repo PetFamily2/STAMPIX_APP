@@ -12,6 +12,7 @@ import {
   isBusinessPermanentDeletionInProgress,
   requireCurrentUser,
 } from './guards';
+import { readDeletionBillingSafety } from './lib/billing/deletionSafety';
 import { sendExpoPushMessages } from './pushNotifications';
 
 const DELETE_BATCH_SIZE = 50;
@@ -123,7 +124,7 @@ async function findJobsForBusiness(ctx: any, businessId: string) {
     .take(20);
 }
 
-async function getRevenueCatBillingState(
+async function getLegacyRevenueCatBillingState(
   ctx: any,
   businessId: Id<'businesses'>
 ) {
@@ -165,6 +166,14 @@ async function getRevenueCatBillingState(
     endAt: null,
     renewalActive: false,
   } as const;
+}
+
+async function getDeletionBillingState(ctx: any, businessId: Id<'businesses'>) {
+  return readDeletionBillingSafety(
+    ctx,
+    businessId,
+    await getLegacyRevenueCatBillingState(ctx, businessId)
+  );
 }
 
 async function requireCanonicalOwnerRelationship(
@@ -228,7 +237,7 @@ export const listMyBusinessesForPermanentDeletion = query({
           continue;
         }
       }
-      const billing = await getRevenueCatBillingState(ctx, business._id);
+      const billing = await getDeletionBillingState(ctx, business._id);
       result.push({
         businessExists: true as const,
         businessId: business._id,
@@ -241,7 +250,7 @@ export const listMyBusinessesForPermanentDeletion = query({
         permanentDeletionPhase: deletionJob?.phase ?? null,
         permanentDeletionFailureCode: deletionJob?.failureCode ?? null,
         billing,
-        deletionEligible: !billing.renewalActive,
+        deletionEligible: billing.deletionEligible,
       });
     }
 
@@ -331,9 +340,16 @@ export const deleteBusinessPermanently = mutation({
     ) {
       throw new Error('BUSINESS_NAME_CONFIRMATION_MISMATCH');
     }
-    const billing = await getRevenueCatBillingState(ctx, business._id);
+    const billing = await getDeletionBillingState(ctx, business._id);
     if (billing.renewalActive) {
       throw new Error('BUSINESS_SUBSCRIPTION_RENEWAL_ACTIVE');
+    }
+    if (!billing.deletionEligible) {
+      throw new Error(
+        billing.deletionBlockReason === 'payment_pending'
+          ? 'BUSINESS_PAYMENT_PENDING'
+          : 'BUSINESS_BILLING_UNVERIFIED'
+      );
     }
 
     const now = Date.now();
@@ -1684,6 +1700,12 @@ const MESSAGE_STEPS: DeleteStep[] = [
     index: 'by_businessId',
     field: 'businessId',
   },
+  {
+    name: 'system_team_assignments',
+    table: 'systemTeamAssignments',
+    index: 'by_businessId',
+    field: 'businessId',
+  },
 ];
 
 const AI_STEPS: DeleteStep[] = [
@@ -1829,6 +1851,10 @@ const STAFF_STEPS: DeleteStep[] = [
 
 export const processBusinessDeletionBatchInternal = internalMutation({
   args: { jobId: v.id('businessDeletionJobs') },
+  returns: v.union(
+    v.object({ status: v.literal('stale') }),
+    v.object({ status: v.literal('processed'), phase: v.string() })
+  ),
   handler: async (ctx, { jobId }) => {
     const job = await ctx.db.get(jobId);
     if (!job || job.status === 'completed' || job.status === 'failed') {
@@ -1847,6 +1873,43 @@ export const processBusinessDeletionBatchInternal = internalMutation({
     const business = await ctx.db.get(businessId);
     if (!business && job.phase !== 'finalize') {
       throw new Error('BUSINESS_ROOT_MISSING_EARLY');
+    }
+    // Recheck in the same transaction as every batch: provider callbacks can
+    // change billing after the request or between scheduled batches.
+    if (business) {
+      let legacy = await getLegacyRevenueCatBillingState(ctx, businessId);
+      const snapshot = job.billingSnapshot;
+      if (
+        legacy.provider === null &&
+        snapshot?.deletionSafetyVersion === 1 &&
+        snapshot.deletionEligible === true &&
+        snapshot.provider === 'revenuecat' &&
+        ['canceled', 'inactive'].includes(snapshot.status) &&
+        [
+          'purge_subscriptions',
+          'purge_programs',
+          'purge_assets',
+          'verify',
+          'finalize',
+        ].includes(job.phase)
+      ) {
+        // This job intentionally removes legacy subscription rows. Its verified
+        // terminal receipt may replace only those absent rows; current canonical
+        // billing, new legacy renewals and pending payments are still checked.
+        legacy = {
+          provider: 'revenuecat',
+          status: snapshot.status === 'canceled' ? 'canceled' : 'inactive',
+          plan: snapshot.plan ?? null,
+          period: snapshot.period ?? null,
+          endAt: snapshot.endAt ?? null,
+          renewalActive: false,
+        };
+      }
+      const billing = await readDeletionBillingSafety(ctx, businessId, legacy);
+      if (!billing.deletionEligible) {
+        throw new Error('BUSINESS_BILLING_UNVERIFIED');
+      }
+      await ctx.db.patch(job._id, { billingSnapshot: billing });
     }
 
     switch (job.phase) {

@@ -55,7 +55,9 @@ const COMPLETION_GROUPS: Array<{
   },
 ];
 
-export function parseMissingProfileFields(value: readonly unknown[] | undefined) {
+export function parseMissingProfileFields(
+  value: readonly unknown[] | undefined
+) {
   if (!value) {
     return [] as ProfileCompletionField[];
   }

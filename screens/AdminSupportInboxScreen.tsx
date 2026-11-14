@@ -3,7 +3,6 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,18 +13,13 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
-import {
-  alignItems,
-  flexDirection,
-  ltrIslandText,
-  selfEnd,
-} from '@/lib/rtl';
+import { Alert } from '@/lib/alert';
+import { alignItems, flexDirection, ltrIslandText, selfEnd } from '@/lib/rtl';
 
 const TEXT = {
   title: 'פניות שירות לקוחות',

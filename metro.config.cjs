@@ -1,6 +1,3 @@
-const { getDefaultConfig } = require('expo/metro-config');
-const { withNativeWind } = require('nativewind/metro');
-
-const config = getDefaultConfig(__dirname);
-
-module.exports = withNativeWind(config, { input: './global.css' });
+// Preserve the alternate entry point without maintaining a second resolver.
+// The shared resolver delegates Native requests and specializes Web icons only.
+module.exports = require('./metro.config.js');

@@ -61,7 +61,7 @@ export function normalizeHouseNumber(value: string) {
 }
 
 export function isValidHouseNumber(value: string) {
-  if (/[\u0000-\u001F\u007F-\u009F]/.test(value)) {
+  if (/\p{Cc}/u.test(value)) {
     return false;
   }
   const normalized = normalizeHouseNumber(value);
@@ -77,9 +77,9 @@ export function getCitySelectionKey(selection: AddressFieldSelection | null) {
   if (!selection) {
     return '';
   }
-  const displayName = normalizeAddressFieldText(selection.displayName).toLocaleLowerCase(
-    'he'
-  );
+  const displayName = normalizeAddressFieldText(
+    selection.displayName
+  ).toLocaleLowerCase('he');
   const placeId = selection.placeId?.trim() ?? '';
   return `${placeId || 'stored'}|${displayName}`;
 }
@@ -88,9 +88,9 @@ export function getStreetSelectionKey(selection: StreetFieldSelection | null) {
   if (!selection) {
     return '';
   }
-  const displayName = normalizeAddressFieldText(selection.displayName).toLocaleLowerCase(
-    'he'
-  );
+  const displayName = normalizeAddressFieldText(
+    selection.displayName
+  ).toLocaleLowerCase('he');
   const placeId = selection.placeId?.trim() ?? '';
   return `${selection.cityKey}|${placeId || 'stored'}|${displayName}`;
 }
@@ -186,7 +186,9 @@ export function selectBusinessAddressCity(
     cityText: displayName,
     citySelection: {
       displayName,
-      ...(selection.placeId?.trim() ? { placeId: selection.placeId.trim() } : {}),
+      ...(selection.placeId?.trim()
+        ? { placeId: selection.placeId.trim() }
+        : {}),
     },
     streetText: '',
     streetSelection: null,
@@ -224,7 +226,9 @@ export function selectBusinessAddressStreet(
     streetText: displayName,
     streetSelection: {
       displayName,
-      ...(selection.placeId?.trim() ? { placeId: selection.placeId.trim() } : {}),
+      ...(selection.placeId?.trim()
+        ? { placeId: selection.placeId.trim() }
+        : {}),
       cityKey: getCitySelectionKey(state.citySelection),
     },
     houseNumber: '',
@@ -272,10 +276,7 @@ export function resolveBusinessAddressGuideTarget(
     return 'city';
   }
   const cityKey = getCitySelectionKey(state.citySelection);
-  if (
-    !state.streetSelection ||
-    state.streetSelection.cityKey !== cityKey
-  ) {
+  if (!state.streetSelection || state.streetSelection.cityKey !== cityKey) {
     return 'street';
   }
   if (!isValidHouseNumber(state.houseNumber)) {
@@ -303,7 +304,8 @@ export function shouldAcceptAddressResolutionResponse({
     requestGeneration === currentGeneration &&
     cityKey === currentCityKey &&
     streetKey === currentStreetKey &&
-    normalizeHouseNumber(streetNumber) === normalizeHouseNumber(currentStreetNumber)
+    normalizeHouseNumber(streetNumber) ===
+      normalizeHouseNumber(currentStreetNumber)
   );
 }
 

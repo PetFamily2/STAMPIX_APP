@@ -524,8 +524,10 @@ describe('business referral deleted-business compatibility', () => {
       runAfter: async (delay, fn, args) => scheduled.push({ delay, fn, args }),
     };
 
-    const result =
-      await processDueBusinessReferralCreditsInternal._handler(ctx, {});
+    const result = await processDueBusinessReferralCreditsInternal._handler(
+      ctx,
+      {}
+    );
 
     expect(result).toMatchObject({ credited: 1, skipped: 0 });
     expect(ctx.db.rows('businessReferrals')[0]).toMatchObject({
@@ -559,8 +561,10 @@ describe('business referral deleted-business compatibility', () => {
     });
     const ctx = buildCtx(tables);
 
-    const result =
-      await processDueBusinessReferralCreditsInternal._handler(ctx, {});
+    const result = await processDueBusinessReferralCreditsInternal._handler(
+      ctx,
+      {}
+    );
 
     expect(result).toMatchObject({ credited: 0, skipped: 1 });
     expect(ctx.db.getCalls).not.toContain(undefined);

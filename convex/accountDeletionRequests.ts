@@ -8,11 +8,7 @@ import {
 import { ConvexError, v } from 'convex/values';
 
 import { components } from './_generated/api';
-import {
-  internalMutation,
-  mutation,
-  query,
-} from './_generated/server';
+import { internalMutation, mutation, query } from './_generated/server';
 import { requireCurrentUser } from './guards';
 import { normalizeEmailAddress } from './lib/email';
 
@@ -249,7 +245,8 @@ export async function setAccountDeletionRequestStatusImpl(
     status: args.status,
     updatedAt: now,
     handledAt: args.status === 'handled' ? now : undefined,
-    purgeAfter: args.status === 'handled' ? now + HANDLED_RETENTION_MS : undefined,
+    purgeAfter:
+      args.status === 'handled' ? now + HANDLED_RETENTION_MS : undefined,
   });
 
   return args.requestId;

@@ -1,15 +1,14 @@
 import { describe, expect, test } from 'bun:test';
-
-import {
-  getBusinessRecommendationFacts,
-  loadBusinessRecommendationFacts,
-} from '../recommendations';
+import { isDashboardResponseForActiveBusiness } from '../../lib/dashboardBusinessIntegrity';
 import {
   getBusinessDashboardDay,
   shouldEmitTransitionalCreateFirstCampaign,
 } from '../dashboard';
 import { getRoleCapabilities } from '../lib/staffPermissions';
-import { isDashboardResponseForActiveBusiness } from '../../lib/dashboardBusinessIntegrity';
+import {
+  getBusinessRecommendationFacts,
+  loadBusinessRecommendationFacts,
+} from '../recommendations';
 
 const NOW = 1_800_000_000_000;
 
@@ -44,8 +43,7 @@ class FakeQuery {
       typeof operand === 'function' ? operand(row) : operand;
     const q = {
       field: (field) => (row) => row[field],
-      eq: (left, right) => (row) =>
-        resolve(left, row) === resolve(right, row),
+      eq: (left, right) => (row) => resolve(left, row) === resolve(right, row),
     };
     this.predicates.push(builder(q));
     return this;
@@ -534,14 +532,11 @@ describe('dashboard day business identity contract', () => {
 
   test('rejects an actor unauthorized for the requested business', async () => {
     await expect(
-      getBusinessDashboardDay._handler(
-        buildCtx(buildTables(), 'customer_1'),
-        {
-          businessId: 'business_1',
-          dayStart: NOW,
-          rangeDays: 1,
-        }
-      )
+      getBusinessDashboardDay._handler(buildCtx(buildTables(), 'customer_1'), {
+        businessId: 'business_1',
+        dayStart: NOW,
+        rangeDays: 1,
+      })
     ).rejects.toThrow('NOT_AUTHORIZED');
   });
 });

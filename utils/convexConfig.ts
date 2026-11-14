@@ -5,6 +5,7 @@
 // Canonical parameterized mapping: config/appEnvironment.ts resolveConvexUrl.
 
 import { APP_ENV } from '@/config/appConfig';
+import { SHARED_BACKEND_URL } from '@/config/sharedBackend';
 
 /**
  * קבלת כתובת Convex המתאימה לפי הסביבה הנוכחית
@@ -24,6 +25,10 @@ export function getConvexUrl(): string {
     throw new Error(
       'Production requires EXPO_PUBLIC_CONVEX_URL_PROD. Legacy and development Convex URLs are not accepted.'
     );
+  }
+
+  if (process.env.EXPO_PUBLIC_STAMPAIX_SHARED_BACKEND === 'true') {
+    return SHARED_BACKEND_URL;
   }
 
   if (APP_ENV === 'dev' && devUrl) {

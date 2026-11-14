@@ -10,11 +10,11 @@ import {
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
-import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { tw } from '@/lib/rtl';
 
 type ManagementCampaignType =
@@ -197,9 +197,7 @@ export default function StaffPromotionsScreen() {
                       : ''
                   }`}
                 >
-                  <View
-                    className={`${tw.flexRow} items-center gap-3`}
-                  >
+                  <View className={`${tw.flexRow} items-center gap-3`}>
                     <View
                       className={`h-11 w-11 shrink-0 items-center justify-center rounded-xl ${typeMeta.iconBgClass}`}
                     >
@@ -231,9 +229,7 @@ export default function StaffPromotionsScreen() {
                           : '#64748B',
                       }}
                     >
-                      {campaign.automationEnabled
-                        ? 'אוטומטי'
-                        : 'ללא אוטומציה'}
+                      {campaign.automationEnabled ? 'אוטומטי' : 'ללא אוטומציה'}
                     </Text>
                   </View>
                   <View className="mt-2 gap-1">

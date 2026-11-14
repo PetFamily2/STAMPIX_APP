@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
-  ConvexContractError,
   assertPreviewTargetIsolation,
   assertSchemaCompatibility,
+  ConvexContractError,
   classifyDeploymentKind,
   deploymentSlug,
   loadEnvFiles,
@@ -32,7 +32,11 @@ function resolveConvexNode(projectRoot) {
       .sort();
     const latest = versions.at(-1);
     if (latest) {
-      const exe = join(toolsDir, latest, process.platform === 'win32' ? 'node.exe' : 'bin/node');
+      const exe = join(
+        toolsDir,
+        latest,
+        process.platform === 'win32' ? 'node.exe' : 'bin/node'
+      );
       if (existsSync(exe)) return exe;
     }
   }
@@ -82,7 +86,13 @@ try {
   // biome-ignore lint/suspicious/noConsole: secret-safe operator status.
   console.log('Convex target: resolved');
 
-  const convexBin = join(projectRoot, 'node_modules', 'convex', 'bin', 'main.js');
+  const convexBin = join(
+    projectRoot,
+    'node_modules',
+    'convex',
+    'bin',
+    'main.js'
+  );
   if (!existsSync(convexBin)) {
     throw new ConvexContractError('Convex CLI is MISSING');
   }
@@ -130,7 +140,10 @@ try {
 
   const verify = spawnSync(
     process.execPath,
-    [join(projectRoot, 'scripts/verify-convex-deployment-contract.mjs'), '--preview'],
+    [
+      join(projectRoot, 'scripts/verify-convex-deployment-contract.mjs'),
+      '--preview',
+    ],
     {
       cwd: projectRoot,
       encoding: 'utf8',

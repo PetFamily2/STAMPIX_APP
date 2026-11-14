@@ -1,16 +1,16 @@
 import type { Doc } from '../_generated/dataModel';
-import { getBillingAccountForBusiness } from './billing/accounts';
 import { buildBusinessEntitlementsFromBusiness } from '../entitlements';
+import {
+  type AiJsonFailureCode,
+  OPENROUTER_JSON_MODEL,
+} from './aiJsonGeneration';
+import { getBillingAccountForBusiness } from './billing/accounts';
 import type {
   SmartManagerAuthorityBlocker,
   SmartManagerDecisionAuthorityResult,
 } from './smartManagerAuthority';
 import { hashSmartManagerValue } from './smartManagerPolicy';
 import type { BusinessCapabilityMap } from './staffPermissions';
-import {
-  type AiJsonFailureCode,
-  OPENROUTER_JSON_MODEL,
-} from './aiJsonGeneration';
 
 export const SMART_MANAGER_PREPARED_ACTION_SCHEMA_VERSION = 1 as const;
 export const SMART_MANAGER_WINBACK_ACTION_CONTRACT_VERSION =
@@ -33,13 +33,16 @@ export const SMART_MANAGER_AI_TITLE_MAX_CHARACTERS = 60;
 export const SMART_MANAGER_AI_BODY_MAX_CHARACTERS = 240;
 
 export function getSmartManagerFreshAiMinimumAudience(
-  policy: {
-    config?: {
-      aiGeneration?: {
-        minimumAudienceForFreshGeneration?: number;
-      };
-    };
-  } | null | undefined
+  policy:
+    | {
+        config?: {
+          aiGeneration?: {
+            minimumAudienceForFreshGeneration?: number;
+          };
+        };
+      }
+    | null
+    | undefined
 ) {
   const configuredValue =
     policy?.config?.aiGeneration?.minimumAudienceForFreshGeneration;
@@ -56,13 +59,16 @@ export function getSmartManagerFreshAiMinimumAudience(
 
 export function isBelowSmartManagerFreshAiMinimum(
   audienceCount: number,
-  policy: {
-    config?: {
-      aiGeneration?: {
-        minimumAudienceForFreshGeneration?: number;
-      };
-    };
-  } | null | undefined
+  policy:
+    | {
+        config?: {
+          aiGeneration?: {
+            minimumAudienceForFreshGeneration?: number;
+          };
+        };
+      }
+    | null
+    | undefined
 ) {
   const minimum = getSmartManagerFreshAiMinimumAudience(policy);
   if (typeof minimum !== 'number' || !Number.isFinite(minimum)) {
@@ -88,9 +94,7 @@ export const SMART_MANAGER_WINBACK_CHANNEL_STRATEGY = {
   channelStrategyVersion: SMART_MANAGER_CHANNEL_STRATEGY_VERSION,
   preferredChannels: ['push', 'in_app'] as Array<'push' | 'in_app'>,
   supportedChannels: ['push', 'in_app'] as Array<'push' | 'in_app'>,
-  campaignCompatibleChannels: ['push', 'in_app'] as Array<
-    'push' | 'in_app'
-  >,
+  campaignCompatibleChannels: ['push', 'in_app'] as Array<'push' | 'in_app'>,
   primaryIntent: 'push' as const,
   fallbackIntent: 'in_app' as const,
   reachabilityResolution: 'deferred_to_batch_3' as const,
@@ -186,13 +190,9 @@ export function selectSmartManagerAccessCurrentnessBlockers(
   );
 }
 
-function hasExactChannelContract(
-  channels: Array<'push' | 'in_app'>
-) {
+function hasExactChannelContract(channels: Array<'push' | 'in_app'>) {
   return (
-    channels.length === 2 &&
-    channels[0] === 'push' &&
-    channels[1] === 'in_app'
+    channels.length === 2 && channels[0] === 'push' && channels[1] === 'in_app'
   );
 }
 
@@ -248,7 +248,7 @@ export function buildBoundedSmartManagerAccessContext(args: {
       limit >= 0 &&
       Number.isInteger(remaining) &&
       remaining === Math.max(0, limit - usage) &&
-      knownQuotaFact.value.isAtOrAboveLimit === (usage >= limit)
+      knownQuotaFact.value.isAtOrAboveLimit === usage >= limit
     ) {
       campaignUsage = usage;
       campaignLimit = limit;
@@ -539,7 +539,9 @@ const PROHIBITED_SMART_MANAGER_COPY = [
   /\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(?:day|days|week|weeks|month|months|year|years)\b/i,
 ] as const;
 
-export function validateSmartManagerWinbackOutput(parsed: Record<string, unknown>) {
+export function validateSmartManagerWinbackOutput(
+  parsed: Record<string, unknown>
+) {
   const keys = Object.keys(parsed).sort();
   if (
     keys.length !== 3 ||
@@ -650,7 +652,9 @@ export function buildPreparedActionCopyContentHash(args: {
   });
 }
 
-export function buildPreparedWinbackDetectionExplanation(audienceCount: number) {
+export function buildPreparedWinbackDetectionExplanation(
+  audienceCount: number
+) {
   return `זוהו ${audienceCount} לקוחות שלא ביקרו לאחרונה ושכדאי להזמין שוב.`;
 }
 
@@ -672,7 +676,8 @@ export function evaluatePreparedActionCurrentness(args: {
     blockers.push('ACTION_AUTHORITY_MODE_CHANGED');
   }
   if (
-    args.action.schemaVersion !== SMART_MANAGER_PREPARED_ACTION_SCHEMA_VERSION ||
+    args.action.schemaVersion !==
+      SMART_MANAGER_PREPARED_ACTION_SCHEMA_VERSION ||
     args.action.actionContractVersion !==
       SMART_MANAGER_WINBACK_ACTION_CONTRACT_VERSION ||
     args.action.stableId !== 'retention.reengage_inactive' ||
@@ -687,12 +692,8 @@ export function evaluatePreparedActionCurrentness(args: {
     args.action.nextCopyRevision > SMART_MANAGER_MAX_COPY_REVISION_SLOTS + 1 ||
     args.action.channelStrategy.channelStrategyVersion !==
       SMART_MANAGER_CHANNEL_STRATEGY_VERSION ||
-    !hasExactChannelContract(
-      args.action.channelStrategy.preferredChannels
-    ) ||
-    !hasExactChannelContract(
-      args.action.channelStrategy.supportedChannels
-    ) ||
+    !hasExactChannelContract(args.action.channelStrategy.preferredChannels) ||
+    !hasExactChannelContract(args.action.channelStrategy.supportedChannels) ||
     !hasExactChannelContract(
       args.action.channelStrategy.campaignCompatibleChannels
     ) ||
@@ -744,7 +745,8 @@ export function evaluatePreparedActionCurrentness(args: {
     args.action.lifecycleSourceFingerprint !==
       lifecycleEvidence.lifecycleSourceFingerprint ||
     args.action.observedAt !== lifecycleEvidence.observedAt ||
-    args.action.recipientCeiling !== args.authority.policy?.config.recipientCeiling
+    args.action.recipientCeiling !==
+      args.authority.policy?.config.recipientCeiling
   ) {
     blockers.push('ACTION_AUDIENCE_BINDING_CHANGED');
   }

@@ -4,10 +4,12 @@ import { Email } from '@convex-dev/auth/providers/Email';
 import { Password } from '@convex-dev/auth/providers/Password';
 import { convexAuth, getAuthUserId } from '@convex-dev/auth/server';
 import { v } from 'convex/values';
+import { manualQaPasswordProfile } from '../lib/auth/manualQaPolicy';
 import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { normalizeEmailAddress } from './lib/email';
 import { generateNumericCode } from './lib/secureRandom';
+import { normalizeSignInEmail } from './lib/signInEmail';
 import { linkVerifiedEmailOtpToExistingOAuthUser } from './lib/verifiedEmailAccountLink';
 import {
   encryptProviderCredentialCapture,
@@ -31,11 +33,16 @@ const AUTH_REDIRECT_EXPO_DEV_PREFIXES = [
 const WEB_OAUTH_CALLBACK_PATH = '/oauth-callback';
 const WEB_OAUTH_PRODUCTION_ORIGIN = 'https://business.stampaix.com';
 const WEB_OAUTH_DEVELOPMENT_ORIGIN = 'http://localhost:8081';
+const WEB_OAUTH_PREVIEW_ORIGIN_PATTERN =
+  /^https:\/\/stampaix-business--[a-z0-9]+\.expo\.app$/;
+// The Pages project was created in the owner's connected account before allowing it.
+const WEB_OAUTH_CLOUDFLARE_PREVIEW_ORIGIN_PATTERN =
+  /^https:\/\/(?:[a-z0-9-]+\.)?stampaix-web-(?:preview|qa)\.pages\.dev$/;
 const EMAIL_OTP_LENGTH = 6;
 const EMAIL_OTP_MAX_AGE_SECONDS = 3 * 60;
 
 function normalizeEmailIdentifier(identifier: string): string {
-  return normalizeEmailAddress(identifier) ?? '';
+  return normalizeSignInEmail(identifier);
 }
 
 function generateEmailOtpToken(): string {
@@ -43,6 +50,7 @@ function generateEmailOtpToken(): string {
 }
 
 async function sendEmailVerificationOtp(email: string, token: string) {
+  const recipient = normalizeSignInEmail(email);
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL;
 
@@ -58,7 +66,7 @@ async function sendEmailVerificationOtp(email: string, token: string) {
     },
     body: JSON.stringify({
       from,
-      to: [email],
+      to: [recipient],
       subject: 'קוד אימות ל-StampAix',
       html: `<div dir="rtl" style="font-family: Arial, sans-serif; color:#0f172a;">
 <p>הקוד שלך הוא:</p>
@@ -476,8 +484,16 @@ function isAllowedWebOAuthCallback(
     return true;
   }
 
+  if (WEB_OAUTH_PREVIEW_ORIGIN_PATTERN.test(url.origin)) {
+    return true;
+  }
+
   if (isProductionRuntime(env)) {
     return false;
+  }
+
+  if (WEB_OAUTH_CLOUDFLARE_PREVIEW_ORIGIN_PATTERN.test(url.origin)) {
+    return true;
   }
 
   return url.origin === WEB_OAUTH_DEVELOPMENT_ORIGIN;
@@ -666,7 +682,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         );
       },
     }),
-    Password,
+    Password({ profile: (params) => manualQaPasswordProfile(params) }),
     Google({
       allowDangerousEmailAccountLinking: false,
       async profile(rawProfile, tokenSet: OAuthTokenSetLike) {

@@ -49,6 +49,10 @@ const ALL_TABLES = [
   'campaignRunRecipients',
   'campaignRuns',
   'subscriptions',
+  'businessBillingAccounts',
+  'sumitCheckoutIntents',
+  'payplusCheckoutIntents',
+  'sumitProviderEvents',
   'revenueCatWebhookEvents',
   'messageLog',
   'aiBusinessSnapshots',
@@ -258,10 +262,26 @@ function baseOwnerStaff(overrides = {}) {
 }
 
 function buildCtx(initial = {}, currentUserId = OWNER_ID) {
+  const businesses = initial.businesses ?? [baseBusiness()];
+  const billingAccounts = businesses
+    .filter(
+      (business) =>
+        !(initial.subscriptions ?? []).some(
+          (row) =>
+            row.businessId === business._id && row.provider === 'revenuecat'
+        )
+    )
+    .map((business) => ({
+      _id: `billing_${business._id}`,
+      businessId: business._id,
+      status: 'inactive',
+      hasProviderEvidence: false,
+    }));
   const db = new FakeDb({
     users: [baseOwner(), ...(initial.users ?? [])],
     businesses: [baseBusiness(), ...(initial.businesses ?? [])],
     businessStaff: [baseOwnerStaff(), ...(initial.businessStaff ?? [])],
+    businessBillingAccounts: billingAccounts,
     ...initial,
   });
   const scheduled = [];
@@ -301,6 +321,306 @@ async function processUntil(ctx, predicate, limit = 250) {
 }
 
 describe('permanent business deletion request', () => {
+  test('duplicate canonical accounts and verified payments without canonical evidence block', async () => {
+    for (const initial of [
+      {
+        businessBillingAccounts: [
+          {
+            _id: 'one',
+            businessId: BUSINESS_ID,
+            status: 'inactive',
+            hasProviderEvidence: false,
+          },
+          {
+            _id: 'two',
+            businessId: BUSINESS_ID,
+            status: 'inactive',
+            hasProviderEvidence: false,
+          },
+        ],
+      },
+      {
+        sumitCheckoutIntents: [
+          {
+            _id: 'paid',
+            businessId: BUSINESS_ID,
+            status: 'verified',
+            createdAt: 1,
+            sumitRecurringId: 'one',
+          },
+        ],
+      },
+      {
+        sumitCheckoutIntents: Array.from({ length: 101 }, (_, index) => ({
+          _id: `intent_${index}`,
+          businessId: BUSINESS_ID,
+          status: 'verified',
+          createdAt: index,
+        })),
+      },
+    ]) {
+      const ctx = buildCtx(initial);
+      await expect(requestDeletion(ctx)).rejects.toThrow(
+        /BUSINESS_(BILLING_UNVERIFIED|PAYMENT_PENDING)/
+      );
+      expect(ctx.db.rows('businessDeletionJobs')).toHaveLength(0);
+    }
+  });
+
+  test('an old queued deletion cannot purge a business with active SUMIT billing', async () => {
+    const ctx = buildCtx({
+      businessBillingAccounts: [
+        {
+          _id: 'sumit',
+          businessId: BUSINESS_ID,
+          provider: 'sumit',
+          status: 'active',
+          hasProviderEvidence: true,
+        },
+      ],
+      businessDeletionJobs: [
+        {
+          _id: 'old_job',
+          businessId: BUSINESS_ID,
+          requestedByUserId: OWNER_ID,
+          status: 'queued',
+          phase: 'capture_customers',
+          billingSnapshot: { renewalActive: false },
+        },
+      ],
+    });
+    await expect(
+      processBusinessDeletionBatchInternal._handler(ctx, { jobId: 'old_job' })
+    ).rejects.toThrow('BUSINESS_BILLING_UNVERIFIED');
+    expect(ctx.db.deletionOrder).toHaveLength(0);
+    expect(ctx.db.rows('businessDeletionRecipients')).toHaveLength(0);
+  });
+
+  test.each([
+    'capture_customers',
+    'purge_memberships',
+    'purge_programs',
+    'finalize',
+  ])('a previously authorized job rechecks a new SUMIT activation before %s', async (phase) => {
+    const ctx = buildCtx();
+    const request = await requestDeletion(ctx);
+    const job = await ctx.db.get(request.jobId);
+    expect(job.billingSnapshot.deletionEligible).toBe(true);
+    job.phase = phase;
+    job.status = 'running';
+    Object.assign(ctx.db.rows('businessBillingAccounts')[0], {
+      provider: 'sumit',
+      status: 'active',
+      hasProviderEvidence: true,
+    });
+    await expect(
+      processBusinessDeletionBatchInternal._handler(ctx, {
+        jobId: request.jobId,
+      })
+    ).rejects.toThrow('BUSINESS_BILLING_UNVERIFIED');
+    expect(ctx.db.deletionOrder).toHaveLength(0);
+    expect(await ctx.db.get(BUSINESS_ID)).not.toBeNull();
+  });
+
+  test('a payment that becomes pending after authorization blocks the next batch', async () => {
+    const ctx = buildCtx();
+    const request = await requestDeletion(ctx);
+    ctx.db.rows('sumitCheckoutIntents').push({
+      _id: 'late_intent',
+      businessId: BUSINESS_ID,
+      status: 'pending',
+      createdAt: Date.now(),
+    });
+    await expect(
+      processBusinessDeletionBatchInternal._handler(ctx, {
+        jobId: request.jobId,
+      })
+    ).rejects.toThrow('BUSINESS_BILLING_UNVERIFIED');
+    expect(ctx.db.deletionOrder).toHaveLength(0);
+  });
+
+  test('verified legacy cancellation remains usable after its subscription rows are intentionally purged', async () => {
+    const ctx = buildCtx({
+      subscriptions: [
+        {
+          _id: 'legacy_canceled',
+          businessId: BUSINESS_ID,
+          provider: 'revenuecat',
+          status: 'canceled',
+          plan: 'starter',
+          period: 'monthly',
+        },
+      ],
+    });
+    const request = await requestDeletion(ctx);
+    const job = await ctx.db.get(request.jobId);
+    ctx.db.tables.subscriptions = [];
+    job.phase = 'purge_subscriptions';
+    job.status = 'running';
+    await expect(
+      processBusinessDeletionBatchInternal._handler(ctx, {
+        jobId: request.jobId,
+      })
+    ).resolves.toMatchObject({ status: 'processed' });
+    expect((await ctx.db.get(request.jobId)).phase).toBe('purge_programs');
+    ctx.db.rows('subscriptions').push({
+      _id: 'legacy_new_active',
+      businessId: BUSINESS_ID,
+      provider: 'revenuecat',
+      status: 'active',
+    });
+    await expect(
+      processBusinessDeletionBatchInternal._handler(ctx, {
+        jobId: request.jobId,
+      })
+    ).rejects.toThrow('BUSINESS_BILLING_UNVERIFIED');
+    expect(await ctx.db.get(BUSINESS_ID)).not.toBeNull();
+  });
+  test.each([
+    'active',
+    'trialing',
+    'past_due',
+  ])('SUMIT %s blocks before any destructive write', async (status) => {
+    const ctx = buildCtx({
+      businessBillingAccounts: [
+        {
+          _id: 'sumit_account',
+          businessId: BUSINESS_ID,
+          provider: 'sumit',
+          status,
+          hasProviderEvidence: true,
+        },
+      ],
+    });
+    await expect(requestDeletion(ctx)).rejects.toThrow(
+      'BUSINESS_SUBSCRIPTION_RENEWAL_ACTIVE'
+    );
+    expect(ctx.db.rows('businesses')[0].isActive).toBe(true);
+    expect(ctx.db.rows('businessDeletionJobs')).toHaveLength(0);
+    expect(ctx.scheduled).toHaveLength(0);
+    expect(
+      (await listMyBusinessesForPermanentDeletion._handler(ctx, {}))[0]
+        .deletionEligible
+    ).toBe(false);
+  });
+
+  test('missing billing account fails closed, including owner listing', async () => {
+    const ctx = buildCtx({ businessBillingAccounts: [] });
+    await expect(requestDeletion(ctx)).rejects.toThrow(
+      'BUSINESS_BILLING_UNVERIFIED'
+    );
+    expect(
+      (await listMyBusinessesForPermanentDeletion._handler(ctx, {}))[0]
+        .deletionEligible
+    ).toBe(false);
+    expect(ctx.scheduled).toHaveLength(0);
+  });
+
+  test.each([
+    'pending',
+    'hosted_checkout_created',
+    'expired',
+    'rejected',
+  ])('unverified %s checkout blocks even if locally expired', async (status) => {
+    for (const table of ['sumitCheckoutIntents', 'payplusCheckoutIntents']) {
+      const ctx = buildCtx({
+        [table]: [
+          { _id: 'checkout', businessId: BUSINESS_ID, status, expiresAt: 1 },
+        ],
+      });
+      await expect(requestDeletion(ctx)).rejects.toThrow(
+        'BUSINESS_PAYMENT_PENDING'
+      );
+      expect(ctx.db.rows('businessDeletionJobs')).toHaveLength(0);
+    }
+  });
+
+  test('verified SUMIT cancellation permits deletion only with matching recent provider proof', async () => {
+    const now = Date.now();
+    const account = {
+      _id: 'sumit_account',
+      businessId: BUSINESS_ID,
+      provider: 'sumit',
+      status: 'canceled',
+      hasProviderEvidence: true,
+      canceledAt: now - 1000,
+      lastProviderEventAt: now - 1000,
+      lastProviderEventId: 'cancel_event',
+      providerSubscriptionIdentifier: 'recurring_1',
+    };
+    const event = {
+      _id: 'event',
+      externalEventId: 'cancel_event',
+      businessId: BUSINESS_ID,
+      eventType: 'recurring_canceled',
+      status: 'processed',
+      sumitRecurringId: 'recurring_1',
+      providerEventAt: now - 1000,
+    };
+    const ctx = buildCtx({
+      businessBillingAccounts: [account],
+      sumitProviderEvents: [event],
+    });
+    expect(
+      (await listMyBusinessesForPermanentDeletion._handler(ctx, {}))[0]
+        .deletionEligible
+    ).toBe(true);
+    expect((await requestDeletion(ctx)).reused).toBe(false);
+    for (const overrides of [
+      { status: 'ignored' },
+      { sumitRecurringId: 'another' },
+      { businessId: 'another' },
+      { providerEventAt: now - 86400000 },
+    ]) {
+      const blocked = buildCtx({
+        businessBillingAccounts: [account],
+        sumitProviderEvents: [{ ...event, ...overrides }],
+      });
+      await expect(requestDeletion(blocked)).rejects.toThrow(
+        'BUSINESS_BILLING_UNVERIFIED'
+      );
+      expect(blocked.scheduled).toHaveLength(0);
+    }
+    for (const overrides of [
+      { lastReconciliationOk: false },
+      { lastProviderEventId: 'missing' },
+      { status: 'inactive' },
+      { hasProviderEvidence: false },
+    ]) {
+      const blocked = buildCtx({
+        businessBillingAccounts: [{ ...account, ...overrides }],
+        sumitProviderEvents: [event],
+      });
+      await expect(requestDeletion(blocked)).rejects.toThrow(
+        'BUSINESS_BILLING_UNVERIFIED'
+      );
+    }
+  });
+
+  test('contradictory legacy renewal still blocks a canceled SUMIT account', async () => {
+    const ctx = buildCtx({
+      businessBillingAccounts: [
+        {
+          _id: 'sumit',
+          businessId: BUSINESS_ID,
+          provider: 'sumit',
+          status: 'canceled',
+        },
+      ],
+      subscriptions: [
+        {
+          _id: 'legacy',
+          businessId: BUSINESS_ID,
+          provider: 'revenuecat',
+          status: 'active',
+        },
+      ],
+    });
+    await expect(requestDeletion(ctx)).rejects.toThrow(
+      'BUSINESS_SUBSCRIPTION_RENEWAL_ACTIVE'
+    );
+  });
+
   test('active and closed canonical owners can freeze exactly one job', async () => {
     for (const isActive of [true, false]) {
       const ctx = buildCtx({ businesses: [baseBusiness({ isActive })] });
@@ -339,7 +659,9 @@ describe('permanent business deletion request', () => {
 
     expect(repeated).toMatchObject({ jobId: first.jobId, reused: true });
     expect(ctx.db.rows('businessDeletionJobs')).toHaveLength(1);
-    expect(await listMyBusinessesForPermanentDeletion._handler(ctx, {})).toEqual([
+    expect(
+      await listMyBusinessesForPermanentDeletion._handler(ctx, {})
+    ).toEqual([
       expect.objectContaining({
         businessId: BUSINESS_ID,
         permanentDeletionStatus: 'in_progress',
@@ -371,7 +693,9 @@ describe('permanent business deletion request', () => {
       reused: true,
     });
     expect(ctx.db.rows('businessDeletionJobs')).toHaveLength(1);
-    expect(await listMyBusinessesForPermanentDeletion._handler(ctx, {})).toEqual([
+    expect(
+      await listMyBusinessesForPermanentDeletion._handler(ctx, {})
+    ).toEqual([
       expect.objectContaining({
         permanentDeletionJobId: first.jobId,
         permanentDeletionJobStatus: 'failed',
@@ -380,38 +704,38 @@ describe('permanent business deletion request', () => {
     ]);
   });
 
-  test.each(['manager', 'staff'])(
-    '%s cannot see or reuse another owner deletion job after staff purge',
-    async (staffRole) => {
-      const ctx = buildCtx();
-      await requestDeletion(ctx);
-      ctx.db.rows('businessStaff').splice(0);
-      ctx.db.rows('users').push(baseOwner({ _id: 'user_other' }));
-      ctx.db.rows('businessStaff').push({
-        _id: `stale_${staffRole}`,
-        businessId: BUSINESS_ID,
-        userId: 'user_other',
-        staffRole,
-        status: 'active',
-      });
-      const unauthorizedCtx = {
-        ...ctx,
-        auth: {
-          getUserIdentity: async () => ({ subject: 'user_other|session' }),
-        },
-      };
+  test.each([
+    'manager',
+    'staff',
+  ])('%s cannot see or reuse another owner deletion job after staff purge', async (staffRole) => {
+    const ctx = buildCtx();
+    await requestDeletion(ctx);
+    ctx.db.rows('businessStaff').splice(0);
+    ctx.db.rows('users').push(baseOwner({ _id: 'user_other' }));
+    ctx.db.rows('businessStaff').push({
+      _id: `stale_${staffRole}`,
+      businessId: BUSINESS_ID,
+      userId: 'user_other',
+      staffRole,
+      status: 'active',
+    });
+    const unauthorizedCtx = {
+      ...ctx,
+      auth: {
+        getUserIdentity: async () => ({ subject: 'user_other|session' }),
+      },
+    };
 
-      expect(
-        await listMyBusinessesForPermanentDeletion._handler(unauthorizedCtx, {})
-      ).toEqual([]);
-      await expect(
-        deleteBusinessPermanently._handler(unauthorizedCtx, {
-          businessId: BUSINESS_ID,
-          confirmationBusinessName: 'Café Central',
-        })
-      ).rejects.toThrow('NOT_AUTHORIZED');
-    }
-  );
+    expect(
+      await listMyBusinessesForPermanentDeletion._handler(unauthorizedCtx, {})
+    ).toEqual([]);
+    await expect(
+      deleteBusinessPermanently._handler(unauthorizedCtx, {
+        businessId: BUSINESS_ID,
+        confirmationBusinessName: 'Café Central',
+      })
+    ).rejects.toThrow('NOT_AUTHORIZED');
+  });
 
   test('unrelated user cannot see or reuse another owner deletion job after staff purge', async () => {
     const ctx = buildCtx();
@@ -442,9 +766,9 @@ describe('permanent business deletion request', () => {
     ctx.db.rows('businessStaff').splice(0);
     ctx.db.rows('businesses')[0].ownerUserId = 'user_new_owner';
 
-    expect(await listMyBusinessesForPermanentDeletion._handler(ctx, {})).toEqual(
-      []
-    );
+    expect(
+      await listMyBusinessesForPermanentDeletion._handler(ctx, {})
+    ).toEqual([]);
     await expect(
       deleteBusinessPermanently._handler(ctx, {
         businessId: BUSINESS_ID,
@@ -501,41 +825,42 @@ describe('permanent business deletion request', () => {
     ).rejects.toThrow('BUSINESS_NAME_CONFIRMATION_MISMATCH');
   });
 
-  test.each(['active', 'trialing', 'past_due'])(
-    'blocks RevenueCat %s',
-    async (status) => {
-      const ctx = buildCtx({
-        subscriptions: [
-          {
-            _id: `sub_${status}`,
-            businessId: BUSINESS_ID,
-            provider: 'revenuecat',
-            status,
-          },
-        ],
-      });
-      await expect(requestDeletion(ctx)).rejects.toThrow(
-        'BUSINESS_SUBSCRIPTION_RENEWAL_ACTIVE'
-      );
-    }
-  );
+  test.each([
+    'active',
+    'trialing',
+    'past_due',
+  ])('blocks RevenueCat %s', async (status) => {
+    const ctx = buildCtx({
+      subscriptions: [
+        {
+          _id: `sub_${status}`,
+          businessId: BUSINESS_ID,
+          provider: 'revenuecat',
+          status,
+        },
+      ],
+    });
+    await expect(requestDeletion(ctx)).rejects.toThrow(
+      'BUSINESS_SUBSCRIPTION_RENEWAL_ACTIVE'
+    );
+  });
 
-  test.each(['canceled', 'inactive'])(
-    'allows RevenueCat %s',
-    async (status) => {
-      const ctx = buildCtx({
-        subscriptions: [
-          {
-            _id: `sub_${status}`,
-            businessId: BUSINESS_ID,
-            provider: 'revenuecat',
-            status,
-          },
-        ],
-      });
-      expect((await requestDeletion(ctx)).reused).toBe(false);
-    }
-  );
+  test.each([
+    'canceled',
+    'inactive',
+  ])('allows RevenueCat %s', async (status) => {
+    const ctx = buildCtx({
+      subscriptions: [
+        {
+          _id: `sub_${status}`,
+          businessId: BUSINESS_ID,
+          provider: 'revenuecat',
+          status,
+        },
+      ],
+    });
+    expect((await requestDeletion(ctx)).reused).toBe(false);
+  });
 
   test('owner listing includes active and closed canonical businesses with billing eligibility', async () => {
     const ctx = buildCtx({
@@ -670,9 +995,9 @@ describe('permanent business deletion request', () => {
     });
     ctx.db.rows('businesses').splice(0);
 
-    expect(await listMyBusinessesForPermanentDeletion._handler(ctx, {})).toEqual(
-      []
-    );
+    expect(
+      await listMyBusinessesForPermanentDeletion._handler(ctx, {})
+    ).toEqual([]);
   });
 
   test('another user cannot see a requester synthetic entry after the business root is gone', async () => {
@@ -802,9 +1127,14 @@ describe('bounded recipients and ephemeral push state', () => {
       ],
     });
 
-    await processBusinessDeletionBatchInternal._handler(ctx, { jobId: 'job_staff' });
+    await processBusinessDeletionBatchInternal._handler(ctx, {
+      jobId: 'job_staff',
+    });
     expect(
-      ctx.db.rows('businessDeletionRecipients').map((row) => row.userId).sort()
+      ctx.db
+        .rows('businessDeletionRecipients')
+        .map((row) => row.userId)
+        .sort()
     ).toEqual(['manager_user', 'staff_user']);
   });
 
@@ -836,19 +1166,21 @@ describe('bounded recipients and ephemeral push state', () => {
       ],
     });
 
-    await processBusinessDeletionBatchInternal._handler(ctx, { jobId: 'job_active_refs' });
+    await processBusinessDeletionBatchInternal._handler(ctx, {
+      jobId: 'job_active_refs',
+    });
     expect(
-      ctx.db
-        .rows('users')
-        .filter((row) => row.activeBusinessId === BUSINESS_ID)
+      ctx.db.rows('users').filter((row) => row.activeBusinessId === BUSINESS_ID)
     ).toHaveLength(1);
-    await processBusinessDeletionBatchInternal._handler(ctx, { jobId: 'job_active_refs' });
+    await processBusinessDeletionBatchInternal._handler(ctx, {
+      jobId: 'job_active_refs',
+    });
     expect(
-      ctx.db
-        .rows('users')
-        .filter((row) => row.activeBusinessId === BUSINESS_ID)
+      ctx.db.rows('users').filter((row) => row.activeBusinessId === BUSINESS_ID)
     ).toHaveLength(0);
-    expect(ctx.db.rows('users').find((row) => row._id === 'unrelated_user')).toMatchObject({
+    expect(
+      ctx.db.rows('users').find((row) => row._id === 'unrelated_user')
+    ).toMatchObject({
       activeBusinessId: 'business_other',
       activeMode: 'business',
     });
@@ -895,9 +1227,12 @@ describe('bounded recipients and ephemeral push state', () => {
         },
       ],
     });
-    const claim = await claimPermanentDeletionPushAttemptInternal._handler(ctx, {
-      recipientId: 'recipient_push',
-    });
+    const claim = await claimPermanentDeletionPushAttemptInternal._handler(
+      ctx,
+      {
+        recipientId: 'recipient_push',
+      }
+    );
     expect(claim.claimed).toBe(true);
     expect(claim.tokens).toHaveLength(2);
     expect(
@@ -988,9 +1323,9 @@ describe('bounded recipients and ephemeral push state', () => {
       globalThis.fetch = originalFetch;
     }
     expect(fetchCalls).toBe(1);
-    expect(
-      ctx.db.rows('businessDeletionRecipients')[0].pushStatus
-    ).toBe('failed');
+    expect(ctx.db.rows('businessDeletionRecipients')[0].pushStatus).toBe(
+      'failed'
+    );
     expect(ctx.db.rows('messageLog')).toHaveLength(0);
     expect(ctx.db.rows('pushDeliveryLog')).toHaveLength(0);
     await processBusinessDeletionBatchInternal._handler(ctx, {
@@ -1040,13 +1375,23 @@ describe('B2B and audit safety', () => {
       ],
     });
 
-    await processBusinessDeletionBatchInternal._handler(ctx, { jobId: 'job_referrer' });
-    await processBusinessDeletionBatchInternal._handler(ctx, { jobId: 'job_referrer' });
-    await processBusinessDeletionBatchInternal._handler(ctx, { jobId: 'job_referrer' });
-    await processBusinessDeletionBatchInternal._handler(ctx, { jobId: 'job_referrer' });
+    await processBusinessDeletionBatchInternal._handler(ctx, {
+      jobId: 'job_referrer',
+    });
+    await processBusinessDeletionBatchInternal._handler(ctx, {
+      jobId: 'job_referrer',
+    });
+    await processBusinessDeletionBatchInternal._handler(ctx, {
+      jobId: 'job_referrer',
+    });
+    await processBusinessDeletionBatchInternal._handler(ctx, {
+      jobId: 'job_referrer',
+    });
     expect(ctx.db.rows('businessReferrals')).toHaveLength(0);
     expect(ctx.db.rows('businessReferralLinks')).toHaveLength(0);
-    expect(ctx.db.rows('businesses').find((row) => row._id === 'business_survivor')).toMatchObject({
+    expect(
+      ctx.db.rows('businesses').find((row) => row._id === 'business_survivor')
+    ).toMatchObject({
       b2bCreditMonthsEarned: 3,
       subscriptionEndAt: now + 500000,
     });
@@ -1095,13 +1440,17 @@ describe('B2B and audit safety', () => {
         }),
       ],
     });
-    await processBusinessDeletionBatchInternal._handler(ctx, { jobId: 'job_b2b' });
+    await processBusinessDeletionBatchInternal._handler(ctx, {
+      jobId: 'job_b2b',
+    });
     expect(ctx.db.rows('businessReferrals')[0]).toMatchObject({
       status: 'credited',
       creditMonths: 2,
       creditAppliedAt: now - 100,
     });
-    expect(ctx.db.rows('businessReferrals')[0].referredBusinessId).toBeUndefined();
+    expect(
+      ctx.db.rows('businessReferrals')[0].referredBusinessId
+    ).toBeUndefined();
     expect(ctx.db.rows('businessReferrals')[1]).toMatchObject({
       status: 'skipped',
       skipReason: 'referred_business_deleted',
@@ -1110,8 +1459,11 @@ describe('B2B and audit safety', () => {
       b2bCreditMonthsEarned: 4,
       subscriptionEndAt: now + 100000,
     });
-    const deletedAt = ctx.db.rows('businessReferrals')[0].referredBusinessDeletedAt;
-    await processBusinessDeletionBatchInternal._handler(ctx, { jobId: 'job_b2b' });
+    const deletedAt =
+      ctx.db.rows('businessReferrals')[0].referredBusinessDeletedAt;
+    await processBusinessDeletionBatchInternal._handler(ctx, {
+      jobId: 'job_b2b',
+    });
     expect(ctx.db.rows('businessReferrals')[0]).toMatchObject({
       status: 'credited',
       creditMonths: 2,
@@ -1162,9 +1514,15 @@ describe('B2B and audit safety', () => {
         },
       ],
     });
-    await processBusinessDeletionBatchInternal._handler(ctx, { jobId: 'job_audit' });
-    await processBusinessDeletionBatchInternal._handler(ctx, { jobId: 'job_audit' });
-    await processBusinessDeletionBatchInternal._handler(ctx, { jobId: 'job_audit' });
+    await processBusinessDeletionBatchInternal._handler(ctx, {
+      jobId: 'job_audit',
+    });
+    await processBusinessDeletionBatchInternal._handler(ctx, {
+      jobId: 'job_audit',
+    });
+    await processBusinessDeletionBatchInternal._handler(ctx, {
+      jobId: 'job_audit',
+    });
     const referral = ctx.db.rows('referralAdminAuditLog')[0];
     const revenue = ctx.db.rows('revenueCatWebhookEvents')[0];
     expect(referral).toMatchObject({
@@ -1178,16 +1536,18 @@ describe('B2B and audit safety', () => {
       rawEvent: { redacted: true },
     });
     const originalPurgeAfter = revenue.purgeAfter;
-    await processBusinessDeletionBatchInternal._handler(ctx, { jobId: 'job_audit' });
+    await processBusinessDeletionBatchInternal._handler(ctx, {
+      jobId: 'job_audit',
+    });
     expect(revenue.purgeAfter).toBe(originalPurgeAfter);
 
     referral.purgeAfter = now - 1;
     revenue.purgeAfter = now - 1;
     await purgePermanentDeletionRetentionInternal._handler(ctx, {});
     expect(ctx.db.rows('referralAdminAuditLog')).toHaveLength(0);
-    expect(ctx.db.rows('revenueCatWebhookEvents').map((row) => row._id)).toEqual([
-      'audit_non_redacted',
-    ]);
+    expect(
+      ctx.db.rows('revenueCatWebhookEvents').map((row) => row._id)
+    ).toEqual(['audit_non_redacted']);
   });
 });
 
@@ -1214,10 +1574,16 @@ describe('graph purge, assets, finalization, and retry', () => {
       ],
     });
 
-    await processBusinessDeletionBatchInternal._handler(ctx, { jobId: 'job_history_batch' });
+    await processBusinessDeletionBatchInternal._handler(ctx, {
+      jobId: 'job_history_batch',
+    });
     expect(ctx.db.rows('events')).toHaveLength(11);
-    expect(ctx.db.rows('businessDeletionJobs')[0].phase).toBe('purge_scans_events');
-    await processBusinessDeletionBatchInternal._handler(ctx, { jobId: 'job_history_batch' });
+    expect(ctx.db.rows('businessDeletionJobs')[0].phase).toBe(
+      'purge_scans_events'
+    );
+    await processBusinessDeletionBatchInternal._handler(ctx, {
+      jobId: 'job_history_batch',
+    });
     expect(ctx.db.rows('events')).toHaveLength(0);
   });
 
@@ -1242,7 +1608,12 @@ describe('graph purge, assets, finalization, and retry', () => {
         },
       ],
       memberships: [
-        { _id: 'membership_1', ...direct, userId: 'customer_1', isActive: false },
+        {
+          _id: 'membership_1',
+          ...direct,
+          userId: 'customer_1',
+          isActive: false,
+        },
       ],
       referralConfigs: [{ _id: 'referral_config_1', ...direct }],
       customerReferralLinks: [{ _id: 'customer_link_1', ...direct }],
@@ -1250,7 +1621,11 @@ describe('graph purge, assets, finalization, and retry', () => {
       referralRewards: [{ _id: 'customer_reward_1', ...direct }],
       loyaltyPrograms: [
         { _id: 'program_unique', ...direct, imageStorageId: 'asset_unique' },
-        { _id: 'program_shared_target', ...direct, imageStorageId: 'asset_shared' },
+        {
+          _id: 'program_shared_target',
+          ...direct,
+          imageStorageId: 'asset_shared',
+        },
         {
           _id: 'program_shared_survivor',
           businessId: 'business_other',
@@ -1385,11 +1760,13 @@ describe('graph purge, assets, finalization, and retry', () => {
     );
     expect(rootDeleteIndex).toBeGreaterThan(0);
     expect(
-      ctx.db.deletionOrder.slice(rootDeleteIndex + 1).every((entry) =>
-        ['businessDeletionRecipients', 'businessDeletionAssets'].includes(
-          entry.table
+      ctx.db.deletionOrder
+        .slice(rootDeleteIndex + 1)
+        .every((entry) =>
+          ['businessDeletionRecipients', 'businessDeletionAssets'].includes(
+            entry.table
+          )
         )
-      )
     ).toBe(true);
     expect(ctx.db.rows('businessDeletionJobs')[0]).toMatchObject({
       _id: request.jobId,
@@ -1422,9 +1799,11 @@ describe('graph purge, assets, finalization, and retry', () => {
     expect(ctx.db.rows('businesses')).toHaveLength(1);
     expect(ctx.db.rows('businesses')[0].isActive).toBe(false);
     expect(
-      (await retryPermanentBusinessDeletion._handler(ctx, {
-        jobId: 'job_retry',
-      })).status
+      (
+        await retryPermanentBusinessDeletion._handler(ctx, {
+          jobId: 'job_retry',
+        })
+      ).status
     ).toBe('running');
     expect(ctx.db.rows('businessDeletionJobs')[0].phase).toBe(
       'purge_memberships'
@@ -1503,7 +1882,10 @@ describe('graph purge, assets, finalization, and retry', () => {
       ],
     });
 
-    const first = await purgePermanentDeletionRetentionInternal._handler(ctx, {});
+    const first = await purgePermanentDeletionRetentionInternal._handler(
+      ctx,
+      {}
+    );
     expect(first.completedJobsDeleted).toBe(50);
     expect(ctx.db.rows('businessDeletionJobs')).toHaveLength(2);
     await purgePermanentDeletionRetentionInternal._handler(ctx, {});

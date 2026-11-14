@@ -68,6 +68,9 @@ const END_ALIGNMENT_PATTERNS = [
 ];
 
 const ALLOWED_END_ALIGNMENT_STYLES = new Set([
+  // Web horizontal rows: cross-axis top alignment, not physical text direction.
+  'components/business-web/BusinessWebBilling.tsx:planFact',
+  'components/business-web/BusinessWebCardEditor.web.tsx:webEditorColumns',
   'app/(auth)/onboarding-client-otp.tsx:footer',
   'app/(authenticated)/(business)/settings-business-referrals.tsx:emptyActionButton',
   'app/(authenticated)/(customer)/referrals.tsx:emptyActionButton',

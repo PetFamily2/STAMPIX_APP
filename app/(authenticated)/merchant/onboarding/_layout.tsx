@@ -3,11 +3,11 @@ import { Redirect, Slot, useLocalSearchParams } from 'expo-router';
 import { useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
-import { api } from '@/convex/_generated/api';
-import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { useSessionContext, useUser } from '@/contexts/UserContext';
+import { api } from '@/convex/_generated/api';
 import { resolvePostAuthRoute } from '@/lib/auth/postAuthRouting';
 import { isAdditionalBusinessFlow } from '@/lib/onboarding/businessOnboardingFlow';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { rtlRouteContainerStyle } from '@/lib/rtl';
 
 export default function MerchantOnboardingLayout() {
@@ -43,8 +43,7 @@ export default function MerchantOnboardingLayout() {
   const enteredWithCompletedBusinessRef = useRef<boolean | null>(null);
 
   if (enteredWithCompletedBusinessRef.current === null && !isRoutingLoading) {
-    enteredWithCompletedBusinessRef.current =
-      user?.businessOnboardedAt != null;
+    enteredWithCompletedBusinessRef.current = user?.businessOnboardedAt != null;
   }
 
   if (isRoutingLoading) {

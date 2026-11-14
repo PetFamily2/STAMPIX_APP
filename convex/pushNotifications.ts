@@ -2,6 +2,7 @@ import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { requireCurrentUser } from './guards';
+import { scheduleWebPush } from './webPush';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const EXPO_PUSH_DEFAULT_CHANNEL_ID = 'default';
@@ -161,6 +162,7 @@ export async function sendPushNotificationToUser(
     campaignId?: Id<'campaigns'>;
   }
 ) {
+  await scheduleWebPush(ctx, args.toUserId);
   const tokens = await ctx.db
     .query('pushTokens')
     .withIndex('by_userId', (q: any) => q.eq('userId', args.toUserId))

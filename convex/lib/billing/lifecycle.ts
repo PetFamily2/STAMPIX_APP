@@ -16,6 +16,8 @@ export type CanonicalBillingState = {
   gracePeriodEndAt: number | null;
   canceledAt: number | null;
   hasProviderEvidence: boolean;
+  trialSource: 'stampaix' | null;
+  trialEndsAt: number | null;
   isSubscriptionActive: boolean;
   operationalAccess: boolean;
 };
@@ -69,13 +71,25 @@ export function hasOperationalAccessFromStatus(args: {
   currentPeriodEndAt: number | null;
   gracePeriodEndAt: number | null;
   entitlementRevokedAt?: number | null;
+  trialSource?: unknown;
+  trialEndsAt?: number | null;
   now?: number;
 }): boolean {
   const now = args.now ?? Date.now();
-  if (!args.hasProviderEvidence) {
+  if (typeof args.entitlementRevokedAt === 'number') {
     return false;
   }
-  if (typeof args.entitlementRevokedAt === 'number') {
+  if (args.status === 'trialing') {
+    const hasValidFirstPartyTrial =
+      args.trialSource === 'stampaix' &&
+      typeof args.trialEndsAt === 'number' &&
+      args.trialEndsAt > now;
+    if (hasValidFirstPartyTrial) {
+      return true;
+    }
+    return args.hasProviderEvidence === true;
+  }
+  if (!args.hasProviderEvidence) {
     return false;
   }
   if (args.status === 'inactive') {
@@ -110,6 +124,8 @@ export function resolveCanonicalBillingState(args: {
   canceledAt?: number | null;
   hasProviderEvidence?: boolean;
   entitlementRevokedAt?: number | null;
+  trialSource?: unknown;
+  trialEndsAt?: number | null;
   now?: number;
 }): CanonicalBillingState {
   const currentPlan = normalizeBusinessPlan(args.plan);
@@ -123,6 +139,8 @@ export function resolveCanonicalBillingState(args: {
     currentPeriodEndAt: args.currentPeriodEndAt ?? null,
     gracePeriodEndAt: args.gracePeriodEndAt ?? null,
     entitlementRevokedAt: args.entitlementRevokedAt ?? null,
+    trialSource: args.trialSource,
+    trialEndsAt: args.trialEndsAt ?? null,
     now: args.now,
   });
 
@@ -137,6 +155,8 @@ export function resolveCanonicalBillingState(args: {
     gracePeriodEndAt: args.gracePeriodEndAt ?? null,
     canceledAt: args.canceledAt ?? null,
     hasProviderEvidence,
+    trialSource: args.trialSource === 'stampaix' ? 'stampaix' : null,
+    trialEndsAt: args.trialEndsAt ?? null,
     isSubscriptionActive: operationalAccess,
     operationalAccess,
   };

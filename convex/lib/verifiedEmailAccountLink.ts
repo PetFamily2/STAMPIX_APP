@@ -398,7 +398,9 @@ async function isSafeOAuthEmailTarget(
     .collect();
 
   const oauthIdentities = identities.filter(
-    (identity): identity is Doc<'userIdentities'> & {
+    (
+      identity
+    ): identity is Doc<'userIdentities'> & {
       provider: OAuthProvider;
     } => identity.provider === 'google' || identity.provider === 'apple'
   );

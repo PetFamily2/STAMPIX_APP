@@ -9,11 +9,10 @@ import {
 } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   findNodeHandle,
   Linking,
+  Platform,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   View,
@@ -23,17 +22,18 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
 import { BackButton } from '@/components/BackButton';
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
+import { LoyaltyCardClassic } from '@/components/loyalty/LoyaltyCardClassic';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { ActionButton } from '@/components/ui/ActionButton';
 import { PaintedPressable } from '@/components/ui/PaintedPressable';
 import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { Alert } from '@/lib/alert';
 import { track } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import {
@@ -50,6 +50,8 @@ import { safeBack } from '@/lib/navigation';
 import { CUSTOMER_BACK_FALLBACKS } from '@/lib/navigation/customerRoutes';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { flexDirection, selfStart } from '@/lib/rtl';
+import { Share } from '@/lib/share';
+import { shareUrl } from '@/lib/shareUrl';
 
 const TEXT = {
   backToWallet: 'חזרה לארנק',
@@ -371,8 +373,8 @@ export default function CardDetailsScreen() {
         membershipId: membership.membershipId as Id<'memberships'>,
         shareSurface: 'card_screen',
       });
-      const message = buildInviteMessage(link.url);
-      const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
+      const message = buildInviteMessage(shareUrl(link.url));
+      const whatsappUrl = `${Platform.OS === 'web' ? 'https://wa.me/' : 'whatsapp://send'}?text=${encodeURIComponent(message)}`;
       const canOpenWhatsApp = await Linking.canOpenURL(whatsappUrl);
       if (canOpenWhatsApp) {
         await Linking.openURL(whatsappUrl);
@@ -405,9 +407,10 @@ export default function CardDetailsScreen() {
         };
       };
       if (maybeNavigator.navigator?.clipboard?.writeText) {
-        await maybeNavigator.navigator.clipboard.writeText(link.url);
+        await maybeNavigator.navigator.clipboard.writeText(shareUrl(link.url));
       } else {
-        await Share.share({ message: link.url });
+        await Share.share({ message: shareUrl(link.url) });
+        return;
       }
       Alert.alert('', TEXT.inviteLinkCopied);
     } catch {
@@ -455,20 +458,36 @@ export default function CardDetailsScreen() {
         </View>
 
         <View style={styles.loyaltyCardSection}>
-          <LoyaltyCard
-            variant="full"
-            businessName={membership.businessName}
-            businessLogoUrl={membership.businessLogoUrl}
-            programImageUrl={membership.programImageUrl}
-            programTitle={membership.programTitle}
-            rewardName={membership.rewardName}
-            maxStamps={goal}
-            progress={{ kind: 'actual', currentStamps: current }}
-            lifecycle={membership.programLifecycle}
-            cardThemeId={membership.cardThemeId}
-            stampIcon={membership.stampIcon}
-            stampShape={normalizeStampShape(membership.stampShape)}
-          />
+          {Platform.OS === 'web' ? (
+            <LoyaltyCardClassic
+              businessLogoUrl={membership.businessLogoUrl}
+              businessName={membership.businessName}
+              cardThemeId={membership.cardThemeId}
+              lifecycle={membership.programLifecycle}
+              maxStamps={goal}
+              programTitle={membership.programTitle}
+              progress={{ kind: 'actual', currentStamps: current }}
+              rewardName={membership.rewardName}
+              stampIcon={membership.stampIcon}
+              stampShape={normalizeStampShape(membership.stampShape)}
+              variant="full"
+            />
+          ) : (
+            <LoyaltyCard
+              variant="full"
+              businessName={membership.businessName}
+              businessLogoUrl={membership.businessLogoUrl}
+              programImageUrl={membership.programImageUrl}
+              programTitle={membership.programTitle}
+              rewardName={membership.rewardName}
+              maxStamps={goal}
+              progress={{ kind: 'actual', currentStamps: current }}
+              lifecycle={membership.programLifecycle}
+              cardThemeId={membership.cardThemeId}
+              stampIcon={membership.stampIcon}
+              stampShape={normalizeStampShape(membership.stampShape)}
+            />
+          )}
 
           {isRedeemEligible || isArchived ? (
             <View

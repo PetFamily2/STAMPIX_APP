@@ -1,5 +1,12 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Linking,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettingsContentWidth } from '@/components/business-settings';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
@@ -10,6 +17,12 @@ import {
   PRIVACY_POLICY_URL,
   TERMS_OF_SERVICE_URL,
 } from '@/config/legalUrls';
+import {
+  webBody,
+  webPage,
+  webSectionTitle,
+  webTitle,
+} from '@/lib/design/webProductChrome';
 import {
   LEGAL_DOCUMENT_ORDER,
   type LegalDocumentKey,
@@ -60,7 +73,7 @@ export function LegalDocumentScreen({
       >
         <StickyScrollHeader
           topPadding={0}
-          backgroundColor="#F8F7F4"
+          backgroundColor={Platform.OS === 'web' ? '#F3F5F9' : '#F8F7F4'}
           style={styles.titleShell}
         >
           <Text style={styles.eyebrow}>מסמכים משפטיים</Text>
@@ -173,6 +186,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F7F4',
+    ...webPage,
   },
   titleShell: {
     paddingBottom: 12,
@@ -196,6 +210,7 @@ const styles = StyleSheet.create({
     lineHeight: 31,
     textAlign: 'right',
     writingDirection: 'rtl',
+    ...webTitle,
   },
   subtitle: {
     color: '#4B5563',
@@ -205,6 +220,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textAlign: 'right',
     writingDirection: 'rtl',
+    ...webBody,
   },
   tabs: {
     backgroundColor: '#E5E7EB',
@@ -274,6 +290,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textAlign: 'right',
     writingDirection: 'rtl',
+    ...webSectionTitle,
   },
   paragraph: {
     color: '#374151',

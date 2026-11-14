@@ -1,8 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 
 import { buildBusinessEntitlementsFromBusiness } from '../entitlements';
+import {
+  createProviderAppUserId,
+  isOpaqueProviderAppUserId,
+} from '../lib/billing/identity';
 import { resolveCanonicalBillingState } from '../lib/billing/lifecycle';
-import { createProviderAppUserId, isOpaqueProviderAppUserId } from '../lib/billing/identity';
 
 function buildBusiness(overrides = {}) {
   const now = Date.now();

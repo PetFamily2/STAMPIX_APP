@@ -3,8 +3,8 @@ import {
   isApprovedGuideId,
   isApprovedProfileGuideField,
   isApprovedRecommendationStableId,
-  recommendationRequiresExactEntity,
   RECOMMENDATION_GUIDE_IDS,
+  recommendationRequiresExactEntity,
 } from './guidance';
 
 export type RecommendationAction =
@@ -75,7 +75,7 @@ function hasOnlyKeys(action: RuntimeAction, allowedKeys: string[]) {
 }
 
 function hasOwn(action: RuntimeAction, key: string) {
-  return Object.prototype.hasOwnProperty.call(action, key);
+  return Object.getOwnPropertyDescriptor(action, key) !== undefined;
 }
 
 export function getRecommendationNavigationTarget(input: {
@@ -140,8 +140,7 @@ export function getRecommendationNavigationTarget(input: {
         return {
           ok: true,
           target: {
-            pathname:
-              '/(authenticated)/(business)/settings-business-address',
+            pathname: '/(authenticated)/(business)/settings-business-address',
             params: baseParams,
           },
         };
@@ -150,9 +149,7 @@ export function getRecommendationNavigationTarget(input: {
           return { ok: false, reason: 'invalid_action_shape' };
         }
         const hasFieldId = hasOwn(input.action, 'fieldId');
-        const fieldId = hasFieldId
-          ? requiredId(input.action.fieldId)
-          : null;
+        const fieldId = hasFieldId ? requiredId(input.action.fieldId) : null;
         if (
           (hasFieldId && !isApprovedProfileGuideField(fieldId)) ||
           (hasGuide &&
@@ -164,8 +161,7 @@ export function getRecommendationNavigationTarget(input: {
         return {
           ok: true,
           target: {
-            pathname:
-              '/(authenticated)/(business)/settings-business-profile',
+            pathname: '/(authenticated)/(business)/settings-business-profile',
             params: {
               ...baseParams,
               ...(fieldId ? { fieldId } : {}),
@@ -236,8 +232,7 @@ export function getRecommendationNavigationTarget(input: {
         return {
           ok: true,
           target: {
-            pathname:
-              '/(authenticated)/(business)/cards/campaign/[campaignId]',
+            pathname: '/(authenticated)/(business)/cards/campaign/[campaignId]',
             params: { ...baseParams, campaignId },
           },
         };

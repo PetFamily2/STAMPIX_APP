@@ -111,10 +111,7 @@ function autocompletePrediction({
   };
 }
 
-async function runStreetFallbackFilteringCase({
-  selectedCity,
-  prediction,
-}) {
+async function runStreetFallbackFilteringCase({ selectedCity, prediction }) {
   let fetchCount = 0;
   let limiterCalls = 0;
   const requests = [];
@@ -122,9 +119,7 @@ async function runStreetFallbackFilteringCase({
     fetchCount += 1;
     requests.push(JSON.parse(init.body));
     return Response.json(
-      fetchCount === 1
-        ? { suggestions: [] }
-        : { suggestions: [prediction] }
+      fetchCount === 1 ? { suggestions: [] } : { suggestions: [prediction] }
     );
   };
 
@@ -540,9 +535,9 @@ describe('Convex Google Places actions', () => {
     });
     expect(requests[1]).not.toHaveProperty('sessionToken');
     expect(result).toHaveLength(5);
-    expect(result.some((suggestion) => suggestion.placeId === 'wrong_city')).toBe(
-      false
-    );
+    expect(
+      result.some((suggestion) => suggestion.placeId === 'wrong_city')
+    ).toBe(false);
     expect(result.map((suggestion) => suggestion.placeId)).toEqual([
       'tiberias_1',
       'tiberias_2',
@@ -552,12 +547,7 @@ describe('Convex Google Places actions', () => {
     ]);
   });
 
-  for (const {
-    label,
-    selectedCity,
-    prediction,
-    expectedPlaceIds,
-  } of [
+  for (const { label, selectedCity, prediction, expectedPlaceIds } of [
     {
       label: 'retains an exact structured Tiberias locality segment',
       selectedCity: 'טבריה',
@@ -581,7 +571,8 @@ describe('Convex Google Places actions', () => {
       expectedPlaceIds: [],
     },
     {
-      label: 'rejects Jerusalem found only in the Maale Adumim district segment',
+      label:
+        'rejects Jerusalem found only in the Maale Adumim district segment',
       selectedCity: 'ירושלים',
       prediction: autocompletePrediction({
         placeId: 'maale_adumim_jerusalem_district',
@@ -613,7 +604,8 @@ describe('Convex Google Places actions', () => {
       expectedPlaceIds: [],
     },
     {
-      label: 'rejects malformed secondary text even with a parseable description',
+      label:
+        'rejects malformed secondary text even with a parseable description',
       selectedCity: 'טבריה',
       prediction: {
         placePrediction: {
@@ -650,12 +642,7 @@ describe('Convex Google Places actions', () => {
     });
   }
 
-  for (const {
-    label,
-    selectedCity,
-    prediction,
-    expectedPlaceIds,
-  } of [
+  for (const { label, selectedCity, prediction, expectedPlaceIds } of [
     {
       label: 'accepts exact route locality and Israel description segments',
       selectedCity: 'טבריה',
@@ -1419,9 +1406,7 @@ describe('Convex Google Places actions', () => {
     expect(
       normalizeGoogleAddressResolutionResponse(
         {
-          results: [
-            geocodingCandidate({ granularity: 'RANGE_INTERPOLATED' }),
-          ],
+          results: [geocodingCandidate({ granularity: 'RANGE_INTERPOLATED' })],
         },
         input
       ).status
@@ -1460,7 +1445,10 @@ describe('Convex Google Places actions', () => {
       geocodingCandidate({ types: ['route'] }),
     ]) {
       expect(
-        normalizeGoogleAddressResolutionResponse({ results: [candidate] }, input)
+        normalizeGoogleAddressResolutionResponse(
+          { results: [candidate] },
+          input
+        )
       ).toEqual({ status: 'notFound' });
     }
   });

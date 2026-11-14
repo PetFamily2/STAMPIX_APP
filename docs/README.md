@@ -53,6 +53,7 @@ Stale but useful historical material lives under `docs/archive/` instead of bein
 
 Archive areas:
 - `docs/archive/merged/` - old docs whose content was merged into active docs.
+- `docs/archive/legacy-development/` - superseded PWA and Preview phase documentation; historical only, not an operational runbook.
 - `docs/archive/route-snapshots/` - old generated route and architecture snapshots.
 - `docs/archive/history/` - delivery history and devlog material.
 - `docs/archive/runbooks/` - release or migration runbooks.

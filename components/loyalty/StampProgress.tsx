@@ -90,7 +90,9 @@ export function StampProgress({
                   />
                 </View>
               ) : isRewardStamp ? (
-                <View style={[styles.rewardDot, { backgroundColor: emptyColor }]} />
+                <View
+                  style={[styles.rewardDot, { backgroundColor: emptyColor }]}
+                />
               ) : null}
             </View>
           );

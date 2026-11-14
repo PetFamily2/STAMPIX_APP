@@ -6,8 +6,7 @@ import {
   loadActiveSmartManagerPolicy,
 } from './smartManagerPolicy';
 
-export const SMART_MANAGER_ACTIVE_AUTHORITY_MODE =
-  'shadow_parity_v1' as const;
+export const SMART_MANAGER_ACTIVE_AUTHORITY_MODE = 'shadow_parity_v1' as const;
 export const SMART_MANAGER_WINBACK_STABLE_ID =
   'retention.reengage_inactive' as const;
 
@@ -113,20 +112,24 @@ export function buildAuthorityDecisionHash(decision: unknown) {
   return hashSmartManagerValue(stripVolatileAuthorityMetadata(decision));
 }
 
-function selectFreshest<T extends {
-  _id: unknown;
-  _creationTime?: number;
-  sourceGeneration?: number;
-  updatedAt?: number;
-}>(rows: T[]) {
-  return [...rows].sort(
-    (left, right) =>
-      Number(right.sourceGeneration ?? 0) -
-        Number(left.sourceGeneration ?? 0) ||
-      Number(right.updatedAt ?? 0) - Number(left.updatedAt ?? 0) ||
-      Number(right._creationTime ?? 0) - Number(left._creationTime ?? 0) ||
-      String(left._id).localeCompare(String(right._id))
-  )[0] ?? null;
+function selectFreshest<
+  T extends {
+    _id: unknown;
+    _creationTime?: number;
+    sourceGeneration?: number;
+    updatedAt?: number;
+  },
+>(rows: T[]) {
+  return (
+    [...rows].sort(
+      (left, right) =>
+        Number(right.sourceGeneration ?? 0) -
+          Number(left.sourceGeneration ?? 0) ||
+        Number(right.updatedAt ?? 0) - Number(left.updatedAt ?? 0) ||
+        Number(right._creationTime ?? 0) - Number(left._creationTime ?? 0) ||
+        String(left._id).localeCompare(String(right._id))
+    )[0] ?? null
+  );
 }
 
 async function loadBoundedEvaluationRows(
@@ -213,9 +216,9 @@ async function resolveShadowParityV1(
 ): Promise<SmartManagerDecisionAuthorityResult> {
   const now = args.now ?? Date.now();
   const blockers: SmartManagerAuthorityBlocker[] = [];
-  const business = (await ctx.db.get(args.businessId)) as
-    | Doc<'businesses'>
-    | null;
+  const business = (await ctx.db.get(
+    args.businessId
+  )) as Doc<'businesses'> | null;
 
   if (!business) {
     pushBlocker(blockers, 'BUSINESS_NOT_FOUND');
@@ -243,18 +246,18 @@ async function resolveShadowParityV1(
       loadBoundedComparisonRows(ctx, args.businessId),
     ]);
 
-  const decision = selectFreshest(decisionRows) as
-    | Doc<'smartManagerDecisions'>
-    | null;
-  const evaluationState = selectFreshest(evaluationRows) as
-    | Doc<'smartManagerEvaluationStates'>
-    | null;
-  const factSnapshot = selectFreshest(factSnapshotRows) as
-    | Doc<'smartManagerFactSnapshots'>
-    | null;
-  const comparison = selectFreshest(comparisonRows) as
-    | Doc<'smartManagerShadowComparisons'>
-    | null;
+  const decision = selectFreshest(
+    decisionRows
+  ) as Doc<'smartManagerDecisions'> | null;
+  const evaluationState = selectFreshest(
+    evaluationRows
+  ) as Doc<'smartManagerEvaluationStates'> | null;
+  const factSnapshot = selectFreshest(
+    factSnapshotRows
+  ) as Doc<'smartManagerFactSnapshots'> | null;
+  const comparison = selectFreshest(
+    comparisonRows
+  ) as Doc<'smartManagerShadowComparisons'> | null;
 
   if (decisionRows.length > 1) {
     pushBlocker(blockers, 'DECISION_AMBIGUOUS');
@@ -279,13 +282,14 @@ async function resolveShadowParityV1(
       pushBlocker(blockers, 'DECISION_INACTIVE');
     }
     if (
-      decision.evidenceFingerprint !==
-        decision.decision?.evidenceFingerprint ||
+      decision.evidenceFingerprint !== decision.decision?.evidenceFingerprint ||
       decision.evidenceObservedAt !== decision.decision?.evidenceObservedAt
     ) {
       pushBlocker(blockers, 'DECISION_EVIDENCE_MISMATCH');
     }
-    if (buildAuthorityDecisionHash(decision.decision) !== decision.decisionHash) {
+    if (
+      buildAuthorityDecisionHash(decision.decision) !== decision.decisionHash
+    ) {
       pushBlocker(blockers, 'DECISION_HASH_MISMATCH');
     }
     if (
@@ -304,10 +308,8 @@ async function resolveShadowParityV1(
     }
     if (
       evaluationState.lastSuccessfulGeneration === undefined ||
-      evaluationState.generation !==
-        evaluationState.lastSuccessfulGeneration ||
-      decision?.sourceGeneration !==
-        evaluationState.lastSuccessfulGeneration
+      evaluationState.generation !== evaluationState.lastSuccessfulGeneration ||
+      decision?.sourceGeneration !== evaluationState.lastSuccessfulGeneration
     ) {
       pushBlocker(blockers, 'EVALUATION_GENERATION_MISMATCH');
     }
@@ -426,7 +428,11 @@ async function resolveShadowParityV1(
   }
 
   const authorityBindingHash =
-    decision && factSnapshot && comparison && evaluationState && lifecycleEvidence
+    decision &&
+    factSnapshot &&
+    comparison &&
+    evaluationState &&
+    lifecycleEvidence
       ? hashSmartManagerValue({
           authorityMode: SMART_MANAGER_ACTIVE_AUTHORITY_MODE,
           businessId: String(args.businessId),
