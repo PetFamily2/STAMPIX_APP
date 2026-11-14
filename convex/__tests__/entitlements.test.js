@@ -530,6 +530,31 @@ describe('business entitlements', () => {
     expect(state.referralConfigs[0].isEnabled).toBe(false);
   });
 
+  test('stale referral config version rejects before any configuration write', async () => {
+    const business = buildBusiness({ _id: 'business_conflict' });
+    const { ctx, state } = buildCtxWithBusiness(business);
+    state.referralConfigs = [
+      buildReferralConfig({
+        businessId: business._id,
+        configVersion: 4,
+        isEnabled: false,
+      }),
+    ];
+    const original = { ...state.referralConfigs[0] };
+    await expect(
+      saveReferralConfig._handler(ctx, {
+        businessId: business._id,
+        expectedConfigVersion: 3,
+        isEnabled: true,
+        rewardType: 'STAMP',
+        rewardValue: 1,
+        rewardRecipients: 'both',
+        monthlyLimit: 10,
+      })
+    ).rejects.toThrow('REFERRAL_CONFIG_CONFLICT');
+    expect(state.referralConfigs[0]).toEqual(original);
+  });
+
   test('required plan mapping is correct for all feature keys', () => {
     expect(REQUIRED_PLAN_BY_FEATURE.canManageTeam).toBe('pro');
     expect(REQUIRED_PLAN_BY_FEATURE.canSeeAdvancedReports).toBe('premium');

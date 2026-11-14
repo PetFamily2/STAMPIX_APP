@@ -1177,6 +1177,7 @@ export const getReferralConfig = query({
 export const saveReferralConfig = mutation({
   args: {
     businessId: v.id('businesses'),
+    expectedConfigVersion: v.optional(v.number()),
     isEnabled: v.boolean(),
     rewardType: v.union(v.literal('STAMP'), v.literal('BENEFIT')),
     rewardValue: v.number(),
@@ -1218,6 +1219,13 @@ export const saveReferralConfig = mutation({
         q.eq('businessId', args.businessId)
       )
       .first();
+
+    if (
+      args.expectedConfigVersion !== undefined &&
+      args.expectedConfigVersion !== (existing?.configVersion ?? 0)
+    ) {
+      throw new Error('REFERRAL_CONFIG_CONFLICT');
+    }
 
     const wasEnabled = existing?.isEnabled === true;
     const willEnable = args.isEnabled === true;
