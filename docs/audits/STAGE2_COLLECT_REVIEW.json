@@ -305,8 +305,8 @@
     "owner": "rows",
     "expression": "ctx.db\n            .query('referralAdminAuditLog')\n            .withIndex('by_createdAt', (q: any) => q)",
     "review": {
-      "classification": "dangerous",
-      "decision": "Admin audit fallback reads global history before optional filters. Admin checked, no tenant leak; global scale risk remains, requires indexed pagination for each filter combination.",
+      "classification": "open",
+      "decision": "Current admin screen now reads a paginated, descending audit stream and exposes continuation; admin authorization and sparse matches are locally tested. Legacy array endpoint remains accessible for compatibility and still scans global history.",
       "status": "reviewed",
       "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
     }
@@ -341,8 +341,8 @@
     "owner": "waiting",
     "expression": "ctx.db\n      .query('businessReferrals')\n      .withIndex('by_status_qualificationDueAt', (q: any) =>\n        q.eq('status', 'waiting_30_days')\n      )",
     "review": {
-      "classification": "dangerous",
-      "decision": "Internal credit sweep reads every waiting referral before due-date decisions. Status/due index can bound due subset; transactional batching needed for large backlog.",
+      "classification": "fixed_and_tested",
+      "decision": "Waiting credit sweep now pages 100 records and schedules transactional continuation with a fixed reference time; existing deleted-business handling remains. Mock tests cover 207 rows, future referral and retry; actual scheduler failure/concurrency not verified. Existing per-referrer credited-history read is separately tracked as finding 30.",
       "status": "reviewed",
       "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
     }
@@ -389,8 +389,8 @@
     "owner": "granted",
     "expression": "ctx.db\n      .query('referralRewards')\n      .withIndex('by_status_expiresAt', (q: any) => q.eq('status', 'granted'))",
     "review": {
-      "classification": "dangerous",
-      "decision": "Internal reward expiry scans granted including non-expiring stamps. Existing status/expiry index can restrict defined due values; optional expiry semantics require care.",
+      "classification": "fixed_and_tested",
+      "decision": "Granted rewards are paginated in batches of 100 with transactional continuation and a fixed cutoff. Non-expiring benefits and stamps remain granted; local mock tests exercise 221 rewards and retry. Actual scheduler failure/concurrency not verified.",
       "status": "reviewed",
       "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
     }
@@ -665,8 +665,8 @@
     "owner": "recurringCampaigns",
     "expression": "ctx.db\n        .query('campaigns')\n        .withIndex('by_automationEnabled', (q: any) =>\n          q.eq('automationEnabled', true)\n        )\n        .filter((q: any) =>\n          q.and(\n            q.eq(q.field('isActive'), true),\n            q.neq(q.field('type'), 'ai_marketing')\n          )\n        )",
     "review": {
-      "classification": "dangerous",
-      "decision": "Internal recurring automation sweep uses automation flag index but global results may exceed transaction limits. Needs scheduled cursor batches, not skipped rows.",
+      "classification": "open",
+      "decision": "Global recurring sweep now scans 10 campaigns per scheduled page at a fixed evaluation time. Mock tests cover 23 campaigns and repeated sweep. Per-campaign audience/history remains unbounded (findings 52–53), and actual transaction failure and concurrent sweeps need server validation.",
       "status": "reviewed",
       "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
     }
@@ -677,8 +677,8 @@
     "owner": "oneTimeCandidates",
     "expression": "ctx.db\n      .query('campaigns')\n      .withIndex('by_activationStatus', (q: any) =>\n        q.eq('activationStatus', 'active')\n      )\n      .filter((q: any) =>\n        q.and(\n          q.eq(q.field('isActive'), true),\n          q.eq(q.field('automationEnabled'), false),\n          q.neq(q.field('type'), 'ai_marketing'),\n          q.neq(q.field('type'), 'ai_retention'),\n          q.neq(q.field('type'), 'retention_action')\n        )\n      )",
     "review": {
-      "classification": "dangerous",
-      "decision": "Internal one-time automation sweep uses activation status and business rules. Global backlog can grow; scheduler batching required with idempotency.",
+      "classification": "open",
+      "decision": "Global one-time sweep now scans 10 campaigns per scheduled page, with completion and deduplication kept transactional. Mock tests cover 23 campaigns and a repeated sweep. Individual campaign audience/history remains unbounded; actual scheduler failure/concurrency remains unverified.",
       "status": "reviewed",
       "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
     }
