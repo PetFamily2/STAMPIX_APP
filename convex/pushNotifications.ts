@@ -276,7 +276,8 @@ export const expireQueuedPushClaim = internalMutation({
       job?.status !== 'sending' ||
       typeof job.claimedAt !== 'number' ||
       job.claimedAt > Date.now() - PUSH_CLAIM_TIMEOUT_MS
-    ) return false;
+    )
+      return false;
     await ctx.db.patch(outboxId, {
       status: 'unknown',
       outcome: 'claim_expired_after_possible_send',
@@ -290,11 +291,7 @@ export const expireQueuedPushClaim = internalMutation({
 const outboxDeliveryResultValidator = v.object({
   pushTokenId: v.id('pushTokens'),
   token: v.string(),
-  status: v.union(
-    v.literal('sent'),
-    v.literal('failed'),
-    v.literal('unknown')
-  ),
+  status: v.union(v.literal('sent'), v.literal('failed'), v.literal('unknown')),
   errorMessage: v.optional(v.string()),
 });
 
@@ -354,10 +351,9 @@ export const finishQueuedPush = internalMutation({
 export const deliverQueuedPush = internalAction({
   args: { outboxId: v.id('pushDeliveryOutbox') },
   handler: async (ctx, { outboxId }) => {
-    const claim = (await ctx.runMutation(
-      claimQueuedPushRef,
-      { outboxId }
-    )) as PushOutboxClaim | null;
+    const claim = (await ctx.runMutation(claimQueuedPushRef, {
+      outboxId,
+    })) as PushOutboxClaim | null;
     if (!claim) return { status: 'already_claimed_or_finished' };
     if (claim.tokens.length === 0) {
       await ctx.runMutation(finishQueuedPushRef, {
@@ -380,31 +376,33 @@ export const deliverQueuedPush = internalAction({
         },
       }))
     );
-    const deliveries: PushOutboxDeliveryResult[] = claim.tokens.map((target, index) => {
-      if (!response.ok) {
+    const deliveries: PushOutboxDeliveryResult[] = claim.tokens.map(
+      (target, index) => {
+        if (!response.ok) {
+          return {
+            ...target,
+            status: 'unknown' as const,
+            errorMessage: response.errorMessage,
+          };
+        }
+        if (response.tickets.length !== claim.tokens.length) {
+          return {
+            ...target,
+            status: 'unknown' as const,
+            errorMessage: 'expo_push_ticket_count_mismatch',
+          };
+        }
+        const ticket = response.tickets[index];
+        const sent = ticket?.status === 'ok';
         return {
           ...target,
-          status: 'unknown' as const,
-          errorMessage: response.errorMessage,
+          status: sent ? ('sent' as const) : ('failed' as const),
+          errorMessage: sent
+            ? undefined
+            : (ticket?.details?.error ?? 'expo_push_ticket_rejected'),
         };
       }
-      if (response.tickets.length !== claim.tokens.length) {
-        return {
-          ...target,
-          status: 'unknown' as const,
-          errorMessage: 'expo_push_ticket_count_mismatch',
-        };
-      }
-      const ticket = response.tickets[index];
-      const sent = ticket?.status === 'ok';
-      return {
-        ...target,
-        status: sent ? ('sent' as const) : ('failed' as const),
-        errorMessage: sent
-          ? undefined
-          : (ticket?.details?.error ?? 'expo_push_ticket_rejected'),
-      };
-    });
+    );
     const ambiguous = deliveries.some((entry) => entry.status === 'unknown');
     const status: 'sent' | 'failed' | 'unknown' = ambiguous
       ? ('unknown' as const)
@@ -431,16 +429,15 @@ export const recoverPendingPushOutbox = internalMutation({
       .withIndex('by_status_createdAt', (q) => q.eq('status', 'pending'))
       .take(PUSH_OUTBOX_RECOVERY_PAGE_SIZE);
     for (const job of pending) {
-      await ctx.scheduler.runAfter(
-        0,
-        deliverQueuedPushRef,
-        { outboxId: job._id }
-      );
+      await ctx.scheduler.runAfter(0, deliverQueuedPushRef, {
+        outboxId: job._id,
+      });
     }
     const stale = await ctx.db
       .query('pushDeliveryOutbox')
       .withIndex('by_status_claimedAt', (q) =>
-        q.eq('status', 'sending')
+        q
+          .eq('status', 'sending')
           .lte('claimedAt', Date.now() - PUSH_CLAIM_TIMEOUT_MS)
       )
       .take(PUSH_OUTBOX_RECOVERY_PAGE_SIZE);

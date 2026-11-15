@@ -19,7 +19,12 @@ afterEach(() => {
 });
 
 function createMockCtx(initial = {}, authUserId = USER_ID) {
-  const tableNames = ['users', 'pushTokens', 'pushDeliveryLog', 'pushDeliveryOutbox'];
+  const tableNames = [
+    'users',
+    'pushTokens',
+    'pushDeliveryLog',
+    'pushDeliveryOutbox',
+  ];
   const state = Object.fromEntries(
     tableNames.map((tableName) => [
       tableName,
@@ -232,11 +237,13 @@ describe('transactional push outbox', () => {
     const written = await finishQueuedPush._handler(ctx, {
       outboxId,
       status: 'sent',
-      deliveries: [{
-        pushTokenId: 'push_token_1',
-        token: 'ExponentPushToken[test-token]',
-        status: 'sent',
-      }],
+      deliveries: [
+        {
+          pushTokenId: 'push_token_1',
+          token: 'ExponentPushToken[test-token]',
+          status: 'sent',
+        },
+      ],
     });
     expect(written).toBeTrue();
     expect(await claimQueuedPush._handler(ctx, { outboxId })).toBeNull();
@@ -254,15 +261,21 @@ describe('transactional push outbox', () => {
     const job = ctx.rows('pushDeliveryOutbox')[0];
     await claimQueuedPush._handler(ctx, { outboxId: job._id });
     await ctx.db.patch(job._id, { claimedAt: Date.now() - 16 * 60 * 1000 });
-    expect(await expireQueuedPushClaim._handler(ctx, {
-      outboxId: job._id,
-    })).toBeTrue();
+    expect(
+      await expireQueuedPushClaim._handler(ctx, {
+        outboxId: job._id,
+      })
+    ).toBeTrue();
     expect(ctx.rows('pushDeliveryOutbox')[0].status).toBe('unknown');
-    expect(await claimQueuedPush._handler(ctx, { outboxId: job._id })).toBeNull();
+    expect(
+      await claimQueuedPush._handler(ctx, { outboxId: job._id })
+    ).toBeNull();
   });
 
   test('no active token produces an outbox record, not an HTTP call', async () => {
-    const ctx = createMockCtx({ pushTokens: [buildPushToken({ isActive: false })] });
+    const ctx = createMockCtx({
+      pushTokens: [buildPushToken({ isActive: false })],
+    });
     await sendPushNotificationToUser(ctx, {
       businessId: BUSINESS_ID,
       toUserId: USER_ID,
