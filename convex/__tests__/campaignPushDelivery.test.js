@@ -90,6 +90,22 @@ class FakeQuery {
     return this.docs()[0] ?? null;
   }
 
+  async paginate({ cursor, numItems }) {
+    const all = this.db.rows(this.tableName);
+    const start = cursor ? all.findIndex((row) => row._id === cursor) + 1 : 0;
+    let i = start;
+    const page = [];
+    while (i < all.length && page.length < numItems) {
+      const row = all[i++];
+      if (this.predicates.every((p) => p(row))) page.push(row);
+    }
+    return {
+      page,
+      continueCursor: i ? all[i - 1]._id : '',
+      isDone: !all.slice(i).some((row) => this.predicates.every((p) => p(row))),
+    };
+  }
+
   async collect() {
     return this.docs();
   }
@@ -594,4 +610,116 @@ describe('referral push delivery coverage', () => {
       })
     );
   });
+});
+
+test('one-time sweep continues through batches and repeat scans do not redeliver', async () => {
+  const now = Date.now(),
+    tables = baseTables({ campaignChannels: ['in_app'] });
+  const baseBusiness = tables.businesses[0];
+  const baseMembership = tables.memberships[0];
+  tables.businesses = Array.from({ length: 23 }, (_, i) => ({
+    ...baseBusiness,
+    _id: 'biz_batch_' + i,
+  }));
+  tables.memberships = Array.from({ length: 23 }, (_, i) => ({
+    ...baseMembership,
+    _id: 'membership_batch_' + i,
+    businessId: 'biz_batch_' + i,
+  }));
+  tables.campaigns = Array.from({ length: 23 }, (_, i) => ({
+    ...tables.campaigns[0],
+    _id: 'batch_' + i,
+    businessId: 'biz_batch_' + i,
+    status: 'active',
+    activationStatus: 'active',
+    automationEnabled: false,
+    schedule: { mode: 'one_time', sendAt: now - 1000, nextRunAt: now - 1000 },
+  }));
+  const ctx = buildCtx(tables);
+  let i = 0;
+  const schedule = ctx.scheduler.runAfter;
+  let failOnce = true;
+  ctx.scheduler.runAfter = async (...params) => {
+    if (params[2].phase && failOnce) {
+      failOnce = false;
+      throw new Error('simulated continuation failure');
+    }
+    return schedule(...params);
+  };
+  await expect(
+    runAutomationSweepInternal._handler(ctx, {
+      phase: 'one_time',
+      referenceNow: now,
+    })
+  ).rejects.toThrow('simulated continuation failure');
+  await runAutomationSweepInternal._handler(ctx, {
+    phase: 'one_time',
+    referenceNow: now,
+  });
+  while (i < ctx.scheduled.length) {
+    const task = ctx.scheduled[i++];
+    if (task.args.phase)
+      await runAutomationSweepInternal._handler(ctx, task.args);
+  }
+  expect(
+    tables.campaigns.filter((row) => row.status === 'completed')
+  ).toHaveLength(23);
+  expect(ctx.db.rows('messageLog')).toHaveLength(23);
+  await runAutomationSweepInternal._handler(ctx, {
+    phase: 'one_time',
+    referenceNow: now,
+  });
+  expect(ctx.db.rows('messageLog')).toHaveLength(23);
+});
+
+test('recurring sweep scans all batches and repeated sweep does not redeliver', async () => {
+  const now = Date.UTC(2026, 0, 15, 7),
+    tables = baseTables({ campaignChannels: ['in_app'] }),
+    baseBusiness = tables.businesses[0],
+    baseMembership = tables.memberships[0],
+    baseCampaign = tables.campaigns[0];
+  tables.businesses = Array.from({ length: 23 }, (_, i) => ({
+    ...baseBusiness,
+    _id: 'rbiz_' + i,
+  }));
+  tables.memberships = Array.from({ length: 23 }, (_, i) => ({
+    ...baseMembership,
+    _id: 'rmembership_' + i,
+    businessId: 'rbiz_' + i,
+  }));
+  tables.campaigns = Array.from({ length: 23 }, (_, i) => ({
+    ...baseCampaign,
+    _id: 'recurring_' + i,
+    businessId: 'rbiz_' + i,
+    status: 'active',
+    activationStatus: 'active',
+    automationEnabled: true,
+  }));
+  const ctx = buildCtx(tables);
+  let cursor = 0,
+    total = 0;
+  let result = await runAutomationSweepInternal._handler(ctx, {
+    phase: 'recurring',
+    referenceNow: now,
+  });
+  total += result.recurringProcessedCampaigns;
+  while (cursor < ctx.scheduled.length) {
+    const task = ctx.scheduled[cursor++];
+    if (task.args.phase) {
+      result = await runAutomationSweepInternal._handler(ctx, task.args);
+      total += result.recurringProcessedCampaigns;
+    }
+  }
+  expect(total).toBe(23);
+  const initial = ctx.db.rows('messageLog').length;
+  await runAutomationSweepInternal._handler(ctx, {
+    phase: 'recurring',
+    referenceNow: now,
+  });
+  while (cursor < ctx.scheduled.length) {
+    const task = ctx.scheduled[cursor++];
+    if (task.args.phase)
+      await runAutomationSweepInternal._handler(ctx, task.args);
+  }
+  expect(ctx.db.rows('messageLog')).toHaveLength(initial);
 });

@@ -1,4 +1,5 @@
 import { v } from 'convex/values';
+import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
 import { internalMutation, mutation, query } from './_generated/server';
 import {
@@ -1623,9 +1624,17 @@ export const sendCampaignNow = mutation({
 });
 
 export const runAutomationSweepInternal = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const now = Date.now();
+  args: {
+    phase: v.optional(v.union(v.literal('recurring'), v.literal('one_time'))),
+    cursor: v.optional(v.string()),
+    referenceNow: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const now = args.referenceNow ?? Date.now();
+    let continuation: {
+      phase: 'recurring' | 'one_time';
+      cursor?: string;
+    } | null = null;
     const israelHour = getIsraelHour(now);
     const shouldRunRecurring = israelHour === 9;
     let recurringProcessedCampaigns = 0;
@@ -1644,21 +1653,20 @@ export const runAutomationSweepInternal = internalMutation({
       return businessById.get(businessKey) ?? null;
     };
 
-    if (shouldRunRecurring) {
-      const recurringCampaigns = await ctx.db
+    if (shouldRunRecurring && args.phase !== 'one_time') {
+      const recurringPage = await ctx.db
         .query('campaigns')
         .withIndex('by_automationEnabled', (q: any) =>
           q.eq('automationEnabled', true)
         )
-        .filter((q: any) =>
-          q.and(
-            q.eq(q.field('isActive'), true),
-            q.neq(q.field('type'), 'ai_marketing')
-          )
-        )
-        .collect();
+        .paginate({ cursor: args.cursor ?? null, numItems: 10 });
+      continuation = recurringPage.isDone
+        ? { phase: 'one_time' }
+        : { phase: 'recurring', cursor: recurringPage.continueCursor };
 
-      for (const campaign of recurringCampaigns) {
+      for (const campaign of recurringPage.page) {
+        if (campaign.isActive !== true || campaign.type === 'ai_marketing')
+          continue;
         if (campaign.source === 'smart_manager') {
           continue;
         }
@@ -1699,85 +1707,94 @@ export const runAutomationSweepInternal = internalMutation({
       }
     }
 
-    const oneTimeCandidates = await ctx.db
-      .query('campaigns')
-      .withIndex('by_activationStatus', (q: any) =>
-        q.eq('activationStatus', 'active')
-      )
-      .filter((q: any) =>
-        q.and(
-          q.eq(q.field('isActive'), true),
-          q.eq(q.field('automationEnabled'), false),
-          q.neq(q.field('type'), 'ai_marketing'),
-          q.neq(q.field('type'), 'ai_retention'),
-          q.neq(q.field('type'), 'retention_action')
+    if (!continuation) {
+      const oneTimePage = await ctx.db
+        .query('campaigns')
+        .withIndex('by_activationStatus', (q: any) =>
+          q.eq('activationStatus', 'active')
         )
-      )
-      .collect();
+        .paginate({
+          cursor: args.phase === 'one_time' ? (args.cursor ?? null) : null,
+          numItems: 10,
+        });
+      if (!oneTimePage.isDone)
+        continuation = {
+          phase: 'one_time',
+          cursor: oneTimePage.continueCursor,
+        };
 
-    for (const campaign of oneTimeCandidates) {
-      if (campaign.source === 'smart_manager') {
-        continue;
-      }
-      if (!isManagementType(campaign.type)) {
-        continue;
-      }
-      if (getScheduleModeFromCampaign(campaign) !== 'one_time') {
-        continue;
-      }
-      const sendAt = Number(campaign.schedule?.sendAt ?? 0);
-      if (!Number.isFinite(sendAt) || sendAt <= 0 || sendAt > now) {
-        continue;
-      }
-
-      const business = await getBusiness(campaign.businessId);
-      if (!business || business.isActive !== true) {
-        continue;
-      }
-      if (
-        typeof business.lastRestoredAt === 'number' &&
-        sendAt <= business.lastRestoredAt
-      ) {
-        continue;
-      }
-
-      const businessKey = String(campaign.businessId);
-      let isBlocked = overLimitByBusiness.get(businessKey);
-      if (isBlocked === undefined) {
-        try {
-          await assertCampaignsNotOverLimit(ctx, campaign.businessId);
-          isBlocked = false;
-        } catch (error) {
-          if (!isCampaignLimitReachedError(error)) {
-            throw error;
-          }
-          isBlocked = true;
+      for (const campaign of oneTimePage.page) {
+        if (
+          campaign.isActive !== true ||
+          campaign.automationEnabled !== false ||
+          ['ai_marketing', 'ai_retention', 'retention_action'].includes(
+            campaign.type
+          )
+        )
+          continue;
+        if (campaign.source === 'smart_manager') {
+          continue;
         }
-        overLimitByBusiness.set(businessKey, isBlocked);
-      }
-      if (isBlocked) {
-        continue;
-      }
+        if (!isManagementType(campaign.type)) {
+          continue;
+        }
+        if (getScheduleModeFromCampaign(campaign) !== 'one_time') {
+          continue;
+        }
+        const sendAt = Number(campaign.schedule?.sendAt ?? 0);
+        if (!Number.isFinite(sendAt) || sendAt <= 0 || sendAt > now) {
+          continue;
+        }
 
-      oneTimeProcessedCampaigns += 1;
-      const result = await sendCampaignDeliveryOnce(ctx, campaign, now);
-      sentCount += result.sentCount;
-      skippedCount += result.skippedCount;
-      const currentSchedule = isObject(campaign.schedule)
-        ? campaign.schedule
-        : {};
-      await ctx.db.patch(campaign._id, {
-        status: 'completed',
-        activationStatus: 'completed',
-        schedule: {
-          ...currentSchedule,
-          mode: 'send_now',
-          sendAt: undefined,
-          nextRunAt: undefined,
-        },
-        updatedAt: now,
-      });
-      dirtyBusinessIds.set(String(campaign.businessId), campaign.businessId);
+        const business = await getBusiness(campaign.businessId);
+        if (!business || business.isActive !== true) {
+          continue;
+        }
+        if (
+          typeof business.lastRestoredAt === 'number' &&
+          sendAt <= business.lastRestoredAt
+        ) {
+          continue;
+        }
+
+        const businessKey = String(campaign.businessId);
+        let isBlocked = overLimitByBusiness.get(businessKey);
+        if (isBlocked === undefined) {
+          try {
+            await assertCampaignsNotOverLimit(ctx, campaign.businessId);
+            isBlocked = false;
+          } catch (error) {
+            if (!isCampaignLimitReachedError(error)) {
+              throw error;
+            }
+            isBlocked = true;
+          }
+          overLimitByBusiness.set(businessKey, isBlocked);
+        }
+        if (isBlocked) {
+          continue;
+        }
+
+        oneTimeProcessedCampaigns += 1;
+        const result = await sendCampaignDeliveryOnce(ctx, campaign, now);
+        sentCount += result.sentCount;
+        skippedCount += result.skippedCount;
+        const currentSchedule = isObject(campaign.schedule)
+          ? campaign.schedule
+          : {};
+        await ctx.db.patch(campaign._id, {
+          status: 'completed',
+          activationStatus: 'completed',
+          schedule: {
+            ...currentSchedule,
+            mode: 'send_now',
+            sendAt: undefined,
+            nextRunAt: undefined,
+          },
+          updatedAt: now,
+        });
+        dirtyBusinessIds.set(String(campaign.businessId), campaign.businessId);
+      }
     }
 
     for (const businessId of dirtyBusinessIds.values()) {
@@ -1786,6 +1803,14 @@ export const runAutomationSweepInternal = internalMutation({
         businessId,
         'campaign_automation_transition',
         now
+      );
+    }
+
+    if (continuation) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.campaigns.runAutomationSweepInternal,
+        { ...continuation, referenceNow: now }
       );
     }
 
