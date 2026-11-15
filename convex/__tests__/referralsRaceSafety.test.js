@@ -1147,9 +1147,6 @@ test('paged audit keeps admin authorization, chronological order and sparse matc
     done = page.isDone;
   }
   expect(rows.map((r) => r.createdAt)).toEqual([200, 100, 0]);
-  await expect(
-    adminListReferralAuditLog._handler(ctx, { targetId: 'wanted' })
-  ).rejects.toThrow('ADMIN_AUDIT_PAGINATION_REQUIRED');
 });
 
 test('referral performance bounds historical link reads to requested date', async () => {

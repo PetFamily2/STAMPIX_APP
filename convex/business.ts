@@ -19,6 +19,7 @@ import {
 } from './guards';
 import { ensureBusinessBillingAccount } from './lib/billing/accounts';
 import { MVP_FEATURE_FLAGS } from './lib/billing/productionContract';
+import { getDiscoveryH3Cell, getDiscoveryH3Cells } from './lib/discoveryGeo';
 import { assertExpectedUpdatedAt } from './lib/editConflicts';
 import {
   generateInviteCode,
@@ -719,6 +720,7 @@ export async function createBusinessForOwner(
     },
     businessRetentionProfile: buildDefaultBusinessRetentionProfile(now),
     location: normalizedAddress.location,
+    discoveryH3R5: getDiscoveryH3Cell(normalizedAddress.location) ?? undefined,
     placeId: normalizedAddress.placeId,
     formattedAddress: normalizedAddress.formattedAddress,
     city: normalizedAddress.city,
@@ -1475,6 +1477,8 @@ export const createOrResumeBusinessOnboarding = mutation({
         onboardingResearchPurgeAfter: now + ONBOARDING_RESEARCH_RETENTION_MS,
         onboardingResearchMinimizedAt: undefined,
         location: normalizedAddress.location,
+        discoveryH3R5:
+          getDiscoveryH3Cell(normalizedAddress.location) ?? undefined,
         placeId: normalizedAddress.placeId,
         formattedAddress: normalizedAddress.formattedAddress,
         city: normalizedAddress.city,
@@ -1605,6 +1609,8 @@ export const updateBusinessAddress = mutation({
     const updatedAt = Date.now();
     await ctx.db.patch(businessId, {
       location: normalizedAddress.location,
+      discoveryH3R5:
+        getDiscoveryH3Cell(normalizedAddress.location) ?? undefined,
       placeId: normalizedAddress.placeId,
       formattedAddress: normalizedAddress.formattedAddress,
       city: normalizedAddress.city,
@@ -2656,10 +2662,25 @@ export const getBusinessesNearby = query({
     const normalizedRadiusKm = Math.max(0.1, Math.min(radiusKm, 50));
     const normalizedServiceTypeFilters =
       normalizeServiceTypeFilters(serviceTypeFilters);
-    const businesses = await ctx.db
-      .query('businesses')
-      .withIndex('by_isActive', (q: any) => q.eq('isActive', true))
-      .collect();
+    const cells = getDiscoveryH3Cells(
+      { lat: userLat, lng: userLng },
+      normalizedRadiusKm
+    );
+    const pages = await Promise.all(
+      cells.map((cell) =>
+        ctx.db
+          .query('businesses')
+          .withIndex('by_isActive_discoveryH3R5', (q: any) =>
+            q.eq('isActive', true).eq('discoveryH3R5', cell)
+          )
+          .collect()
+      )
+    );
+    const businesses = [
+      ...new Map(
+        pages.flat().map((business) => [String(business._id), business])
+      ).values(),
+    ];
 
     const nearbyBusinesses = businesses
       .flatMap((business) => {

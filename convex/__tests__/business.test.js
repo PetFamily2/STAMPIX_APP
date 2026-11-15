@@ -24,6 +24,7 @@ import {
   getActivationTermsAcceptance,
 } from '../businessBilling';
 import { assertEntitlement } from '../entitlements';
+import { getDiscoveryH3Cell } from '../lib/discoveryGeo';
 import { completeBusinessOnboarding } from '../users';
 
 function buildUser(overrides = {}) {
@@ -1297,6 +1298,7 @@ describe('business profile settings and discovery filters', () => {
           serviceTypes: ['beauty'],
           serviceTags: ['איפור'],
           location: { lat: 0, lng: 0.001 },
+          discoveryH3R5: getDiscoveryH3Cell({ lat: 0, lng: 0.001 }),
         }),
         buildBusiness({
           _id: 'business_2',
@@ -1304,6 +1306,7 @@ describe('business profile settings and discovery filters', () => {
           serviceTypes: ['food_drink'],
           serviceTags: ['קפה'],
           location: { lat: 0, lng: 0.002 },
+          discoveryH3R5: getDiscoveryH3Cell({ lat: 0, lng: 0.002 }),
         }),
       ],
       businessStaff: [],
@@ -1332,18 +1335,21 @@ describe('business profile settings and discovery filters', () => {
           name: 'Food Alpha',
           serviceTypes: ['food_drink'],
           location: { lat: 0, lng: 0.005 },
+          discoveryH3R5: getDiscoveryH3Cell({ lat: 0, lng: 0.005 }),
         }),
         buildBusiness({
           _id: 'business_beauty',
           name: 'Beauty Beta',
           serviceTypes: ['beauty'],
           location: { lat: 0, lng: 0.001 },
+          discoveryH3R5: getDiscoveryH3Cell({ lat: 0, lng: 0.001 }),
         }),
         buildBusiness({
           _id: 'business_unclassified',
           name: 'No Type',
           serviceTypes: [],
           location: { lat: 0, lng: 0.0005 },
+          discoveryH3R5: getDiscoveryH3Cell({ lat: 0, lng: 0.0005 }),
         }),
       ],
       businessStaff: [],

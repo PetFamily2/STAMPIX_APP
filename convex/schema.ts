@@ -587,6 +587,7 @@ export default defineSchema({
         lng: v.number(),
       })
     ),
+    discoveryH3R5: v.optional(v.string()),
     placeId: v.optional(v.string()),
     formattedAddress: v.optional(v.string()),
     city: v.optional(v.string()),
@@ -617,6 +618,7 @@ export default defineSchema({
     .index('by_businessPublicId', ['businessPublicId'])
     .index('by_joinCode', ['joinCode'])
     .index('by_isActive', ['isActive'])
+    .index('by_isActive_discoveryH3R5', ['isActive', 'discoveryH3R5'])
     .index('by_onboardingResearchPurgeAfter', ['onboardingResearchPurgeAfter'])
     .index('by_placeId', ['placeId'])
     .searchIndex('search_public_name', {

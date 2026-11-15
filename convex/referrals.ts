@@ -1407,7 +1407,7 @@ export const openCustomerReferralLink = mutation({
 
 export const getMyReferralDashboard = query({
   args: {},
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const user = await requireCurrentUser(ctx);
     const refs = await ctx.db
       .query('customerReferrals')
@@ -2513,7 +2513,7 @@ export const adminListReferralAuditLog = query({
     targetId: v.optional(v.string()),
     limit: v.optional(v.number()),
   },
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     await requireAdminUser(ctx);
     const safeLimit = Math.max(1, Math.min(args.limit ?? 120, 400));
     // The legacy array contract can be served exactly with a bounded
