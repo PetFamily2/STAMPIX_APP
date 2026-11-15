@@ -128,11 +128,16 @@ class FakeQuery {
   }
 
   async collect() {
+    this.db.collectCalls.push(this.tableName);
     return this.docs();
   }
 
   async take(limit) {
-    return this.docs().slice(0, limit);
+    const rows = this.docs();
+    return (this.desc
+      ? [...rows].sort((a, b) => b.createdAt - a.createdAt)
+      : rows
+    ).slice(0, limit);
   }
 }
 
@@ -142,6 +147,7 @@ class FakeDb {
     this.counter = 0;
     this.getCalls = [];
     this.indexCalls = [];
+    this.collectCalls = [];
   }
 
   query(tableName) {
@@ -1216,4 +1222,51 @@ test('admin audit pages use target and timestamp indexes for scoped search', asy
       { field: 'targetId', value: 'specific' },
     ],
   });
+});
+
+test('legacy admin audit API preserves complete top-N results with bounded index reads', async () => {
+  const tables = baseTables();
+  const now = Date.now();
+  tables.users = tables.users.map((u) =>
+    u._id === 'u_owner' ? { ...u, isAdmin: true } : u
+  );
+  tables.referralAdminAuditLog = Array.from({ length: 210 }, (_, i) => ({
+    _id: `audit_${i}`,
+    targetType: i % 2 ? 'referralReward' : 'customerReferral',
+    targetId: i % 3 ? 'specific' : 'other',
+    createdAt: now + i,
+  }));
+  for (const item of [
+    { args: {}, index: 'by_createdAt' },
+    {
+      args: { targetType: 'referralReward' },
+      index: 'by_targetType_createdAt',
+    },
+    { args: { targetId: 'specific' }, index: 'by_targetId_createdAt' },
+    {
+      args: { targetType: 'customerReferral', targetId: 'other' },
+      index: 'by_targetType_targetId_createdAt',
+    },
+  ]) {
+    const ctx = buildCtx(tables);
+    const rows = await adminListReferralAuditLog._handler(ctx, {
+      ...item.args,
+      limit: 7,
+    });
+    const expected = tables.referralAdminAuditLog
+      .filter((row) => !item.args.targetType || row.targetType === item.args.targetType)
+      .filter((row) => !item.args.targetId || row.targetId === item.args.targetId)
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 7);
+    expect(rows.map((row) => row._id)).toEqual(
+      expected.map((row) => row._id)
+    );
+    expect(ctx.db.collectCalls).not.toContain('referralAdminAuditLog');
+    expect(ctx.db.indexCalls).toContainEqual(
+      expect.objectContaining({
+        table: 'referralAdminAuditLog',
+        index: item.index,
+      })
+    );
+  }
 });

@@ -2549,28 +2549,30 @@ export const adminListReferralAuditLog = query({
   },
   handler: async (ctx, args) => {
     await requireAdminUser(ctx);
-    const rows =
+    const safeLimit = Math.max(1, Math.min(args.limit ?? 120, 400));
+    // The legacy array contract can be served exactly with a bounded
+    // index read for every supported target filter combination.
+    const auditQuery =
       args.targetType && args.targetId
-        ? await ctx.db
+        ? ctx.db
             .query('referralAdminAuditLog')
-            .withIndex('by_targetType_targetId', (q: any) =>
+            .withIndex('by_targetType_targetId_createdAt', (q: any) =>
               q.eq('targetType', args.targetType).eq('targetId', args.targetId)
             )
-            .collect()
-        : await ctx.db
-            .query('referralAdminAuditLog')
-            .withIndex('by_createdAt', (q: any) => q)
-            .collect();
-
-    return rows
-      .filter((row: any) =>
-        args.targetType ? row.targetType === args.targetType : true
-      )
-      .filter((row: any) =>
-        args.targetId ? row.targetId === args.targetId : true
-      )
-      .sort((a: any, b: any) => Number(b.createdAt) - Number(a.createdAt))
-      .slice(0, Math.max(1, Math.min(args.limit ?? 120, 400)));
+        : args.targetType
+          ? ctx.db
+              .query('referralAdminAuditLog')
+              .withIndex('by_targetType_createdAt', (q: any) =>
+                q.eq('targetType', args.targetType)
+              )
+          : args.targetId
+            ? ctx.db
+                .query('referralAdminAuditLog')
+                .withIndex('by_targetId_createdAt', (q: any) =>
+                  q.eq('targetId', args.targetId)
+                )
+            : ctx.db.query('referralAdminAuditLog').withIndex('by_createdAt');
+    return await auditQuery.order('desc').take(safeLimit);
   },
 });
 
@@ -2591,9 +2593,8 @@ export const adminListReferralAuditLogPage = query({
   returns: paginationResultValidator(v.any()),
   handler: async (ctx, args) => {
     await requireAdminUser(ctx);
-    // Exact target and type-only pages use ordered index prefixes. The
-    // targetId-only fallback still pages the global ordered index so
-    // incomplete filters never silently suppress late matches.
+    // All supported filter combinations now page exact timestamp indexes.
+    // No result is omitted because it is outside a globally scanned page.
     const auditQuery =
       args.targetType && args.targetId
         ? ctx.db
@@ -2607,7 +2608,13 @@ export const adminListReferralAuditLogPage = query({
               .withIndex('by_targetType_createdAt', (q: any) =>
                 q.eq('targetType', args.targetType)
               )
-          : ctx.db.query('referralAdminAuditLog').withIndex('by_createdAt');
+          : args.targetId
+            ? ctx.db
+                .query('referralAdminAuditLog')
+                .withIndex('by_targetId_createdAt', (q: any) =>
+                  q.eq('targetId', args.targetId)
+                )
+            : ctx.db.query('referralAdminAuditLog').withIndex('by_createdAt');
     const result = await auditQuery.order('desc').paginate({
       ...args.paginationOpts,
       numItems: Math.max(1, Math.min(args.paginationOpts.numItems, 100)),

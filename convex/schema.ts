@@ -1490,6 +1490,7 @@ export default defineSchema({
       'createdAt',
     ])
     .index('by_targetType_createdAt', ['targetType', 'createdAt'])
+    .index('by_targetId_createdAt', ['targetId', 'createdAt'])
     .index('by_businessId_createdAt', ['businessId', 'createdAt'])
     .index('by_customerReferralId', ['customerReferralId'])
     .index('by_referralRewardId', ['referralRewardId'])
