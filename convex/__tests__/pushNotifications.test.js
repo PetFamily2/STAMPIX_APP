@@ -261,7 +261,6 @@ describe('transactional push outbox', () => {
     };
     expect(
       (
-
         await sendPushNotificationToUser(ctx, {
           ...args,
           dedupeKey: 'campaign_automation:campaign_1:run_1',
@@ -272,7 +271,6 @@ describe('transactional push outbox', () => {
     ).toBe(true);
     expect(
       (
-
         await sendPushNotificationToUser(ctx, {
           ...args,
           dedupeKey: 'campaign_automation:campaign_1:run_1',
@@ -283,7 +281,6 @@ describe('transactional push outbox', () => {
     ).toBe(false);
     expect(
       (
-
         await sendPushNotificationToUser(ctx, {
           ...args,
           dedupeKey: 'campaign_automation:campaign_1:run_2',
