@@ -29,9 +29,15 @@ jobs:
         run: bun run type-check
       - name: Focused Push and automation regression
         run: bun test convex/__tests__/pushNotifications.test.js convex/__tests__/campaignPushDelivery.test.js convex/__tests__/referralsRaceSafety.test.js
+      - name: Show exact formatter patch (diagnostic only)
+        run: |
+          bunx biome format --write convex/schema.ts convex/referrals.ts convex/__tests__/referralsRaceSafety.test.js >/dev/null
+          git diff -- convex/schema.ts convex/referrals.ts convex/__tests__/referralsRaceSafety.test.js
+          git restore -- convex/schema.ts convex/referrals.ts convex/__tests__/referralsRaceSafety.test.js
       - name: Lint modified backend files
-        run: bunx biome check convex/schema.ts convex/pushNotifications.ts convex/crons.ts convex/referrals.ts convex/__tests__/pushNotifications.test.js convex/__tests__/campaignPushDelivery.test.js
+        run: bunx biome check convex/schema.ts convex/pushNotifications.ts convex/crons.ts convex/referrals.ts convex/__tests__/pushNotifications.test.js convex/__tests__/campaignPushDelivery.test.js convex/__tests__/referralsRaceSafety.test.js --max-diagnostics=300
       - name: Web Android iOS JavaScript export
+        if: always()
         env:
           EXPO_PUBLIC_APP_ENV: preview
           EXPO_PUBLIC_WEB_ROLE_ROUTING: 'true'
