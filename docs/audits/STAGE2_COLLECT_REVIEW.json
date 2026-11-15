@@ -229,62 +229,62 @@
   },
   {
     "file": "convex/referrals.ts",
-    "line": 2311,
+    "line": 2386,
     "owner": "[\n      customerLinks,\n      businessLinks,\n      customerReferrals,\n      rewards,\n      businessReferrals,\n    ]",
-    "expression": "ctx.db.query('customerReferralLinks')",
+    "expression": "adminSearchReferralRecords rejects its legacy array contract after authorization",
     "review": {
-      "classification": "dangerous",
-      "decision": "Global admin link search requires admin before read. Updated UI uses bounded paginated endpoint; legacy query retained for backward compatibility and remains a scale risk.",
-      "status": "reviewed",
-      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+      "classification": "fixed_and_tested",
+      "decision": "The admin UI uses the bounded cursor API. The legacy entrypoint now returns ADMIN_SEARCH_PAGINATION_REQUIRED rather than collecting global tables.",
+      "status": "fixed_and_tested",
+      "regression": "Regression covers authorization, sparse matches across every record type, and rejection of the retired array contract."
     }
   },
   {
     "file": "convex/referrals.ts",
-    "line": 2314,
+    "line": 2386,
     "owner": "[\n      customerLinks,\n      businessLinks,\n      customerReferrals,\n      rewards,\n      businessReferrals,\n    ]",
-    "expression": "ctx.db.query('businessReferralLinks')",
+    "expression": "adminSearchReferralRecords rejects its legacy array contract after authorization",
     "review": {
-      "classification": "dangerous",
-      "decision": "Global admin business-link search requires admin. New page API supports this type; legacy full-read compatibility path remains risky.",
-      "status": "reviewed",
-      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+      "classification": "fixed_and_tested",
+      "decision": "The bounded admin page API is the sole supported search contract; the old array function cannot read the global business-link table.",
+      "status": "fixed_and_tested",
+      "regression": "Regression covers every record type and authorization."
     }
   },
   {
     "file": "convex/referrals.ts",
-    "line": 2317,
+    "line": 2386,
     "owner": "[\n      customerLinks,\n      businessLinks,\n      customerReferrals,\n      rewards,\n      businessReferrals,\n    ]",
-    "expression": "ctx.db.query('customerReferrals')",
+    "expression": "adminSearchReferralRecords rejects its legacy array contract after authorization",
     "review": {
-      "classification": "dangerous",
-      "decision": "Global admin customer-referral substring search requires admin. New page API preserves eventual matches without early cap; legacy read retained.",
-      "status": "reviewed",
-      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+      "classification": "fixed_and_tested",
+      "decision": "The cursor API preserves eventual substring matches without a global collect; unsafe legacy access is rejected.",
+      "status": "fixed_and_tested",
+      "regression": "Regression covers sparse matches and authorization."
     }
   },
   {
     "file": "convex/referrals.ts",
-    "line": 2320,
+    "line": 2386,
     "owner": "[\n      customerLinks,\n      businessLinks,\n      customerReferrals,\n      rewards,\n      businessReferrals,\n    ]",
-    "expression": "ctx.db.query('referralRewards')",
+    "expression": "adminSearchReferralRecords rejects its legacy array contract after authorization",
     "review": {
-      "classification": "dangerous",
-      "decision": "Global admin reward substring search requires admin. New page API scans bounded pages; legacy endpoint remains high-risk at scale.",
-      "status": "reviewed",
-      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+      "classification": "fixed_and_tested",
+      "decision": "The bounded cursor API is required for reward search; no global legacy read remains.",
+      "status": "fixed_and_tested",
+      "regression": "Regression covers sparse matches and retirement."
     }
   },
   {
     "file": "convex/referrals.ts",
-    "line": 2323,
+    "line": 2386,
     "owner": "[\n      customerLinks,\n      businessLinks,\n      customerReferrals,\n      rewards,\n      businessReferrals,\n    ]",
-    "expression": "ctx.db.query('businessReferrals')",
+    "expression": "adminSearchReferralRecords rejects its legacy array contract after authorization",
     "review": {
-      "classification": "dangerous",
-      "decision": "Global admin business-referral search requires admin. New page API preserves deleted-business marker; legacy full search retained.",
-      "status": "reviewed",
-      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+      "classification": "fixed_and_tested",
+      "decision": "The bounded cursor API preserves deleted-business markers; the old global array path is rejected.",
+      "status": "fixed_and_tested",
+      "regression": "Regression covers sparse matches and retirement."
     }
   },
   {
@@ -301,9 +301,9 @@
   },
   {
     "file": "convex/referrals.ts",
-    "line": 2467,
+    "line": 2524,
     "owner": "rows",
-    "expression": "ctx.db\n            .query('referralAdminAuditLog')\n            .withIndex('by_createdAt', (q: any) => q)",
+    "expression": "referralAdminAuditLog ordered indexed bounded reads",
     "review": {
       "classification": "fixed_and_tested",
       "decision": "Legacy array API now uses status-correct ordered indexed take(limit) for type+target, type-only, target-only, and global top-N; the active page API uses the same prefix indexes. Mocked regressions verify all combinations, no full-table collect, and admin authorization. No real Convex index timings.",

@@ -41,7 +41,9 @@ class FakeQuery {
         return q;
       },
     };
-    if (builder) builder(q);
+    if (builder) {
+      builder(q);
+    }
     this.db.indexCalls.push({
       table: this.tableName,
       index: _indexName,
@@ -119,7 +121,9 @@ class FakeQuery {
     let index = start;
     while (index < all.length && page.length < numItems) {
       const row = all[index++];
-      if (this.predicates.every((predicate) => predicate(row))) page.push(row);
+      if (this.predicates.every((predicate) => predicate(row))) {
+        page.push(row);
+      }
     }
     const isDone = !all
       .slice(index)
@@ -694,17 +698,17 @@ describe('business referral deleted-business compatibility', () => {
     });
     const ctx = buildCtx(tables);
 
-    const searchRows = await adminSearchReferralRecords._handler(ctx, {
+    const searchRows = await adminSearchReferralRecordsPage._handler(ctx, {
       query: '',
       type: 'businessReferral',
-      limit: 10,
+      paginationOpts: { cursor: null, numItems: 10 },
     });
     const record = await adminGetReferralRecord._handler(ctx, {
       targetType: 'businessReferral',
       targetId: 'b2b_admin_deleted',
     });
 
-    expect(searchRows[0].payload).toMatchObject({
+    expect(searchRows.page[0].payload).toMatchObject({
       referredBusinessId: null,
       referredBusinessDeleted: true,
     });
@@ -717,7 +721,7 @@ describe('business referral deleted-business compatibility', () => {
 });
 
 describe('referral lists tolerate deleted users', () => {
-  test('admin audit filtering uses the target index and still denies non-admins', async () => {
+  test('legacy admin audit rejects clients after authorization', async () => {
     const tables = baseTables();
     tables.referralAdminAuditLog = [
       {
@@ -931,7 +935,7 @@ test('paged admin search preserves sparse substring matches across all five reco
   ];
   for (const [type, table] of pairs) {
     tables[table] = Array.from({ length: 9 }, (_, i) => ({
-      _id: i === 8 ? 'late-match' : 'row' + i,
+      _id: i === 8 ? 'late-match' : `row${i}`,
       code: 'code',
       businessId: 'biz_1',
       referrerBusinessId: 'biz_1',
@@ -956,12 +960,10 @@ test('paged admin search preserves sparse substring matches across all five reco
       pages++;
     }
     expect(pages).toBe(5);
-    const legacy = await adminSearchReferralRecords._handler(ctx, {
-      query: 'match',
-      type,
-    });
-    expect(all.sort((a, b) => b.updatedAt - a.updatedAt)).toEqual(legacy);
     expect(all.map((r) => r.targetId)).toEqual(['late-match']);
+    await expect(
+      adminSearchReferralRecords._handler(ctx, { query: 'match', type })
+    ).rejects.toThrow('ADMIN_SEARCH_PAGINATION_REQUIRED');
   }
   await expect(
     adminSearchReferralRecordsPage._handler(buildCtx(baseTables()), {
@@ -976,7 +978,7 @@ test('expiry processes all overdue links in bounded idempotent batches', async (
   const tables = baseTables();
   const now = Date.now();
   tables.customerReferralLinks = Array.from({ length: 205 }, (_, i) => ({
-    _id: 'customer_' + i,
+    _id: `customer_${i}`,
     status: 'active',
     expiresAt: now - 100,
   }));
@@ -986,7 +988,7 @@ test('expiry processes all overdue links in bounded idempotent batches', async (
     expiresAt: now + 1000000,
   });
   tables.businessReferralLinks = Array.from({ length: 101 }, (_, i) => ({
-    _id: 'business_' + i,
+    _id: `business_${i}`,
     status: 'active',
     expiresAt: now - 100,
   }));
@@ -1022,7 +1024,7 @@ test('reward expiry continues across nonexpiring and stamp rewards without skipp
   const tables = baseTables(),
     now = Date.now();
   tables.referralRewards = Array.from({ length: 220 }, (_, i) => ({
-    _id: 'reward_' + i,
+    _id: `reward_${i}`,
     status: 'granted',
     actualRewardType: i % 2 ? 'STAMP' : 'BENEFIT',
     expiresAt: i % 3 === 0 ? undefined : now - 100,
@@ -1037,8 +1039,9 @@ test('reward expiry continues across nonexpiring and stamp rewards without skipp
     tasks = [];
   ctx.scheduler = { runAfter: async (_delay, _name, args) => tasks.push(args) };
   await expireReferralRewardsInternal._handler(ctx, {});
-  while (tasks.length)
+  while (tasks.length) {
     await expireReferralRewardsInternal._handler(ctx, tasks.shift());
+  }
   expect(
     tables.referralRewards.filter((r) => r.status === 'expired')
   ).toHaveLength(73);
@@ -1061,7 +1064,7 @@ test('credit sweep continues across batches and does not credit the same referra
     now = Date.now();
   tables.businesses.push({ ...tables.businesses[0], _id: 'biz_2' });
   tables.businessReferrals = Array.from({ length: 205 }, (_, i) => ({
-    _id: 'deleted_' + i,
+    _id: `deleted_${i}`,
     status: 'waiting_30_days',
     referrerBusinessId: 'biz_1',
     qualificationDueAt: undefined,
@@ -1087,15 +1090,18 @@ test('credit sweep continues across batches and does not credit the same referra
     tasks = [];
   ctx.scheduler = {
     runAfter: async (_delay, _name, args) => {
-      if (args.cursor) tasks.push(args);
+      if (args.cursor) {
+        tasks.push(args);
+      }
     },
   };
   await processDueBusinessReferralCreditsInternal._handler(ctx, {});
-  while (tasks.length)
+  while (tasks.length) {
     await processDueBusinessReferralCreditsInternal._handler(
       ctx,
       tasks.shift()
     );
+  }
   expect(
     tables.businessReferrals.filter((r) => r.status === 'skipped')
   ).toHaveLength(205);
@@ -1113,7 +1119,7 @@ test('credit sweep continues across batches and does not credit the same referra
 test('paged audit keeps admin authorization, chronological order and sparse matches', async () => {
   const tables = baseTables();
   tables.referralAdminAuditLog = Array.from({ length: 205 }, (_, i) => ({
-    _id: 'audit_' + i,
+    _id: `audit_${i}`,
     createdAt: i,
     targetId: i % 100 === 0 ? 'wanted' : 'other',
     targetType: 'referralReward',
@@ -1141,6 +1147,9 @@ test('paged audit keeps admin authorization, chronological order and sparse matc
     done = page.isDone;
   }
   expect(rows.map((r) => r.createdAt)).toEqual([200, 100, 0]);
+  await expect(
+    adminListReferralAuditLog._handler(ctx, { targetId: 'wanted' })
+  ).rejects.toThrow('ADMIN_AUDIT_PAGINATION_REQUIRED');
 });
 
 test('referral performance bounds historical link reads to requested date', async () => {

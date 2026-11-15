@@ -97,7 +97,9 @@ class FakeQuery {
     const page = [];
     while (i < all.length && page.length < numItems) {
       const row = all[i++];
-      if (this.predicates.every((p) => p(row))) page.push(row);
+      if (this.predicates.every((p) => p(row))) {
+        page.push(row);
+      }
     }
     return {
       page,
@@ -593,17 +595,17 @@ test('one-time sweep continues through batches and repeat scans do not redeliver
   const baseMembership = tables.memberships[0];
   tables.businesses = Array.from({ length: 23 }, (_, i) => ({
     ...baseBusiness,
-    _id: 'biz_batch_' + i,
+    _id: `biz_batch_${i}`,
   }));
   tables.memberships = Array.from({ length: 23 }, (_, i) => ({
     ...baseMembership,
-    _id: 'membership_batch_' + i,
-    businessId: 'biz_batch_' + i,
+    _id: `membership_batch_${i}`,
+    businessId: `biz_batch_${i}`,
   }));
   tables.campaigns = Array.from({ length: 23 }, (_, i) => ({
     ...tables.campaigns[0],
-    _id: 'batch_' + i,
-    businessId: 'biz_batch_' + i,
+    _id: `batch_${i}`,
+    businessId: `biz_batch_${i}`,
     status: 'active',
     activationStatus: 'active',
     automationEnabled: false,
@@ -632,8 +634,9 @@ test('one-time sweep continues through batches and repeat scans do not redeliver
   });
   while (i < ctx.scheduled.length) {
     const task = ctx.scheduled[i++];
-    if (task.args.phase)
+    if (task.args.phase) {
       await runAutomationSweepInternal._handler(ctx, task.args);
+    }
   }
   expect(
     tables.campaigns.filter((row) => row.status === 'completed')
@@ -654,17 +657,17 @@ test('recurring sweep scans all batches and repeated sweep does not redeliver', 
     baseCampaign = tables.campaigns[0];
   tables.businesses = Array.from({ length: 23 }, (_, i) => ({
     ...baseBusiness,
-    _id: 'rbiz_' + i,
+    _id: `rbiz_${i}`,
   }));
   tables.memberships = Array.from({ length: 23 }, (_, i) => ({
     ...baseMembership,
-    _id: 'rmembership_' + i,
-    businessId: 'rbiz_' + i,
+    _id: `rmembership_${i}`,
+    businessId: `rbiz_${i}`,
   }));
   tables.campaigns = Array.from({ length: 23 }, (_, i) => ({
     ...baseCampaign,
-    _id: 'recurring_' + i,
-    businessId: 'rbiz_' + i,
+    _id: `recurring_${i}`,
+    businessId: `rbiz_${i}`,
     status: 'active',
     activationStatus: 'active',
     automationEnabled: true,
@@ -692,8 +695,9 @@ test('recurring sweep scans all batches and repeated sweep does not redeliver', 
   });
   while (cursor < ctx.scheduled.length) {
     const task = ctx.scheduled[cursor++];
-    if (task.args.phase)
+    if (task.args.phase) {
       await runAutomationSweepInternal._handler(ctx, task.args);
+    }
   }
   expect(ctx.db.rows('messageLog')).toHaveLength(initial);
 });

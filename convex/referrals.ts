@@ -2398,46 +2398,12 @@ export const adminSearchReferralRecords = query({
     ),
     limit: v.optional(v.number()),
   },
-  handler: async (ctx, { query, type, limit }) => {
+  handler: async (ctx) => {
     await requireAdminUser(ctx);
-    const needle = query.trim().toLowerCase();
-    const safeLimit = Math.max(1, Math.min(limit ?? 100, 400));
-
-    const [
-      customerLinks,
-      businessLinks,
-      customerReferrals,
-      rewards,
-      businessReferrals,
-    ] = await Promise.all([
-      type && type !== 'customerReferralLink'
-        ? []
-        : ctx.db.query('customerReferralLinks').collect(),
-      type && type !== 'businessReferralLink'
-        ? []
-        : ctx.db.query('businessReferralLinks').collect(),
-      type && type !== 'customerReferral'
-        ? []
-        : ctx.db.query('customerReferrals').collect(),
-      type && type !== 'referralReward'
-        ? []
-        : ctx.db.query('referralRewards').collect(),
-      type && type !== 'businessReferral'
-        ? []
-        : ctx.db.query('businessReferrals').collect(),
-    ]);
-
-    return formatAdminReferralSearch(
-      [
-        customerLinks,
-        businessLinks,
-        customerReferrals,
-        rewards,
-        businessReferrals,
-      ],
-      needle,
-      safeLimit
-    );
+    // Installed clients must migrate to the cursor contract. Returning a
+    // truncated array would hide matches; collecting the five global tables
+    // would keep an unbounded admin-read path alive.
+    throw new Error('ADMIN_SEARCH_PAGINATION_REQUIRED');
   },
 });
 
@@ -2547,7 +2513,7 @@ export const adminListReferralAuditLog = query({
     targetId: v.optional(v.string()),
     limit: v.optional(v.number()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx) => {
     await requireAdminUser(ctx);
     const safeLimit = Math.max(1, Math.min(args.limit ?? 120, 400));
     // The legacy array contract can be served exactly with a bounded
