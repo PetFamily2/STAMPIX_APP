@@ -465,71 +465,45 @@ describe('campaign push delivery', () => {
     expect(ctx.scheduled).toHaveLength(1);
   });
 
-  test('push-channel campaign creates inbox log and attempts push delivery', async () => {
+  test('push-channel campaign queues durable delivery without external HTTP in mutation', async () => {
     const tables = baseTables();
     const ctx = buildCtx(tables);
-    let sentPayload = null;
-    globalThis.fetch = async (_url, init) => {
-      sentPayload = JSON.parse(init.body);
-      return new Response(JSON.stringify({ data: [{ status: 'ok' }] }), {
-        status: 200,
-      });
+    let fetchCalls = 0;
+    globalThis.fetch = async () => {
+      fetchCalls += 1;
+      throw new Error('HTTP forbidden in mutation');
     };
-
     const result = await sendCampaignNow._handler(ctx, {
       businessId: BUSINESS_ID,
       campaignId: CAMPAIGN_ID,
     });
-
     expect(result.sentCount).toBe(1);
-    expect(ctx.db.rows('messageLog')).toContainEqual(
+    expect(ctx.db.rows('messageLog')).toHaveLength(1);
+    expect(ctx.db.rows('pushDeliveryOutbox')).toContainEqual(
       expect.objectContaining({
-        businessId: BUSINESS_ID,
         campaignId: CAMPAIGN_ID,
         toUserId: CUSTOMER_ID,
-        channel: 'in_app',
-        status: 'sent',
+        status: 'pending',
       })
     );
-    expect(sentPayload).toEqual([
-      expect.objectContaining({
-        to: 'ExponentPushToken[customer]',
-        title: 'Campaign title',
-        body: 'Campaign body',
-        channelId: 'default',
-      }),
-    ]);
-    expect(ctx.db.rows('pushDeliveryLog')).toContainEqual(
-      expect.objectContaining({
-        businessId: BUSINESS_ID,
-        campaignId: CAMPAIGN_ID,
-        toUserId: CUSTOMER_ID,
-        token: 'ExponentPushToken[customer]',
-        status: 'sent',
-      })
-    );
+    expect(ctx.scheduled.some((task) => task.args.outboxId)).toBeTrue();
+    expect(fetchCalls).toBe(0);
   });
 
-  test('push failure does not fail campaign send or inbox delivery', async () => {
+  test('in-app delivery is committed independently of external Push outcome', async () => {
     const tables = baseTables();
     const ctx = buildCtx(tables);
     globalThis.fetch = async () => {
-      throw new Error('expo temporarily unavailable');
+      throw new Error('provider unavailable');
     };
-
     const result = await sendCampaignNow._handler(ctx, {
       businessId: BUSINESS_ID,
       campaignId: CAMPAIGN_ID,
     });
-
     expect(result.sentCount).toBe(1);
     expect(ctx.db.rows('messageLog')).toHaveLength(1);
-    expect(ctx.db.rows('pushDeliveryLog')).toContainEqual(
-      expect.objectContaining({
-        status: 'failed',
-        errorMessage: 'expo_push_transport_ambiguous',
-      })
-    );
+    expect(ctx.db.rows('pushDeliveryOutbox')[0].status).toBe('pending');
+    expect(ctx.db.rows('pushDeliveryLog')).toHaveLength(0);
   });
 
   test('in-app-only campaign does not attempt push', async () => {
@@ -602,11 +576,11 @@ describe('referral push delivery coverage', () => {
     expect(qualifyResult.reason).toBe('granted');
     expect(ctx.db.rows('referralRewards')).toHaveLength(1);
     expect(ctx.db.rows('messageLog').length).toBeGreaterThan(0);
-    expect(ctx.db.rows('pushDeliveryLog')).toContainEqual(
+    expect(ctx.db.rows('pushDeliveryOutbox')).toContainEqual(
       expect.objectContaining({
         businessId: BUSINESS_ID,
         toUserId: CUSTOMER_ID,
-        status: 'sent',
+        status: 'pending',
       })
     );
   });

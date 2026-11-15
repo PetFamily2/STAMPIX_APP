@@ -175,6 +175,13 @@ crons.interval(
 );
 
 crons.interval(
+  'push outbox recovery every 5 minutes',
+  { minutes: 5 },
+  internal.pushNotifications.recoverPendingPushOutbox,
+  {}
+);
+
+crons.interval(
   'smart manager delivery recovery every 5 minutes',
   { minutes: 5 },
   smartManagerDeliverySweepRef

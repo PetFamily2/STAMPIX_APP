@@ -352,6 +352,7 @@ async function sendReferralNotification(
       toUserId: args.toUserId,
       title: args.title,
       body: args.body,
+      dedupeKey: args.dedupeKey,
     });
   } catch {
     // Notification delivery is best-effort and must not fail referral flow.

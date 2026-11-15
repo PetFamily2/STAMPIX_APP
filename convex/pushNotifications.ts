@@ -1,6 +1,12 @@
 import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
-import { mutation, query } from './_generated/server';
+import { internal } from './_generated/api';
+import {
+  internalAction,
+  internalMutation,
+  mutation,
+  query,
+} from './_generated/server';
 import { requireCurrentUser } from './guards';
 import { scheduleWebPush } from './webPush';
 
@@ -152,6 +158,12 @@ async function insertPushLog(
   });
 }
 
+// Enqueue with the business mutation. External HTTP is NEVER attempted in
+// that mutation. A claimed delivery gets at most one Expo API attempt;
+// unknown provider outcomes are terminal until manually reconciled.
+const PUSH_CLAIM_TIMEOUT_MS = 15 * 60 * 1000;
+const PUSH_OUTBOX_RECOVERY_PAGE_SIZE = 25;
+
 export async function sendPushNotificationToUser(
   ctx: any,
   args: {
@@ -160,93 +172,262 @@ export async function sendPushNotificationToUser(
     title: string;
     body: string;
     campaignId?: Id<'campaigns'>;
+    dedupeKey?: string;
   }
 ) {
-  await scheduleWebPush(ctx, args.toUserId);
-  const tokens = await ctx.db
-    .query('pushTokens')
-    .withIndex('by_userId', (q: any) => q.eq('userId', args.toUserId))
-    .filter((q: any) => q.eq(q.field('isActive'), true))
-    .collect();
-
-  if (tokens.length === 0) {
-    await insertPushLog(ctx, {
-      businessId: args.businessId,
-      campaignId: args.campaignId,
-      toUserId: args.toUserId,
-      status: 'skipped_no_push_token',
-    });
-    return {
-      sent: 0,
-      failed: 0,
-      skipped: 1,
-    };
+  const deliveryKey = args.dedupeKey
+    ? `event:${args.toUserId}:${args.dedupeKey}`
+    : args.campaignId
+      ? `campaign:${args.campaignId}:${args.toUserId}`
+      : undefined;
+  if (deliveryKey) {
+    const previous = await ctx.db
+      .query('pushDeliveryOutbox')
+      .withIndex('by_deliveryKey', (q: any) => q.eq('deliveryKey', deliveryKey))
+      .first();
+    if (previous) return { queued: false };
   }
-
-  const payload: ExpoPushMessage[] = tokens.map((tokenRow: any) => ({
-    to: tokenRow.token,
+  const now = Date.now();
+  const outboxId = await ctx.db.insert('pushDeliveryOutbox', {
+    businessId: args.businessId,
+    campaignId: args.campaignId,
+    toUserId: args.toUserId,
+    deliveryKey,
     title: args.title,
     body: args.body,
-    sound: 'default',
-    channelId: EXPO_PUSH_DEFAULT_CHANNEL_ID,
-    data: {
-      businessId: String(args.businessId),
-      campaignId: args.campaignId ? String(args.campaignId) : null,
-    },
-  }));
+    status: 'pending',
+    createdAt: now,
+    updatedAt: now,
+  });
+  await ctx.scheduler.runAfter(0, internal.pushNotifications.deliverQueuedPush, {
+    outboxId,
+  });
+  await scheduleWebPush(ctx, args.toUserId);
+  return { queued: true };
+}
 
-  const transportResult = await sendExpoPushMessages(payload);
-  if (!transportResult.ok) {
-    for (const tokenRow of tokens) {
+export const claimQueuedPush = internalMutation({
+  args: { outboxId: v.id('pushDeliveryOutbox') },
+  handler: async (ctx, { outboxId }) => {
+    const job = await ctx.db.get(outboxId);
+    if (!job || job.status !== 'pending') return null;
+    const tokens = await ctx.db
+      .query('pushTokens')
+      .withIndex('by_userId', (q) => q.eq('userId', job.toUserId))
+      .filter((q) => q.eq(q.field('isActive'), true))
+      .collect();
+    const now = Date.now();
+    await ctx.db.patch(outboxId, {
+      status: 'sending',
+      claimedAt: now,
+      updatedAt: now,
+    });
+    await ctx.scheduler.runAfter(
+      PUSH_CLAIM_TIMEOUT_MS,
+      internal.pushNotifications.expireQueuedPushClaim,
+      { outboxId }
+    );
+    return {
+      businessId: job.businessId,
+      campaignId: job.campaignId,
+      toUserId: job.toUserId,
+      title: job.title,
+      body: job.body,
+      tokens: tokens.map((token) => ({
+        pushTokenId: token._id,
+        token: token.token,
+      })),
+    };
+  },
+});
+
+export const expireQueuedPushClaim = internalMutation({
+  args: { outboxId: v.id('pushDeliveryOutbox') },
+  handler: async (ctx, { outboxId }) => {
+    const job = await ctx.db.get(outboxId);
+    if (
+      job?.status !== 'sending' ||
+      typeof job.claimedAt !== 'number' ||
+      job.claimedAt > Date.now() - PUSH_CLAIM_TIMEOUT_MS
+    ) return false;
+    await ctx.db.patch(outboxId, {
+      status: 'unknown',
+      outcome: 'claim_expired_after_possible_send',
+      completedAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    return true;
+  },
+});
+
+const outboxDeliveryResultValidator = v.object({
+  pushTokenId: v.id('pushTokens'),
+  token: v.string(),
+  status: v.union(
+    v.literal('sent'),
+    v.literal('failed'),
+    v.literal('unknown')
+  ),
+  errorMessage: v.optional(v.string()),
+});
+
+export const finishQueuedPush = internalMutation({
+  args: {
+    outboxId: v.id('pushDeliveryOutbox'),
+    status: v.union(
+      v.literal('sent'),
+      v.literal('failed'),
+      v.literal('unknown'),
+      v.literal('skipped')
+    ),
+    outcome: v.optional(v.string()),
+    deliveries: v.array(outboxDeliveryResultValidator),
+  },
+  handler: async (ctx, { outboxId, status, outcome, deliveries }) => {
+    const job = await ctx.db.get(outboxId);
+    if (!job || job.status !== 'sending') return false;
+    const now = Date.now();
+    await ctx.db.patch(outboxId, {
+      status,
+      outcome,
+      completedAt: now,
+      updatedAt: now,
+    });
+    if (deliveries.length === 0) {
       await insertPushLog(ctx, {
-        businessId: args.businessId,
-        campaignId: args.campaignId,
-        toUserId: args.toUserId,
-        token: tokenRow.token,
-        status: 'failed',
-        errorMessage: transportResult.errorMessage,
+        businessId: job.businessId,
+        campaignId: job.campaignId,
+        toUserId: job.toUserId,
+        status: 'skipped_no_push_token',
       });
     }
-    return {
-      sent: 0,
-      failed: tokens.length,
-      skipped: 0,
-    };
-  }
-
-  let sent = 0;
-  let failed = 0;
-  for (let index = 0; index < tokens.length; index += 1) {
-    const tokenRow = tokens[index];
-    const ticket = transportResult.tickets[index];
-    const errorCode = ticket?.details?.error;
-    const status = ticket?.status === 'ok' ? 'sent' : 'failed';
-
-    if (status === 'sent') {
-      sent += 1;
-    } else {
-      failed += 1;
+    for (const entry of deliveries) {
+      await insertPushLog(ctx, {
+        businessId: job.businessId,
+        campaignId: job.campaignId,
+        toUserId: job.toUserId,
+        token: entry.token,
+        status: entry.status,
+        errorMessage: entry.errorMessage,
+      });
+      if (entry.errorMessage === 'DeviceNotRegistered') {
+        const token = await ctx.db.get(entry.pushTokenId);
+        if (token?.token === entry.token && token.isActive === true) {
+          await ctx.db.patch(token._id, {
+            isActive: false,
+            updatedAt: now,
+          });
+        }
+      }
     }
+    return true;
+  },
+});
 
-    await insertPushLog(ctx, {
-      businessId: args.businessId,
-      campaignId: args.campaignId,
-      toUserId: args.toUserId,
-      token: tokenRow.token,
-      status,
-      errorMessage: errorCode,
+export const deliverQueuedPush = internalAction({
+  args: { outboxId: v.id('pushDeliveryOutbox') },
+  handler: async (ctx, { outboxId }) => {
+    const claim = await ctx.runMutation(
+      internal.pushNotifications.claimQueuedPush,
+      { outboxId }
+    );
+    if (!claim) return { status: 'already_claimed_or_finished' };
+    if (claim.tokens.length === 0) {
+      await ctx.runMutation(internal.pushNotifications.finishQueuedPush, {
+        outboxId,
+        status: 'skipped',
+        deliveries: [],
+      });
+      return { status: 'skipped' };
+    }
+    const response = await sendExpoPushMessages(
+      claim.tokens.map((target) => ({
+        to: target.token,
+        title: claim.title,
+        body: claim.body,
+        sound: 'default' as const,
+        channelId: EXPO_PUSH_DEFAULT_CHANNEL_ID,
+        data: {
+          businessId: String(claim.businessId),
+          campaignId: claim.campaignId ? String(claim.campaignId) : null,
+        },
+      }))
+    );
+    const deliveries = claim.tokens.map((target, index) => {
+      if (!response.ok) {
+        return {
+          ...target,
+          status: 'unknown' as const,
+          errorMessage: response.errorMessage,
+        };
+      }
+      if (response.tickets.length !== claim.tokens.length) {
+        return {
+          ...target,
+          status: 'unknown' as const,
+          errorMessage: 'expo_push_ticket_count_mismatch',
+        };
+      }
+      const ticket = response.tickets[index];
+      const sent = ticket?.status === 'ok';
+      return {
+        ...target,
+        status: sent ? ('sent' as const) : ('failed' as const),
+        errorMessage: sent
+          ? undefined
+          : (ticket?.details?.error ?? 'expo_push_ticket_rejected'),
+      };
     });
+    const ambiguous = deliveries.some((entry) => entry.status === 'unknown');
+    const status = ambiguous
+      ? ('unknown' as const)
+      : deliveries.some((entry) => entry.status === 'sent')
+        ? ('sent' as const)
+        : ('failed' as const);
+    await ctx.runMutation(internal.pushNotifications.finishQueuedPush, {
+      outboxId,
+      status,
+      outcome: ambiguous ? 'provider_result_uncertain' : undefined,
+      deliveries,
+    });
+    return { status };
+  },
+});
 
-    if (errorCode === 'DeviceNotRegistered') {
-      await ctx.db.patch(tokenRow._id, {
-        isActive: false,
+// Recover only unsent pending jobs; a stale claimed job may ALREADY have
+// reached Expo, and is marked unknown, never automatically sent again.
+export const recoverPendingPushOutbox = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const pending = await ctx.db
+      .query('pushDeliveryOutbox')
+      .withIndex('by_status_createdAt', (q) => q.eq('status', 'pending'))
+      .take(PUSH_OUTBOX_RECOVERY_PAGE_SIZE);
+    for (const job of pending) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.pushNotifications.deliverQueuedPush,
+        { outboxId: job._id }
+      );
+    }
+    const stale = await ctx.db
+      .query('pushDeliveryOutbox')
+      .withIndex('by_status_claimedAt', (q) =>
+        q.eq('status', 'sending')
+          .lte('claimedAt', Date.now() - PUSH_CLAIM_TIMEOUT_MS)
+      )
+      .take(PUSH_OUTBOX_RECOVERY_PAGE_SIZE);
+    for (const job of stale) {
+      await ctx.db.patch(job._id, {
+        status: 'unknown',
+        outcome: 'claim_expired_after_possible_send',
+        completedAt: Date.now(),
         updatedAt: Date.now(),
       });
     }
-  }
-
-  return { sent, failed, skipped: 0 };
-}
+    return { scheduled: pending.length, unknown: stale.length };
+  },
+});
 
 export const registerPushToken = mutation({
   args: {

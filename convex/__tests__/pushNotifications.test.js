@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 
 import {
+  claimQueuedPush,
   disablePushToken,
+  expireQueuedPushClaim,
+  finishQueuedPush,
   registerPushToken,
   sendPushNotificationToUser,
 } from '../pushNotifications';
@@ -16,7 +19,7 @@ afterEach(() => {
 });
 
 function createMockCtx(initial = {}, authUserId = USER_ID) {
-  const tableNames = ['users', 'pushTokens', 'pushDeliveryLog'];
+  const tableNames = ['users', 'pushTokens', 'pushDeliveryLog', 'pushDeliveryOutbox'];
   const state = Object.fromEntries(
     tableNames.map((tableName) => [
       tableName,
@@ -109,6 +112,10 @@ function createMockCtx(initial = {}, authUserId = USER_ID) {
       }),
     },
     rows,
+    scheduled: [],
+    scheduler: {
+      runAfter: async () => {},
+    },
   };
 }
 
@@ -181,91 +188,95 @@ describe('push token registration', () => {
   });
 });
 
-describe('push delivery logging', () => {
-  test('skips delivery and logs when the user has no active token', async () => {
-    const ctx = createMockCtx({
-      pushTokens: [buildPushToken({ isActive: false })],
-    });
-
-    const result = await sendPushNotificationToUser(ctx, {
-      businessId: BUSINESS_ID,
-      toUserId: USER_ID,
-      title: 'Reward',
-      body: 'You have a new reward',
-    });
-
-    expect(result).toEqual({ sent: 0, failed: 0, skipped: 1 });
-    expect(ctx.rows('pushDeliveryLog')[0]).toMatchObject({
-      businessId: BUSINESS_ID,
-      toUserId: USER_ID,
-      status: 'skipped_no_push_token',
-    });
-  });
-
-  test('logs Expo HTTP failures without deactivating the token', async () => {
-    const ctx = createMockCtx({
-      pushTokens: [buildPushToken()],
-    });
-    let sentPayload = null;
-    globalThis.fetch = async (_url, init) => {
-      sentPayload = JSON.parse(init.body);
-      return new Response(JSON.stringify({ errors: ['temporary'] }), {
-        status: 500,
-      });
+describe('transactional push outbox', () => {
+  test('enqueue does not contact an external provider during a mutation', async () => {
+    const ctx = createMockCtx({ pushTokens: [buildPushToken()] });
+    let calls = 0;
+    globalThis.fetch = async () => {
+      calls += 1;
+      throw new Error('transport must not run in a mutation');
     };
-
-    const result = await sendPushNotificationToUser(ctx, {
+    const first = await sendPushNotificationToUser(ctx, {
       businessId: BUSINESS_ID,
       toUserId: USER_ID,
-      title: 'Reward',
-      body: 'You have a new reward',
+      campaignId: 'campaign_1',
+      title: 'Campaign',
+      body: 'Hello',
     });
-
-    expect(result).toEqual({ sent: 0, failed: 1, skipped: 0 });
-    expect(sentPayload).toEqual([
-      expect.objectContaining({
-        to: 'ExponentPushToken[test-token]',
-        channelId: 'default',
-      }),
-    ]);
-    expect(ctx.rows('pushDeliveryLog')[0]).toMatchObject({
-      token: 'ExponentPushToken[test-token]',
-      status: 'failed',
-      errorMessage: 'expo_push_http_500',
+    const again = await sendPushNotificationToUser(ctx, {
+      businessId: BUSINESS_ID,
+      toUserId: USER_ID,
+      campaignId: 'campaign_1',
+      title: 'Campaign',
+      body: 'Hello',
     });
-    expect(ctx.rows('pushTokens')[0].isActive).toBeTrue();
+    expect(first.queued).toBeTrue();
+    expect(again.queued).toBeFalse();
+    expect(calls).toBe(0);
+    expect(ctx.rows('pushDeliveryOutbox')).toHaveLength(1);
+    expect(ctx.rows('pushDeliveryLog')).toHaveLength(0);
   });
 
-  test('deactivates tokens rejected as DeviceNotRegistered', async () => {
-    const ctx = createMockCtx({
-      pushTokens: [buildPushToken()],
+  test('a claimed message cannot be claimed or sent twice', async () => {
+    const ctx = createMockCtx({ pushTokens: [buildPushToken()] });
+    await sendPushNotificationToUser(ctx, {
+      businessId: BUSINESS_ID,
+      toUserId: USER_ID,
+      title: 'Campaign',
+      body: 'Hello',
     });
-    globalThis.fetch = async () =>
-      new Response(
-        JSON.stringify({
-          data: [
-            {
-              status: 'error',
-              details: { error: 'DeviceNotRegistered' },
-            },
-          ],
-        }),
-        { status: 200 }
-      );
+    const outboxId = ctx.rows('pushDeliveryOutbox')[0]._id;
+    const first = await claimQueuedPush._handler(ctx, { outboxId });
+    expect(first.tokens).toHaveLength(1);
+    expect(await claimQueuedPush._handler(ctx, { outboxId })).toBeNull();
+    const written = await finishQueuedPush._handler(ctx, {
+      outboxId,
+      status: 'sent',
+      deliveries: [{
+        pushTokenId: 'push_token_1',
+        token: 'ExponentPushToken[test-token]',
+        status: 'sent',
+      }],
+    });
+    expect(written).toBeTrue();
+    expect(await claimQueuedPush._handler(ctx, { outboxId })).toBeNull();
+    expect(ctx.rows('pushDeliveryLog')).toHaveLength(1);
+  });
 
-    const result = await sendPushNotificationToUser(ctx, {
+  test('stale claimed delivery is terminal unknown, never re-queued', async () => {
+    const ctx = createMockCtx({ pushTokens: [buildPushToken()] });
+    await sendPushNotificationToUser(ctx, {
       businessId: BUSINESS_ID,
       toUserId: USER_ID,
       title: 'Reward',
-      body: 'You have a new reward',
+      body: 'Hello',
     });
+    const job = ctx.rows('pushDeliveryOutbox')[0];
+    await claimQueuedPush._handler(ctx, { outboxId: job._id });
+    await ctx.db.patch(job._id, { claimedAt: Date.now() - 16 * 60 * 1000 });
+    expect(await expireQueuedPushClaim._handler(ctx, {
+      outboxId: job._id,
+    })).toBeTrue();
+    expect(ctx.rows('pushDeliveryOutbox')[0].status).toBe('unknown');
+    expect(await claimQueuedPush._handler(ctx, { outboxId: job._id })).toBeNull();
+  });
 
-    expect(result).toEqual({ sent: 0, failed: 1, skipped: 0 });
-    expect(ctx.rows('pushDeliveryLog')[0]).toMatchObject({
-      token: 'ExponentPushToken[test-token]',
-      status: 'failed',
-      errorMessage: 'DeviceNotRegistered',
+  test('no active token produces an outbox record, not an HTTP call', async () => {
+    const ctx = createMockCtx({ pushTokens: [buildPushToken({ isActive: false })] });
+    await sendPushNotificationToUser(ctx, {
+      businessId: BUSINESS_ID,
+      toUserId: USER_ID,
+      title: 'Reward',
+      body: 'Hello',
     });
-    expect(ctx.rows('pushTokens')[0].isActive).toBeFalse();
+    const job = ctx.rows('pushDeliveryOutbox')[0];
+    const claim = await claimQueuedPush._handler(ctx, { outboxId: job._id });
+    expect(claim.tokens).toHaveLength(0);
+    await finishQueuedPush._handler(ctx, {
+      outboxId: job._id,
+      status: 'skipped',
+      deliveries: [],
+    });
+    expect(ctx.rows('pushDeliveryLog')[0].status).toBe('skipped_no_push_token');
   });
 });

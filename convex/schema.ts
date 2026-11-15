@@ -2455,6 +2455,32 @@ export default defineSchema({
     .index('by_userId', ['userId'])
     .index('by_token', ['token']),
 
+  pushDeliveryOutbox: defineTable({
+    businessId: v.id('businesses'),
+    campaignId: v.optional(v.id('campaigns')),
+    toUserId: v.id('users'),
+    deliveryKey: v.optional(v.string()),
+    title: v.string(),
+    body: v.string(),
+    status: v.union(
+      v.literal('pending'),
+      v.literal('sending'),
+      v.literal('sent'),
+      v.literal('failed'),
+      v.literal('unknown'),
+      v.literal('skipped')
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    claimedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    outcome: v.optional(v.string()),
+  })
+    .index('by_deliveryKey', ['deliveryKey'])
+    .index('by_status_createdAt', ['status', 'createdAt'])
+    .index('by_status_claimedAt', ['status', 'claimedAt'])
+    .index('by_toUserId', ['toUserId']),
+
   pushDeliveryLog: defineTable({
     businessId: v.id('businesses'),
     campaignId: v.optional(v.id('campaigns')),
