@@ -35,7 +35,7 @@ jobs:
           git diff -- convex/schema.ts convex/referrals.ts convex/__tests__/referralsRaceSafety.test.js
           git restore -- convex/schema.ts convex/referrals.ts convex/__tests__/referralsRaceSafety.test.js
       - name: Lint modified backend files
-        run: bunx biome check convex/schema.ts convex/pushNotifications.ts convex/crons.ts convex/referrals.ts convex/__tests__/pushNotifications.test.js convex/__tests__/campaignPushDelivery.test.js convex/__tests__/referralsRaceSafety.test.js --max-diagnostics=300
+        run: bunx biome check convex/schema.ts convex/pushNotifications.ts convex/crons.ts convex/referrals.ts convex/__tests__/pushNotifications.test.js convex/__tests__/campaignPushDelivery.test.js convex/__tests__/referralsRaceSafety.test.js convex/__tests__/recentActivityIndexed.test.js convex/events.ts --max-diagnostics=300
       - name: Web Android iOS JavaScript export
         if: always()
         env:

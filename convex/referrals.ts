@@ -2607,9 +2607,7 @@ export const adminListReferralAuditLogPage = query({
               .withIndex('by_targetType_createdAt', (q: any) =>
                 q.eq('targetType', args.targetType)
               )
-          : ctx.db
-              .query('referralAdminAuditLog')
-              .withIndex('by_createdAt');
+          : ctx.db.query('referralAdminAuditLog').withIndex('by_createdAt');
     const result = await auditQuery.order('desc').paginate({
       ...args.paginationOpts,
       numItems: Math.max(1, Math.min(args.paginationOpts.numItems, 100)),

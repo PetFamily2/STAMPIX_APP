@@ -1484,7 +1484,11 @@ export default defineSchema({
   })
     .index('by_actorAdminUserId_createdAt', ['actorAdminUserId', 'createdAt'])
     .index('by_targetType_targetId', ['targetType', 'targetId'])
-    .index('by_targetType_targetId_createdAt', ['targetType', 'targetId', 'createdAt'])
+    .index('by_targetType_targetId_createdAt', [
+      'targetType',
+      'targetId',
+      'createdAt',
+    ])
     .index('by_targetType_createdAt', ['targetType', 'createdAt'])
     .index('by_businessId_createdAt', ['businessId', 'createdAt'])
     .index('by_customerReferralId', ['customerReferralId'])
