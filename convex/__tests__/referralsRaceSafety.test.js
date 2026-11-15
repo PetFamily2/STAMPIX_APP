@@ -134,9 +134,8 @@ class FakeQuery {
 
   async take(limit) {
     const rows = this.docs();
-    return (this.desc
-      ? [...rows].sort((a, b) => b.createdAt - a.createdAt)
-      : rows
+    return (
+      this.desc ? [...rows].sort((a, b) => b.createdAt - a.createdAt) : rows
     ).slice(0, limit);
   }
 }
@@ -1254,13 +1253,16 @@ test('legacy admin audit API preserves complete top-N results with bounded index
       limit: 7,
     });
     const expected = tables.referralAdminAuditLog
-      .filter((row) => !item.args.targetType || row.targetType === item.args.targetType)
-      .filter((row) => !item.args.targetId || row.targetId === item.args.targetId)
+      .filter(
+        (row) =>
+          !item.args.targetType || row.targetType === item.args.targetType
+      )
+      .filter(
+        (row) => !item.args.targetId || row.targetId === item.args.targetId
+      )
       .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, 7);
-    expect(rows.map((row) => row._id)).toEqual(
-      expected.map((row) => row._id)
-    );
+    expect(rows.map((row) => row._id)).toEqual(expected.map((row) => row._id));
     expect(ctx.db.collectCalls).not.toContain('referralAdminAuditLog');
     expect(ctx.db.indexCalls).toContainEqual(
       expect.objectContaining({

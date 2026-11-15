@@ -1,5 +1,9 @@
 name: Stage 2 offline verification
 
+concurrency:
+  group: stage2-safe-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
@@ -35,8 +39,9 @@ jobs:
           git diff -- convex/schema.ts convex/referrals.ts convex/__tests__/referralsRaceSafety.test.js
           git restore -- convex/schema.ts convex/referrals.ts convex/__tests__/referralsRaceSafety.test.js
       - name: Lint modified backend files
-        run: bunx biome check convex/schema.ts convex/pushNotifications.ts convex/crons.ts convex/referrals.ts convex/__tests__/pushNotifications.test.js convex/__tests__/campaignPushDelivery.test.js convex/__tests__/referralsRaceSafety.test.js convex/__tests__/recentActivityIndexed.test.js convex/events.ts --max-diagnostics=300
+        run: bunx biome check convex/schema.ts convex/pushNotifications.ts convex/crons.ts convex/referrals.ts convex/__tests__/pushNotifications.test.js convex/__tests__/campaignPushDelivery.test.js convex/__tests__/referralsRaceSafety.test.js convex/__tests__/recentActivityIndexed.test.js convex/events.ts convex/campaigns.ts --max-diagnostics=300
       - name: Full regression (individual Bun test files)
+        if: always()
         run: |
           set -euo pipefail
           count=0
@@ -50,6 +55,7 @@ jobs:
           done < <(find . -type f -name '*.test.js' -not -path './node_modules/*' -not -path './.git/*' -not -path './.tmp/*' | sort)
           echo "All $count test files passed independently."
       - name: Rendered editor scenarios
+        if: always()
         run: bun scripts/verify-stage2-rendered.jsx
       - name: Web Android iOS JavaScript export
         if: always()

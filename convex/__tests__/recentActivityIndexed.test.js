@@ -37,7 +37,9 @@ function createCtx(events) {
     },
     db: {
       get: async (id) =>
-        Object.values(tables).flat().find((row) => row._id === id) ?? null,
+        Object.values(tables)
+          .flat()
+          .find((row) => row._id === id) ?? null,
       query: (table) => {
         let conditions = [];
         let descending = false;

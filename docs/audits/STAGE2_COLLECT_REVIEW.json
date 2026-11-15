@@ -209,10 +209,10 @@
     "owner": "[referrals, rewards, links]",
     "expression": "ctx.db\n        .query('customerReferralLinks')\n        .withIndex('by_businessId_createdAt', (q: any) =>\n          q.eq('businessId', businessId)\n        )",
     "review": {
-      "classification": "improvement_required",
-      "decision": "Performance capability checked; business-createdAt index supports pushing startAt range safely, but unchanged here to preserve tested metric path.",
+      "classification": "fixed_and_tested",
+      "decision": "Time-window referral link reads use business/createdAt lower-bound index; 1,000 old records and another tenant remain excluded in local regression. Referral and reward status-partition reads are separately tracked under 16–17.",
       "status": "reviewed",
-      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+      "regression": "Local mocked behavior and indexed-query tests. Production-scale performance and live server behavior have not been verified."
     }
   },
   {
@@ -293,10 +293,10 @@
     "owner": "rows",
     "expression": "ctx.db\n            .query('referralAdminAuditLog')\n            .withIndex('by_targetType_targetId', (q: any) =>\n              q.eq('targetType', args.targetType).eq('targetId', args.targetId)\n            )",
     "review": {
-      "classification": "improvement_required",
-      "decision": "Admin audit exact type/ID index is correct; all target history sorted by createdAt. Long-lived target can grow; cursor needs matching sort contract.",
+      "classification": "fixed_and_tested",
+      "decision": "Admin audit exact-target and type-only pages now use timestamp-sorted indexed ranges. Legacy list reads are bounded for all filter combinations; mock pagination tests verify late matches and ordering.",
       "status": "reviewed",
-      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+      "regression": "Local mocked behavior and indexed-query tests. Production-scale performance and live server behavior have not been verified."
     }
   },
   {
@@ -305,10 +305,10 @@
     "owner": "rows",
     "expression": "ctx.db\n            .query('referralAdminAuditLog')\n            .withIndex('by_createdAt', (q: any) => q)",
     "review": {
-      "classification": "open",
-      "decision": "Current admin screen now reads a paginated, descending audit stream and exposes continuation; admin authorization and sparse matches are locally tested. Legacy array endpoint remains accessible for compatibility and still scans global history.",
+      "classification": "fixed_and_tested",
+      "decision": "Legacy array API now uses status-correct ordered indexed take(limit) for type+target, type-only, target-only, and global top-N; the active page API uses the same prefix indexes. Mocked regressions verify all combinations, no full-table collect, and admin authorization. No real Convex index timings.",
       "status": "reviewed",
-      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+      "regression": "Local mocked behavior and indexed-query tests. Production-scale performance and live server behavior have not been verified."
     }
   },
   {
@@ -461,10 +461,10 @@
     "owner": "events",
     "expression": "ctx.db\n      .query('events')\n      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
     "review": {
-      "classification": "improvement_required",
-      "decision": "Recent activity filters stamp/redemption then sorts createdAt. Existing index is business only; taking index order would be wrong for backdated events.",
+      "classification": "fixed_and_tested",
+      "decision": "Recent activity uses two business/type/createdAt ordered top-N index partitions (STAMP_ADDED and REWARD_REDEEMED) merged by event time, preserving backdated event order and avoiding full business event history. Mocked regression covers 1,500 irrelevant events.",
       "status": "reviewed",
-      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+      "regression": "Local mocked behavior and indexed-query tests. Production-scale performance and live server behavior have not been verified."
     }
   },
   {
