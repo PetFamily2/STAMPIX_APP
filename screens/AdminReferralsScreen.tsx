@@ -1,4 +1,4 @@
-import { useMutation, usePaginatedQuery, useQuery } from 'convex/react';
+import { useMutation, usePaginatedQuery } from 'convex/react';
 import { Redirect, router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
@@ -148,15 +148,19 @@ export default function AdminReferralsScreen() {
     rewardRowsPage.status === 'LoadingFirstPage'
       ? undefined
       : [...rewardRowsPage.results].sort((a, b) => b.updatedAt - a.updatedAt);
-  const auditRows = useQuery(
-    api.referrals.adminListReferralAuditLog,
+  const auditRowsPage = usePaginatedQuery(
+    api.referrals.adminListReferralAuditLogPage,
     isAdmin
       ? {
           targetId: auditTargetId || undefined,
-          limit: 120,
         }
-      : 'skip'
+      : 'skip',
+    { initialNumItems: 80 }
   );
+  const auditRows =
+    auditRowsPage.status === 'LoadingFirstPage'
+      ? undefined
+      : auditRowsPage.results;
 
   const disableReferralLink = useMutation(
     api.referrals.adminDisableCustomerReferralLink
@@ -485,10 +489,22 @@ export default function AdminReferralsScreen() {
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>{TEXT.auditSection}</Text>
+          {auditRowsPage.status === 'CanLoadMore' ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => auditRowsPage.loadMore(80)}
+            >
+              <Text>טענו רשומות נוספות ביומן</Text>
+            </Pressable>
+          ) : null}
           {auditRows === undefined ? (
             <ActivityIndicator color="#2F6BFF" />
           ) : auditRows.length === 0 ? (
-            <Text style={styles.emptyText}>{TEXT.empty}</Text>
+            <Text style={styles.emptyText}>
+              {auditRowsPage.status === 'CanLoadMore'
+                ? 'לא נמצאו רשומות בעמודים שנטענו. אפשר להמשיך לחפש.'
+                : TEXT.empty}
+            </Text>
           ) : (
             auditRows.map((row: any) => (
               <View key={String(row._id)} style={styles.itemCard}>

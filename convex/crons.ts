@@ -23,7 +23,8 @@ const dataRetentionRef = (name: string) =>
 crons.hourly(
   'campaign automation sweep hourly',
   { minuteUTC: 0 },
-  internal.campaigns.runAutomationSweepInternal
+  internal.campaigns.runAutomationSweepInternal,
+  {}
 );
 
 crons.interval(
@@ -53,7 +54,8 @@ crons.daily(
 crons.daily(
   'referral rewards expiration sweep daily',
   { hourUTC: 1, minuteUTC: 35 },
-  internal.referrals.expireReferralRewardsInternal
+  internal.referrals.expireReferralRewardsInternal,
+  {}
 );
 
 crons.hourly(
@@ -66,7 +68,8 @@ crons.hourly(
 crons.daily(
   'legacy business referral credit sweep daily',
   { hourUTC: 1, minuteUTC: 25 },
-  internal.referrals.processDueBusinessReferralCreditsInternal
+  internal.referrals.processDueBusinessReferralCreditsInternal,
+  {}
 );
 
 crons.daily(

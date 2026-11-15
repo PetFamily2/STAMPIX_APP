@@ -3,9 +3,11 @@ import { describe, expect, test } from 'bun:test';
 import {
   adminGetReferralRecord,
   adminListReferralAuditLog,
+  adminListReferralAuditLogPage,
   adminSearchReferralRecords,
   adminSearchReferralRecordsPage,
   expireReferralLinksInternal,
+  expireReferralRewardsInternal,
   getBusinessReferralCreditSummary,
   getOrCreateBusinessReferralLink,
   listBusinessReferralCustomers,
@@ -34,7 +36,7 @@ class FakeQuery {
         return q;
       },
     };
-    builder(q);
+    if (builder) builder(q);
     this.db.indexCalls.push({
       table: this.tableName,
       index: _indexName,
@@ -94,15 +96,28 @@ class FakeQuery {
     return this.docs()[0] ?? null;
   }
 
+  order(direction) {
+    this.desc = direction === 'desc';
+    return this;
+  }
+
   async paginate({ cursor, numItems }) {
-    const start = Number(cursor ?? 0);
-    const docs = this.docs();
-    const end = Math.min(start + numItems, docs.length);
-    return {
-      page: docs.slice(start, end),
-      continueCursor: String(end),
-      isDone: end === docs.length,
-    };
+    const all = this.desc
+      ? [...this.db.rows(this.tableName)].sort(
+          (a, b) => b.createdAt - a.createdAt
+        )
+      : this.db.rows(this.tableName);
+    const start = cursor ? all.findIndex((row) => row._id === cursor) + 1 : 0;
+    const page = [];
+    let index = start;
+    while (index < all.length && page.length < numItems) {
+      const row = all[index++];
+      if (this.predicates.every((predicate) => predicate(row))) page.push(row);
+    }
+    const isDone = !all
+      .slice(index)
+      .some((row) => this.predicates.every((predicate) => predicate(row)));
+    return { page, continueCursor: index ? all[index - 1]._id : '', isDone };
   }
 
   async collect() {
@@ -989,4 +1004,129 @@ test('expiry processes all overdue links in bounded idempotent batches', async (
   expect(
     tables.customerReferralLinks.find((row) => row._id === 'future').status
   ).toBe('active');
+});
+
+test('reward expiry continues across nonexpiring and stamp rewards without skipping due benefits', async () => {
+  const tables = baseTables(),
+    now = Date.now();
+  tables.referralRewards = Array.from({ length: 220 }, (_, i) => ({
+    _id: 'reward_' + i,
+    status: 'granted',
+    actualRewardType: i % 2 ? 'STAMP' : 'BENEFIT',
+    expiresAt: i % 3 === 0 ? undefined : now - 100,
+  }));
+  tables.referralRewards.push({
+    _id: 'future_reward',
+    status: 'granted',
+    actualRewardType: 'BENEFIT',
+    expiresAt: now + 100000,
+  });
+  const ctx = buildCtx(tables),
+    tasks = [];
+  ctx.scheduler = { runAfter: async (_delay, _name, args) => tasks.push(args) };
+  await expireReferralRewardsInternal._handler(ctx, {});
+  while (tasks.length)
+    await expireReferralRewardsInternal._handler(ctx, tasks.shift());
+  expect(
+    tables.referralRewards.filter((r) => r.status === 'expired')
+  ).toHaveLength(73);
+  expect(
+    tables.referralRewards.find((r) => r._id === 'future_reward').status
+  ).toBe('granted');
+  expect(
+    tables.referralRewards.filter(
+      (r) => r.actualRewardType === 'STAMP' && r.status !== 'granted'
+    )
+  ).toHaveLength(0);
+  await expireReferralRewardsInternal._handler(ctx, {});
+  expect(
+    tables.referralRewards.filter((r) => r.status === 'expired')
+  ).toHaveLength(73);
+});
+
+test('credit sweep continues across batches and does not credit the same referral twice', async () => {
+  const tables = baseTables(),
+    now = Date.now();
+  tables.businesses.push({ ...tables.businesses[0], _id: 'biz_2' });
+  tables.businessReferrals = Array.from({ length: 205 }, (_, i) => ({
+    _id: 'deleted_' + i,
+    status: 'waiting_30_days',
+    referrerBusinessId: 'biz_1',
+    qualificationDueAt: undefined,
+    creditMonths: 1,
+  }));
+  tables.businessReferrals.push({
+    _id: 'due',
+    status: 'waiting_30_days',
+    referrerBusinessId: 'biz_1',
+    referredBusinessId: 'biz_2',
+    qualificationDueAt: now - 1,
+    creditMonths: 1,
+  });
+  tables.businessReferrals.push({
+    _id: 'future',
+    status: 'waiting_30_days',
+    referrerBusinessId: 'biz_1',
+    referredBusinessId: 'biz_2',
+    qualificationDueAt: now + 100000,
+    creditMonths: 1,
+  });
+  const ctx = buildCtx(tables),
+    tasks = [];
+  ctx.scheduler = {
+    runAfter: async (_delay, _name, args) => {
+      if (args.cursor) tasks.push(args);
+    },
+  };
+  await processDueBusinessReferralCreditsInternal._handler(ctx, {});
+  while (tasks.length)
+    await processDueBusinessReferralCreditsInternal._handler(
+      ctx,
+      tasks.shift()
+    );
+  expect(
+    tables.businessReferrals.filter((r) => r.status === 'skipped')
+  ).toHaveLength(205);
+  expect(tables.businessReferrals.find((r) => r._id === 'due').status).toBe(
+    'credited'
+  );
+  expect(tables.businessReferrals.find((r) => r._id === 'future').status).toBe(
+    'waiting_30_days'
+  );
+  expect(tables.businesses[0].b2bCreditMonthsEarned).toBe(1);
+  await processDueBusinessReferralCreditsInternal._handler(ctx, {});
+  expect(tables.businesses[0].b2bCreditMonthsEarned).toBe(1);
+});
+
+test('paged audit keeps admin authorization, chronological order and sparse matches', async () => {
+  const tables = baseTables();
+  tables.referralAdminAuditLog = Array.from({ length: 205 }, (_, i) => ({
+    _id: 'audit_' + i,
+    createdAt: i,
+    targetId: i % 100 === 0 ? 'wanted' : 'other',
+    targetType: 'referralReward',
+  }));
+  await expect(
+    adminListReferralAuditLogPage._handler(buildCtx(tables), {
+      targetId: 'wanted',
+      paginationOpts: { cursor: null, numItems: 10 },
+    })
+  ).rejects.toThrow('NOT_AUTHORIZED');
+  tables.users = tables.users.map((u) =>
+    u._id === 'u_owner' ? { ...u, isAdmin: true } : u
+  );
+  const ctx = buildCtx(tables);
+  let cursor = null,
+    done = false,
+    rows = [];
+  while (!done) {
+    const page = await adminListReferralAuditLogPage._handler(ctx, {
+      targetId: 'wanted',
+      paginationOpts: { cursor, numItems: 10 },
+    });
+    rows.push(...page.page);
+    cursor = page.continueCursor;
+    done = page.isDone;
+  }
+  expect(rows.map((r) => r.createdAt)).toEqual([200, 100, 0]);
 });

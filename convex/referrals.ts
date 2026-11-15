@@ -2573,6 +2573,42 @@ export const adminListReferralAuditLog = query({
   },
 });
 
+// Older array API remains available for installed clients during migration.
+export const adminListReferralAuditLogPage = query({
+  args: {
+    targetType: v.optional(
+      v.union(
+        v.literal('customerReferralLink'),
+        v.literal('businessReferralLink'),
+        v.literal('referralReward'),
+        v.literal('customerReferral')
+      )
+    ),
+    targetId: v.optional(v.string()),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: paginationResultValidator(v.any()),
+  handler: async (ctx, args) => {
+    await requireAdminUser(ctx);
+    const result = await ctx.db
+      .query('referralAdminAuditLog')
+      .withIndex('by_createdAt')
+      .order('desc')
+      .paginate({
+        ...args.paginationOpts,
+        numItems: Math.max(1, Math.min(args.paginationOpts.numItems, 100)),
+      });
+    return {
+      ...result,
+      page: result.page.filter(
+        (row) =>
+          (!args.targetType || row.targetType === args.targetType) &&
+          (!args.targetId || row.targetId === args.targetId)
+      ),
+    };
+  },
+});
+
 async function insertAdminAuditLog(
   ctx: any,
   args: {
@@ -2920,15 +2956,19 @@ export const processBusinessReferralSubscriptionSyncInternal = internalMutation(
 );
 
 export const processDueBusinessReferralCreditsInternal = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const now = Date.now();
-    const waiting = await ctx.db
+  args: {
+    cursor: v.optional(v.string()),
+    referenceNow: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const now = args.referenceNow ?? Date.now();
+    const waitingPage = await ctx.db
       .query('businessReferrals')
       .withIndex('by_status_qualificationDueAt', (q: any) =>
         q.eq('status', 'waiting_30_days')
       )
-      .collect();
+      .paginate({ cursor: args.cursor ?? null, numItems: 100 });
+    const waiting = waitingPage.page;
 
     let credited = 0;
     let skipped = 0;
@@ -3022,6 +3062,13 @@ export const processDueBusinessReferralCreditsInternal = internalMutation({
       });
     }
 
+    if (!waitingPage.isDone) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.referrals.processDueBusinessReferralCreditsInternal,
+        { cursor: waitingPage.continueCursor, referenceNow: now }
+      );
+    }
     return {
       processed: waiting.length,
       credited,
@@ -3087,15 +3134,18 @@ export const expireReferralLinksInternal = internalMutation({
 });
 
 export const expireReferralRewardsInternal = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const now = Date.now();
+  args: {
+    cursor: v.optional(v.string()),
+    referenceNow: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const now = args.referenceNow ?? Date.now();
     let expiredBenefits = 0;
-    const granted = await ctx.db
+    const grantedPage = await ctx.db
       .query('referralRewards')
       .withIndex('by_status_expiresAt', (q: any) => q.eq('status', 'granted'))
-      .collect();
-    for (const reward of granted) {
+      .paginate({ cursor: args.cursor ?? null, numItems: 100 });
+    for (const reward of grantedPage.page) {
       if (
         reward.actualRewardType === 'BENEFIT' &&
         reward.expiresAt &&
@@ -3107,6 +3157,13 @@ export const expireReferralRewardsInternal = internalMutation({
         });
         expiredBenefits += 1;
       }
+    }
+    if (!grantedPage.isDone) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.referrals.expireReferralRewardsInternal,
+        { cursor: grantedPage.continueCursor, referenceNow: now }
+      );
     }
     return {
       now,
