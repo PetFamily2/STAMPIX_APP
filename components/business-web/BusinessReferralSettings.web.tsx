@@ -425,6 +425,13 @@ export default function BusinessReferralSettingsScreen({
         });
       Alert.alert('', 'הגדרות החבר-מביא-חבר נשמרו');
     } catch (error) {
+      if (String(error).includes('REFERRAL_CLIENT_UPDATE_REQUIRED')) {
+        Alert.alert(
+          'נדרש עדכון',
+          'כדי לשמור הגדרות יש לעדכן את האפליקציה. הטיוטה נשארה במסך.'
+        );
+        return;
+      }
       const entitlementError = getEntitlementError(error);
       if (
         isEnabled &&

@@ -1211,6 +1211,14 @@ export const saveReferralConfig = mutation({
       args.businessId,
       'edit_loyalty_cards'
     );
+    // Staged rollout: leave off until supported clients send a version and
+    // an update-required experience has been validated on older clients.
+    if (
+      process.env.REFERRAL_REQUIRE_CONFIG_VERSION === 'true' &&
+      args.expectedConfigVersion === undefined
+    ) {
+      throw new Error('REFERRAL_CLIENT_UPDATE_REQUIRED');
+    }
     const now = Date.now();
 
     const existing = await ctx.db

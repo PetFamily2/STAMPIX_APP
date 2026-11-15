@@ -2,7 +2,9 @@
 
 Status: **blocked for production approval** until versionless clients are addressed and real two-session acceptance is complete. This document authorizes no deployment.
 
-The current mutation accepts `expectedConfigVersion` optionally. Updated Web clients send it and a stale value is rejected atomically. The existing Native editor and previously installed clients omit it. A versionless write can overwrite a newer configuration and still increment the version; newer clients can detect the later increment, but cannot undo that overwrite. There is no server-side way to infer the version that an old client actually saw from a request that never sent it. Refusing such a request immediately would break existing clients. Therefore full backward compatibility and complete prevention cannot both be claimed under the current protocol.
+The current mutation accepts `expectedConfigVersion` optionally. Updated Web and Native clients send it and a stale value is rejected atomically. Previously installed clients omit it. A versionless write can overwrite a newer configuration and still increment the version; newer clients can detect the later increment, but cannot undo that overwrite. There is no server-side way to infer the version that an old client actually saw from a request that never sent it. Refusing such a request immediately would break existing clients. Therefore full backward compatibility and complete prevention cannot both be claimed under the current protocol.
+
+The code now supports the server-side `REFERRAL_REQUIRE_CONFIG_VERSION=true` enforcement switch. It defaults to off when absent, affects only referral configuration saves, and rejects versionless saves with `REFERRAL_CLIENT_UPDATE_REQUIRED`. Current clients show an update-required message and retain their draft on that response; already-installed older clients may only display their generic error. Do not turn the switch on until old-client recovery and communications have been verified and explicitly approved. Read access and unrelated actions remain unchanged. No environment setting has been changed.
 
 ## Staged plan for separate approval and implementation
 
