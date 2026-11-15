@@ -36,6 +36,21 @@ jobs:
           git restore -- convex/schema.ts convex/referrals.ts convex/__tests__/referralsRaceSafety.test.js
       - name: Lint modified backend files
         run: bunx biome check convex/schema.ts convex/pushNotifications.ts convex/crons.ts convex/referrals.ts convex/__tests__/pushNotifications.test.js convex/__tests__/campaignPushDelivery.test.js convex/__tests__/referralsRaceSafety.test.js convex/__tests__/recentActivityIndexed.test.js convex/events.ts --max-diagnostics=300
+      - name: Full regression (individual Bun test files)
+        run: |
+          set -euo pipefail
+          count=0
+          while IFS= read -r test_file; do
+            if ! bun test "$test_file" >/tmp/stage2-test-output.txt 2>&1; then
+              echo "Regression failed: $test_file"
+              cat /tmp/stage2-test-output.txt
+              exit 1
+            fi
+            count=$((count + 1))
+          done < <(find . -type f -name '*.test.js' -not -path './node_modules/*' -not -path './.git/*' -not -path './.tmp/*' | sort)
+          echo "All $count test files passed independently."
+      - name: Rendered editor scenarios
+        run: bun scripts/verify-stage2-rendered.jsx
       - name: Web Android iOS JavaScript export
         if: always()
         env:

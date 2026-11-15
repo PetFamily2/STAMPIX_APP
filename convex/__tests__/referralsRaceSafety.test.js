@@ -765,7 +765,7 @@ describe('referral lists tolerate deleted users', () => {
     expect(rows.map((row) => row._id)).toEqual(['four']);
     expect(admin.db.indexCalls).toContainEqual({
       table: 'referralAdminAuditLog',
-      index: 'by_targetType_targetId',
+      index: 'by_targetType_targetId_createdAt',
       conditions: [
         { field: 'targetType', value: 'customerReferral' },
         { field: 'targetId', value: 'target' },
