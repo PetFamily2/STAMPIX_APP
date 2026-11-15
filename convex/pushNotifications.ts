@@ -1,6 +1,6 @@
+import { makeFunctionReference } from 'convex/server';
 import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
-import { internal } from './_generated/api';
 import {
   internalAction,
   internalMutation,
@@ -164,6 +164,33 @@ async function insertPushLog(
 const PUSH_CLAIM_TIMEOUT_MS = 15 * 60 * 1000;
 const PUSH_OUTBOX_RECOVERY_PAGE_SIZE = 25;
 
+type PushOutboxClaim = {
+  businessId: Id<'businesses'>;
+  campaignId?: Id<'campaigns'>;
+  toUserId: Id<'users'>;
+  title: string;
+  body: string;
+  tokens: Array<{ pushTokenId: Id<'pushTokens'>; token: string }>;
+};
+type PushOutboxDeliveryResult = {
+  pushTokenId: Id<'pushTokens'>;
+  token: string;
+  status: 'sent' | 'failed' | 'unknown';
+  errorMessage?: string;
+};
+const deliverQueuedPushRef = makeFunctionReference<'action'>(
+  'pushNotifications:deliverQueuedPush'
+);
+const claimQueuedPushRef = makeFunctionReference<'mutation'>(
+  'pushNotifications:claimQueuedPush'
+);
+const expireQueuedPushClaimRef = makeFunctionReference<'mutation'>(
+  'pushNotifications:expireQueuedPushClaim'
+);
+const finishQueuedPushRef = makeFunctionReference<'mutation'>(
+  'pushNotifications:finishQueuedPush'
+);
+
 export async function sendPushNotificationToUser(
   ctx: any,
   args: {
@@ -199,7 +226,7 @@ export async function sendPushNotificationToUser(
     createdAt: now,
     updatedAt: now,
   });
-  await ctx.scheduler.runAfter(0, internal.pushNotifications.deliverQueuedPush, {
+  await ctx.scheduler.runAfter(0, deliverQueuedPushRef, {
     outboxId,
   });
   await scheduleWebPush(ctx, args.toUserId);
@@ -224,7 +251,7 @@ export const claimQueuedPush = internalMutation({
     });
     await ctx.scheduler.runAfter(
       PUSH_CLAIM_TIMEOUT_MS,
-      internal.pushNotifications.expireQueuedPushClaim,
+      expireQueuedPushClaimRef,
       { outboxId }
     );
     return {
@@ -327,13 +354,13 @@ export const finishQueuedPush = internalMutation({
 export const deliverQueuedPush = internalAction({
   args: { outboxId: v.id('pushDeliveryOutbox') },
   handler: async (ctx, { outboxId }) => {
-    const claim = await ctx.runMutation(
-      internal.pushNotifications.claimQueuedPush,
+    const claim = (await ctx.runMutation(
+      claimQueuedPushRef,
       { outboxId }
-    );
+    )) as PushOutboxClaim | null;
     if (!claim) return { status: 'already_claimed_or_finished' };
     if (claim.tokens.length === 0) {
-      await ctx.runMutation(internal.pushNotifications.finishQueuedPush, {
+      await ctx.runMutation(finishQueuedPushRef, {
         outboxId,
         status: 'skipped',
         deliveries: [],
@@ -353,7 +380,7 @@ export const deliverQueuedPush = internalAction({
         },
       }))
     );
-    const deliveries = claim.tokens.map((target, index) => {
+    const deliveries: PushOutboxDeliveryResult[] = claim.tokens.map((target, index) => {
       if (!response.ok) {
         return {
           ...target,
@@ -379,12 +406,12 @@ export const deliverQueuedPush = internalAction({
       };
     });
     const ambiguous = deliveries.some((entry) => entry.status === 'unknown');
-    const status = ambiguous
+    const status: 'sent' | 'failed' | 'unknown' = ambiguous
       ? ('unknown' as const)
       : deliveries.some((entry) => entry.status === 'sent')
         ? ('sent' as const)
         : ('failed' as const);
-    await ctx.runMutation(internal.pushNotifications.finishQueuedPush, {
+    await ctx.runMutation(finishQueuedPushRef, {
       outboxId,
       status,
       outcome: ambiguous ? 'provider_result_uncertain' : undefined,
@@ -406,7 +433,7 @@ export const recoverPendingPushOutbox = internalMutation({
     for (const job of pending) {
       await ctx.scheduler.runAfter(
         0,
-        internal.pushNotifications.deliverQueuedPush,
+        deliverQueuedPushRef,
         { outboxId: job._id }
       );
     }
