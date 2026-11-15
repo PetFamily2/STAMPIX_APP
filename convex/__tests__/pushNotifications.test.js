@@ -260,22 +260,37 @@ describe('transactional push outbox', () => {
       body: 'Hello again',
     };
     expect(
-      (await sendPushNotificationToUser(ctx, {
-        ...args,
-        dedupeKey: 'campaign_automation:campaign_1:run_1',
-      })).queued
+      (
+
+        await sendPushNotificationToUser(ctx, {
+          ...args,
+          dedupeKey: 'campaign_automation:campaign_1:run_1',
+
+        })
+
+      ).queued
     ).toBe(true);
     expect(
-      (await sendPushNotificationToUser(ctx, {
-        ...args,
-        dedupeKey: 'campaign_automation:campaign_1:run_1',
-      })).queued
+      (
+
+        await sendPushNotificationToUser(ctx, {
+          ...args,
+          dedupeKey: 'campaign_automation:campaign_1:run_1',
+
+        })
+
+      ).queued
     ).toBe(false);
     expect(
-      (await sendPushNotificationToUser(ctx, {
-        ...args,
-        dedupeKey: 'campaign_automation:campaign_1:run_2',
-      })).queued
+      (
+
+        await sendPushNotificationToUser(ctx, {
+          ...args,
+          dedupeKey: 'campaign_automation:campaign_1:run_2',
+
+        })
+
+      ).queued
     ).toBe(true);
     expect(ctx.rows('pushDeliveryOutbox')).toHaveLength(2);
   });

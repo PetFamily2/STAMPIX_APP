@@ -32,14 +32,14 @@ jobs:
       - name: TypeScript
         run: bun run type-check
       - name: Focused Push and automation regression
-        run: bun test convex/__tests__/pushNotifications.test.js convex/__tests__/campaignPushDelivery.test.js convex/__tests__/referralsRaceSafety.test.js convex/__tests__/recentActivityIndexed.test.js
+        run: bun test convex/__tests__/pushNotifications.test.js convex/__tests__/campaignPushDelivery.test.js convex/__tests__/referralsRaceSafety.test.js convex/__tests__/recentActivityIndexed.test.js convex/__tests__/businessClosureNotifications.test.js
       - name: Show exact formatter patch (diagnostic only)
         run: |
           bunx biome format --write convex/schema.ts convex/referrals.ts convex/__tests__/referralsRaceSafety.test.js >/dev/null
           git diff -- convex/schema.ts convex/referrals.ts convex/__tests__/referralsRaceSafety.test.js
           git restore -- convex/schema.ts convex/referrals.ts convex/__tests__/referralsRaceSafety.test.js
       - name: Lint modified backend files
-        run: bunx biome check convex/schema.ts convex/pushNotifications.ts convex/crons.ts convex/referrals.ts convex/__tests__/pushNotifications.test.js convex/__tests__/campaignPushDelivery.test.js convex/__tests__/referralsRaceSafety.test.js convex/__tests__/recentActivityIndexed.test.js convex/events.ts convex/campaigns.ts --max-diagnostics=300
+        run: bunx biome check convex/schema.ts convex/pushNotifications.ts convex/crons.ts convex/referrals.ts convex/__tests__/pushNotifications.test.js convex/__tests__/campaignPushDelivery.test.js convex/__tests__/referralsRaceSafety.test.js convex/__tests__/recentActivityIndexed.test.js convex/events.ts convex/campaigns.ts convex/business.ts convex/__tests__/businessClosureNotifications.test.js --max-diagnostics=300
       - name: Full regression (individual Bun test files)
         if: always()
         run: |

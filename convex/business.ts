@@ -887,6 +887,7 @@ export const sendBusinessClosurePushInternal = internalMutation({
         toUserId: message.toUserId,
         title,
         body,
+        dedupeKey: message.dedupeKey ?? String(message._id),
       });
       await ctx.db.patch(messageId, {
         deliveryStatus: 'inbox_push_attempted',
