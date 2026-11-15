@@ -365,8 +365,8 @@
     "owner": "customerActive",
     "expression": "ctx.db\n      .query('customerReferralLinks')\n      .withIndex('by_status_expiresAt', (q: any) => q.eq('status', 'active'))",
     "review": {
-      "classification": "dangerous",
-      "decision": "Internal expiry sweep reads all active customer links. Existing status/expiry index can narrow expired rows; batching needed to bound writes.",
+      "classification": "fixed_and_tested",
+      "decision": "Expired links read via status/expiry range in batches of 100; a transactional continuation schedules additional batches. Future links remain active and reruns are idempotent. Local fake-DB regression covers multiple batches; actual server and device checks remain.",
       "status": "reviewed",
       "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
     }
@@ -377,8 +377,8 @@
     "owner": "businessActive",
     "expression": "ctx.db\n      .query('businessReferralLinks')\n      .withIndex('by_status_expiresAt', (q: any) => q.eq('status', 'active'))",
     "review": {
-      "classification": "dangerous",
-      "decision": "Internal expiry sweep reads all active business links. Same due-range and batching opportunity; preserve every expired update.",
+      "classification": "fixed_and_tested",
+      "decision": "Expired links read via status/expiry range in batches of 100; a transactional continuation schedules additional batches. Future links remain active and reruns are idempotent. Local fake-DB regression covers multiple batches; actual server and device checks remain.",
       "status": "reviewed",
       "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
     }

@@ -3,6 +3,7 @@ import {
   paginationResultValidator,
 } from 'convex/server';
 import { v } from 'convex/values';
+import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
 import { internalMutation, mutation, query } from './_generated/server';
 import {
@@ -3039,8 +3040,10 @@ export const expireReferralLinksInternal = internalMutation({
 
     const customerActive = await ctx.db
       .query('customerReferralLinks')
-      .withIndex('by_status_expiresAt', (q: any) => q.eq('status', 'active'))
-      .collect();
+      .withIndex('by_status_expiresAt', (q: any) =>
+        q.eq('status', 'active').lte('expiresAt', now)
+      )
+      .take(100);
     for (const row of customerActive) {
       if (Number(row.expiresAt) <= now) {
         await ctx.db.patch(row._id, {
@@ -3053,8 +3056,10 @@ export const expireReferralLinksInternal = internalMutation({
 
     const businessActive = await ctx.db
       .query('businessReferralLinks')
-      .withIndex('by_status_expiresAt', (q: any) => q.eq('status', 'active'))
-      .collect();
+      .withIndex('by_status_expiresAt', (q: any) =>
+        q.eq('status', 'active').lte('expiresAt', now)
+      )
+      .take(100);
     for (const row of businessActive) {
       if (Number(row.expiresAt) <= now) {
         await ctx.db.patch(row._id, {
@@ -3063,6 +3068,14 @@ export const expireReferralLinksInternal = internalMutation({
         });
         expiredBusinessLinks += 1;
       }
+    }
+
+    if (customerActive.length === 100 || businessActive.length === 100) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.referrals.expireReferralLinksInternal,
+        {}
+      );
     }
 
     return {

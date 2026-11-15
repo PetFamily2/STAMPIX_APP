@@ -5,6 +5,7 @@ import {
   adminListReferralAuditLog,
   adminSearchReferralRecords,
   adminSearchReferralRecordsPage,
+  expireReferralLinksInternal,
   getBusinessReferralCreditSummary,
   getOrCreateBusinessReferralLink,
   listBusinessReferralCustomers,
@@ -25,7 +26,11 @@ class FakeQuery {
     const conditions = [];
     const q = {
       eq: (field, value) => {
-        conditions.push({ field, value });
+        conditions.push({ field, value, op: 'eq' });
+        return q;
+      },
+      lte: (field, value) => {
+        conditions.push({ field, value, op: 'lte' });
         return q;
       },
     };
@@ -33,10 +38,16 @@ class FakeQuery {
     this.db.indexCalls.push({
       table: this.tableName,
       index: _indexName,
-      conditions: [...conditions],
+      conditions: conditions.map(({ op, ...c }) =>
+        op === 'eq' ? c : { ...c, op }
+      ),
     });
     this.predicates.push((doc) =>
-      conditions.every((condition) => doc[condition.field] === condition.value)
+      conditions.every((condition) =>
+        condition.op === 'lte'
+          ? doc[condition.field] <= condition.value
+          : doc[condition.field] === condition.value
+      )
     );
     return this;
   }
@@ -932,4 +943,50 @@ test('paged admin search preserves sparse substring matches across all five reco
       paginationOpts: { cursor: null, numItems: 10 },
     })
   ).rejects.toThrow('NOT_AUTHORIZED');
+});
+
+test('expiry processes all overdue links in bounded idempotent batches', async () => {
+  const tables = baseTables();
+  const now = Date.now();
+  tables.customerReferralLinks = Array.from({ length: 205 }, (_, i) => ({
+    _id: 'customer_' + i,
+    status: 'active',
+    expiresAt: now - 100,
+  }));
+  tables.customerReferralLinks.push({
+    _id: 'future',
+    status: 'active',
+    expiresAt: now + 1000000,
+  });
+  tables.businessReferralLinks = Array.from({ length: 101 }, (_, i) => ({
+    _id: 'business_' + i,
+    status: 'active',
+    expiresAt: now - 100,
+  }));
+  const ctx = buildCtx(tables);
+  let scheduled = 0;
+  ctx.scheduler = {
+    runAfter: async () => {
+      scheduled++;
+    },
+  };
+  const a = await expireReferralLinksInternal._handler(ctx, {});
+  const b = await expireReferralLinksInternal._handler(ctx, {});
+  const c = await expireReferralLinksInternal._handler(ctx, {});
+  const d = await expireReferralLinksInternal._handler(ctx, {});
+  expect([
+    a.expiredCustomerLinks,
+    b.expiredCustomerLinks,
+    c.expiredCustomerLinks,
+    d.expiredCustomerLinks,
+  ]).toEqual([100, 100, 5, 0]);
+  expect([
+    a.expiredBusinessLinks,
+    b.expiredBusinessLinks,
+    c.expiredBusinessLinks,
+  ]).toEqual([100, 1, 0]);
+  expect(scheduled).toBe(2);
+  expect(
+    tables.customerReferralLinks.find((row) => row._id === 'future').status
+  ).toBe('active');
 });
