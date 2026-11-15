@@ -1533,6 +1533,7 @@ export default defineSchema({
   })
     .index('by_businessId', ['businessId'])
     .index('by_businessId_createdAt', ['businessId', 'createdAt'])
+    .index('by_businessId_type_createdAt', ['businessId', 'type', 'createdAt'])
     .index('by_businessId_customerUserId_createdAt', [
       'businessId',
       'customerUserId',

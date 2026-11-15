@@ -28,7 +28,7 @@ jobs:
       - name: TypeScript
         run: bun run type-check
       - name: Focused Push and automation regression
-        run: bun test convex/__tests__/pushNotifications.test.js convex/__tests__/campaignPushDelivery.test.js convex/__tests__/referralsRaceSafety.test.js
+        run: bun test convex/__tests__/pushNotifications.test.js convex/__tests__/campaignPushDelivery.test.js convex/__tests__/referralsRaceSafety.test.js convex/__tests__/recentActivityIndexed.test.js
       - name: Show exact formatter patch (diagnostic only)
         run: |
           bunx biome format --write convex/schema.ts convex/referrals.ts convex/__tests__/referralsRaceSafety.test.js >/dev/null
