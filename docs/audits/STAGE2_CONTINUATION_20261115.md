@@ -33,6 +33,24 @@ Do not edit `C:/STAMPIX_FOLDER/STAMPIX_APP`: it is the preserved dirty historica
 4. Findings classified `improvement_required` in `STAGE2_COLLECT_REVIEW.{md,json}` still require individual aggregate/cursor redesigns or evidence-backed closure.
 5. `STAGE2_FORM_INVENTORY.md` still lists persistent form surfaces without shared dirty/route/PWA guards or server-side versions. Do not claim the 69-surface requirement complete.
 
+## Confirmed implementation decisions
+
+### Generic mobile Push outbox
+
+- Add an additive `pushOutbox` table with stable `deliveryKey`/delivery ID, source message/reward identity, payload snapshot, status, attempt and lease fields, provider result fields, and indexes for delivery-key idempotency plus recovery.
+- Mutation paths create the durable inbox/event and its outbox intent atomically, then schedule work. Only an internal action may call Expo HTTP.
+- Port the proven claim/lease/fenced-finalize/recovery shape from `smartManagerDelivery.ts`; keep Smart Manager's own state machine unchanged.
+- Never automatically retry an ambiguous transport result or an expired in-flight lease. Mark it terminally ambiguous, retain the in-app message, and record explicit delivery evidence. Retry only known provider rejections under a bounded policy.
+- Use the existing `messageLog` ID as the key for campaign, referral, and closure notifications. Use the existing idempotent referral reward ID for `businessReferralEngine.ts`; its current push-only notification needs that stable identity before it can be safe.
+- Migrate the separate permanent-deletion delivery action onto the same outbox instead of retaining its unfenced `attempted` state. Browser Push remains a separate decision because its current schedule is not atomically tied to mobile intent creation.
+
+### Geographic discovery
+
+- Do not replace the global read with a flat cell bucket plus `take(50)`: index order is not distance order and would hide nearer businesses in dense cells.
+- Use an optional H3 resolution-5 cell field and active/cell composite index. Populate it on all business-location writers and add an idempotent cursor-batched backfill before switching reads.
+- Query every H3 cell covering the radius, merge/dedupe candidates, then retain the current exact Haversine, privacy, filter, sorting, and top-50 behavior. A multi-cell opaque client cursor is not correct without a server-side ranked search session.
+- The dependency addition, index deployment, and backfill execution need an approved isolated environment. Until then, keep the current discovery behavior rather than returning an incomplete legacy dataset.
+
 ## External acceptance gates
 
 - No isolated approved Convex environment was used; no synthetic data, production data, backend deployment, or schema migration was run.
