@@ -1663,6 +1663,11 @@ export const runAutomationSweepInternal = internalMutation({
       continuation = recurringPage.isDone
         ? { phase: 'one_time' }
         : { phase: 'recurring', cursor: recurringPage.continueCursor };
+      await ctx.scheduler.runAfter(
+        0,
+        internal.campaigns.runAutomationSweepInternal,
+        { ...continuation, referenceNow: now }
+      );
 
       for (const campaign of recurringPage.page) {
         if (campaign.isActive !== true || campaign.type === 'ai_marketing')
@@ -1722,6 +1727,12 @@ export const runAutomationSweepInternal = internalMutation({
           phase: 'one_time',
           cursor: oneTimePage.continueCursor,
         };
+      if (continuation)
+        await ctx.scheduler.runAfter(
+          0,
+          internal.campaigns.runAutomationSweepInternal,
+          { ...continuation, referenceNow: now }
+        );
 
       for (const campaign of oneTimePage.page) {
         if (
@@ -1803,14 +1814,6 @@ export const runAutomationSweepInternal = internalMutation({
         businessId,
         'campaign_automation_transition',
         now
-      );
-    }
-
-    if (continuation) {
-      await ctx.scheduler.runAfter(
-        0,
-        internal.campaigns.runAutomationSweepInternal,
-        { ...continuation, referenceNow: now }
       );
     }
 
