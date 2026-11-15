@@ -721,14 +721,14 @@
   },
   {
     "file": "convex/business.ts",
-    "line": 2658,
-    "owner": "businesses",
-    "expression": "ctx.db\n      .query('businesses')\n      .withIndex('by_isActive', (q: any) => q.eq('isActive', true))",
+    "line": 2638,
+    "owner": "H3 candidate cells",
+    "expression": "ctx.db.query('businesses').withIndex('by_isActive_discoveryH3R5', ...)",
     "review": {
-      "classification": "dangerous",
-      "decision": "Nearby discovery scans all active businesses then computes distance/filter/sort. Public business projections are intended; geo index needed for bounded global search.",
-      "status": "reviewed",
-      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+      "classification": "fixed_and_tested",
+      "decision": "Discovery reads only active H3 cells covering the radius and then retains exact Haversine filtering and ordering. New/updated locations write their cell; the idempotent backfill awaits an approved isolated environment.",
+      "status": "fixed_and_tested",
+      "regression": "Local tests cover service filtering and distance/service-type order against H3-indexed fixtures. Backfill execution and production-scale cell density remain external gates."
     }
   },
   {
