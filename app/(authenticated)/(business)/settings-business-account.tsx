@@ -3,7 +3,13 @@ import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import { useMutation } from 'convex/react';
 import { type Href, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, StyleSheet, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Platform,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
 import {
   BusinessSettingsSubpageHeader,
   SETTINGS_TOKENS,
@@ -15,6 +21,7 @@ import {
   SettingsPrimaryButton,
   SettingsSection,
 } from '@/components/business-settings';
+import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
 import { UserAvatar } from '@/components/UserAvatar';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
@@ -115,6 +122,7 @@ export default function BusinessSettingsAccountScreen() {
   const isNameDirty = dirtyAccountGroups.includes('name');
   const isPhoneDirty = dirtyAccountGroups.includes('phone');
   const hasUnsavedChanges = isNameDirty || isPhoneDirty;
+  useBusinessWebUnsavedChanges(Platform.OS === 'web' && hasUnsavedChanges);
   const isNameValid =
     !isNameDirty || (trimmedFirstName.length > 0 && trimmedLastName.length > 0);
   const isPhoneValid = !isPhoneDirty || trimmedPhone.length > 0;

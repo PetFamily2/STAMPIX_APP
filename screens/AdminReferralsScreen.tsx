@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from 'convex/react';
+import { useMutation, usePaginatedQuery, useQuery } from 'convex/react';
 import { Redirect, router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
@@ -102,36 +102,52 @@ export default function AdminReferralsScreen() {
     [rewardId, customerReferralId]
   );
 
-  const customerLinkRows = useQuery(
-    api.referrals.adminSearchReferralRecords,
+  const customerLinkRowsPage = usePaginatedQuery(
+    api.referrals.adminSearchReferralRecordsPage,
     isAdmin
       ? {
           query: linkSearchNeedle,
           type: 'customerReferralLink',
-          limit: 80,
         }
-      : 'skip'
+      : 'skip',
+    { initialNumItems: 80 }
   );
-  const customerReferralRows = useQuery(
-    api.referrals.adminSearchReferralRecords,
+  const customerReferralRowsPage = usePaginatedQuery(
+    api.referrals.adminSearchReferralRecordsPage,
     isAdmin
       ? {
           query: referralSearchNeedle,
           type: 'customerReferral',
-          limit: 80,
         }
-      : 'skip'
+      : 'skip',
+    { initialNumItems: 80 }
   );
-  const rewardRows = useQuery(
-    api.referrals.adminSearchReferralRecords,
+  const rewardRowsPage = usePaginatedQuery(
+    api.referrals.adminSearchReferralRecordsPage,
     isAdmin
       ? {
           query: rewardSearchNeedle,
           type: 'referralReward',
-          limit: 80,
         }
-      : 'skip'
+      : 'skip',
+    { initialNumItems: 80 }
   );
+  const customerLinkRows =
+    customerLinkRowsPage.status === 'LoadingFirstPage'
+      ? undefined
+      : [...customerLinkRowsPage.results].sort(
+          (a, b) => b.updatedAt - a.updatedAt
+        );
+  const customerReferralRows =
+    customerReferralRowsPage.status === 'LoadingFirstPage'
+      ? undefined
+      : [...customerReferralRowsPage.results].sort(
+          (a, b) => b.updatedAt - a.updatedAt
+        );
+  const rewardRows =
+    rewardRowsPage.status === 'LoadingFirstPage'
+      ? undefined
+      : [...rewardRowsPage.results].sort((a, b) => b.updatedAt - a.updatedAt);
   const auditRows = useQuery(
     api.referrals.adminListReferralAuditLog,
     isAdmin
@@ -204,6 +220,25 @@ export default function AdminReferralsScreen() {
           />
         </StickyScrollHeader>
 
+        {[customerLinkRowsPage, customerReferralRowsPage, rewardRowsPage].some(
+          (page) =>
+            page.status === 'CanLoadMore' || page.status === 'LoadingMore'
+        ) ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              for (const page of [
+                customerLinkRowsPage,
+                customerReferralRowsPage,
+                rewardRowsPage,
+              ]) {
+                if (page.status === 'CanLoadMore') page.loadMore(80);
+              }
+            }}
+          >
+            <Text>החיפוש חלקי — טענו רשומות נוספות להשלמת החיפוש</Text>
+          </Pressable>
+        ) : null}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>{TEXT.searchSection}</Text>
           <TextInput

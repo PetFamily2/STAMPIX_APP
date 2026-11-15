@@ -1,0 +1,81 @@
+# Stage 2 — 73-site semantic review
+
+All 73 original inventory entries have an explicit decision below. Line numbers refer to the original inventory, not the final source. Reviewed does not mean scale-safe: dangerous and improvement-required entries are known code risks, not external acceptance gates. No arbitrary caps or metric changes were introduced. Existing authorization is checked at public entrypoints or helper callers; internal functions remain internal. No backend was deployed.
+
+The five legacy admin searches remain compatible. The updated UI uses an authenticated, bounded page API; each page explicitly advertises continuation and eventual results preserve substring matching. Results are sorted among loaded records, not claimed to be globally complete until all pages are loaded. The old API and audit fallback still require a compatibility retirement decision.
+
+| # | Source | Classification | Decision |
+|---|---|---|---|
+| 1 | convex/referrals.ts:282 | improvement_required | Internal manager notification helper; business staff index is correct. Preserve removed/inactive filtering and all recipients; historical staff rows can grow. |
+| 2 | convex/referrals.ts:378 | retained_correct_scope | Internal reward target selection; user plus business index and active predicate isolate candidates. Full set needed for deterministic target choice; no arbitrary cap. |
+| 3 | convex/referrals.ts:463 | improvement_required | Monthly reward quota counts all relevant statuses before date filtering. Prefix is correct but lacks date suffix; retain exact count until equivalent aggregate/date index exists. |
+| 4 | convex/referrals.ts:546 | retained_correct_scope | Link reuse/duplicate cleanup needs all active links for the same user, business and origin. Index is exact. Preserve duplicate repair semantics. |
+| 5 | convex/referrals.ts:803 | improvement_required | Qualification inspects customer event history to determine first qualifying normal stamp. Narrow customer/business index, but lifetime growth remains; truncation changes eligibility. |
+| 6 | convex/referrals.ts:1398 | improvement_required | Authenticated current-user dashboard requires lifetime referral counts across businesses. User prefix correct; incremental aggregate required for bounded lifetime metric. |
+| 7 | convex/referrals.ts:1410 | improvement_required | Authenticated current-user reward totals across four statuses. Correct recipient/status prefix; all rows contribute to totals. |
+| 8 | convex/referrals.ts:1455 | improvement_required | Current-user referral list sorts/filters after full read. User scope correct; cursor contract plus equivalent ordering needed before limiting. |
+| 9 | convex/referrals.ts:1523 | improvement_required | Current-user reward list combines status partitions then sorts. Per-partition pagination must merge global order; arbitrary per-status take is incorrect. |
+| 10 | convex/referrals.ts:1596 | improvement_required | Business dashboard capability checked; lifetime customer referrals feed full counts. Tenant index correct, aggregate needed at scale. |
+| 11 | convex/referrals.ts:1602 | improvement_required | Business dashboard capability checked; lifetime reward totals feed metrics. Tenant prefix correct; truncation corrupts totals. |
+| 12 | convex/referrals.ts:1608 | improvement_required | Business dashboard capability checked; business-referral totals use referrer tenant index. Preserve full earned/pending counts. |
+| 13 | convex/referrals.ts:1676 | improvement_required | Customers capability checked; status already included in tenant index. Remaining global sorting within tenant requires compatible cursor design. |
+| 14 | convex/referrals.ts:1752 | improvement_required | Customers capability checked; reward type and status merge after indexed reads. Pagination must preserve merged order and filters. |
+| 15 | convex/referrals.ts:1821 | improvement_required | Customers capability checked; business/customer/granted prefix correct. Expiry and presentation sorting happen after read; preserve late eligible rewards. |
+| 16 | convex/referrals.ts:1891 | improvement_required | Performance capability checked; window filtering occurs after status-prefixed tenant read. Need date index or per-status ranges to avoid lifetime history. |
+| 17 | convex/referrals.ts:1897 | improvement_required | Performance capability checked; reward window filtering follows tenant/status prefix. Exact metric retained; date index/aggregate needed. |
+| 18 | convex/referrals.ts:1903 | improvement_required | Performance capability checked; business-createdAt index supports pushing startAt range safely, but unchanged here to preserve tested metric path. |
+| 19 | convex/referrals.ts:2026 | retained_correct_scope | Customer referral lookup capability checked; rewards scoped by exact referral ID. All reward recipients necessary; no history-wide scan. |
+| 20 | convex/referrals.ts:2311 | dangerous | Global admin link search requires admin before read. Updated UI uses bounded paginated endpoint; legacy query retained for backward compatibility and remains a scale risk. |
+| 21 | convex/referrals.ts:2314 | dangerous | Global admin business-link search requires admin. New page API supports this type; legacy full-read compatibility path remains risky. |
+| 22 | convex/referrals.ts:2317 | dangerous | Global admin customer-referral substring search requires admin. New page API preserves eventual matches without early cap; legacy read retained. |
+| 23 | convex/referrals.ts:2320 | dangerous | Global admin reward substring search requires admin. New page API scans bounded pages; legacy endpoint remains high-risk at scale. |
+| 24 | convex/referrals.ts:2323 | dangerous | Global admin business-referral search requires admin. New page API preserves deleted-business marker; legacy full search retained. |
+| 25 | convex/referrals.ts:2461 | improvement_required | Admin audit exact type/ID index is correct; all target history sorted by createdAt. Long-lived target can grow; cursor needs matching sort contract. |
+| 26 | convex/referrals.ts:2467 | dangerous | Admin audit fallback reads global history before optional filters. Admin checked, no tenant leak; global scale risk remains, requires indexed pagination for each filter combination. |
+| 27 | convex/referrals.ts:2619 | improvement_required | Admin revocation reads membership event history to reconstruct balance. Admin checked; must preserve full accounting sequence, cannot cap. |
+| 28 | convex/referrals.ts:2712 | retained_correct_scope | Admin invalidation reads rewards for exact referral to revoke all. Admin checked; narrow identity index and complete transactional updates required. |
+| 29 | convex/referrals.ts:2834 | dangerous | Internal credit sweep reads every waiting referral before due-date decisions. Status/due index can bound due subset; transactional batching needed for large backlog. |
+| 30 | convex/referrals.ts:2876 | improvement_required | Credit cap counts all credited referrals for referrer business. Correct prefix, exact cap/accounting count must not be approximated. |
+| 31 | convex/referrals.ts:2949 | dangerous | Internal expiry sweep reads all active customer links. Existing status/expiry index can narrow expired rows; batching needed to bound writes. |
+| 32 | convex/referrals.ts:2963 | dangerous | Internal expiry sweep reads all active business links. Same due-range and batching opportunity; preserve every expired update. |
+| 33 | convex/referrals.ts:2990 | dangerous | Internal reward expiry scans granted including non-expiring stamps. Existing status/expiry index can restrict defined due values; optional expiry semantics require care. |
+| 34 | convex/dashboard.ts:488 | improvement_required | Dashboard staff/capability authorization; lifetime events required for lifetime metrics. Business/date index correct, aggregate needed instead of truncation. |
+| 35 | convex/dashboard.ts:494 | improvement_required | Dashboard lifetime membership totals; tenant prefix correct and authorization checked. Deleted/inactive records affect historical totals; retain exact semantics. |
+| 36 | convex/dashboard.ts:609 | improvement_required | Dashboard day query uses all historical stamps for lifecycle counts as well as day metrics. Lower time bound would alter inactive/new customer counts. |
+| 37 | convex/dashboard.ts:615 | improvement_required | Dashboard messageLog only contributes selected day recipients. Tenant/date upper range correct; lower range is a safe optimization candidate after date-boundary regression. |
+| 38 | convex/dashboard.ts:621 | improvement_required | Dashboard active programs use business index and active filter; lifecycle filtering retained. Historical program growth possible, no arbitrary cap. |
+| 39 | convex/events.ts:120 | improvement_required | Recent activity filters stamp/redemption then sorts createdAt. Existing index is business only; taking index order would be wrong for backdated events. |
+| 40 | convex/customerLifecycle.ts:599 | improvement_required | Lifecycle internal helper enumerates all active memberships for tenant snapshot. Callers authorize business; full audience needed for deduplication and counts. |
+| 41 | convex/customerLifecycle.ts:661 | improvement_required | Lifecycle snapshot loads history for recency/cohort computation. Business/date scope correct; full history required by current algorithm, needs aggregate redesign. |
+| 42 | convex/customerCards.ts:163 | improvement_required | Latest balance event helper filters event types then chooses latest accounting event. Membership/date index appropriate; full history can grow, no arbitrary take. |
+| 43 | convex/customerCards.ts:257 | retained_correct_scope | Customer card requires customers capability and active user; user/business membership prefix correct. All active cards retained. |
+| 44 | convex/customerCards.ts:301 | improvement_required | Customer card timeline loads all customer events then enriches actors. Capability and tenant/customer prefix correct; cursor timeline needed for large history. |
+| 45 | convex/loyaltyPrograms.ts:301 | retained_correct_scope | Onboarding draft conflict detection by exact program; only existence is needed. Can use filtered first safely, but retained unchanged in this pass. |
+| 46 | convex/loyaltyPrograms.ts:312 | improvement_required | Internal business program list: tenant index + active flag; all active lifecycle programs needed by quotas/themes. Do not cap by visible list size. |
+| 47 | convex/loyaltyPrograms.ts:413 | improvement_required | Program membership count must include inactive history as currently defined. Program index correct; aggregate needed, no cap. |
+| 48 | convex/loyaltyPrograms.ts:537 | improvement_required | Card management capability checked; tenant membership set reused for exact active/total counts. Aggregate required at scale. |
+| 49 | convex/loyaltyPrograms.ts:541 | improvement_required | Card management last-30-day events already use business/date lower range. Time bounded, volume not bounded; preserve complete 7/30-day metrics. |
+| 50 | convex/loyaltyPrograms.ts:664 | improvement_required | Program details capability and program ownership checked; tenant memberships determine program and business totals. Preserve counts. |
+| 51 | convex/loyaltyPrograms.ts:668 | improvement_required | Program details last-30-day events use correct range. No old events read; high monthly volume still needs aggregate. |
+| 52 | convex/campaigns.ts:434 | improvement_required | Campaign audience internal helper: tenant memberships, active and optional program filters. Must preserve all recipients/consent deduplication, paginated delivery redesign needed. |
+| 53 | convex/campaigns.ts:494 | improvement_required | Campaign logs helper reads full campaign for exact run/history metrics. Campaign ownership checked at callers. Aggregate or paginated history needed. |
+| 54 | convex/campaigns.ts:785 | improvement_required | AI campaign list capability checked; business prefix and AI type filter correct. Historical drafts can grow; list cursor appropriate, preserve order. |
+| 55 | convex/campaigns.ts:890 | improvement_required | Campaign management capability checked; tenant campaigns all feed list plus per-campaign metrics. N+1 audience/log reads are scale risk; summary model needed. |
+| 56 | convex/campaigns.ts:1648 | dangerous | Internal recurring automation sweep uses automation flag index but global results may exceed transaction limits. Needs scheduled cursor batches, not skipped rows. |
+| 57 | convex/campaigns.ts:1702 | dangerous | Internal one-time automation sweep uses activation status and business rules. Global backlog can grow; scheduler batching required with idempotency. |
+| 58 | convex/campaigns.ts:1812 | improvement_required | Customer inbox derives user from auth and queries by recipient. Full read + enrichment scales with messages; pagination must preserve inbox business visibility filters. |
+| 59 | convex/business.ts:664 | retained_correct_scope | Internal owned-business exact count uses owner prefix. All active businesses required to enforce creation allowance; retain exact count. |
+| 60 | convex/business.ts:1145 | improvement_required | Closed-business recovery list authenticated owner prefix. All recoverable rows filtered; correct access, historical growth possible. |
+| 61 | convex/business.ts:2658 | dangerous | Nearby discovery scans all active businesses then computes distance/filter/sort. Public business projections are intended; geo index needed for bounded global search. |
+| 62 | convex/business.ts:2976 | improvement_required | Team seat usage business staff prefix. Counting all historical staff currently needed to apply status/role rules; cannot count first page. |
+| 63 | convex/business.ts:2980 | improvement_required | Team seat usage pending invitations prefix correct; expiry affects reservation. All live pending invites must count, no cap. |
+| 64 | convex/business.ts:3082 | improvement_required | Team management capability/feature checked; business staff prefix correct. Includes historical/removed staff intentionally; cursor list would require UI contract. |
+| 65 | convex/business.ts:3147 | improvement_required | Team management capability checked; tenant pending index plus expiry filter correct. Narrow scope, potential accumulated stale pending rows. |
+| 66 | convex/business.ts:3206 | improvement_required | Team summary management capability checked; full staff set used for exact seats/status counts. Preserve full result. |
+| 67 | convex/business.ts:3210 | improvement_required | Team summary pending-invite business/status index correct. Expired rows excluded after read; counters cannot be truncated. |
+| 68 | convex/business.ts:3268 | improvement_required | Team history capability checked; business-only index then createdAt sort and limit. Needs date index to safely bound without reordering backdated events. |
+| 69 | convex/business.ts:3413 | improvement_required | Closed invites management capability checked; resolved status depends on now, then sorted. Needs status/date cursor design including virtual expiry. |
+| 70 | convex/business.ts:3480 | retained_correct_scope | Authenticated actor membership list indexed by user. Filters each business activity; preserve roles and all accessible tenants. |
+| 71 | convex/business.ts:3568 | retained_correct_scope | Invite mutation management/feature/seat authorization checked; business/email/pending prefix exact. All duplicates expired/reused deliberately. |
+| 72 | convex/business.ts:3714 | retained_correct_scope | Scan invitation mutation management checked; invited-user prefix plus business/status filters. Business/email alternative cannot cover users without email; preserve deduplication. |
+| 73 | convex/business.ts:3724 | retained_correct_scope | Scan invitation duplicate email query exact business/email/pending prefix. Complete duplicate set needed before creating invite. |

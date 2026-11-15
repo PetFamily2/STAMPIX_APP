@@ -1,10 +1,11 @@
 import { useMutation } from 'convex/react';
 import { useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
   SETTINGS_TOKENS,
   SettingsPrimaryButton,
 } from '@/components/business-settings';
+import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
 import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { api } from '@/convex/_generated/api';
 import { Alert } from '@/lib/alert';
@@ -24,6 +25,9 @@ export function SupportMessageForm({
   const sendSupportRequest = useMutation(api.support.sendSupportRequest);
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
+  useBusinessWebUnsavedChanges(
+    Platform.OS === 'web' && message.trim().length > 0
+  );
   const trimmedMessage = message.trim();
   const messageLength = message.length;
   const hasMessage = trimmedMessage.length > 0;

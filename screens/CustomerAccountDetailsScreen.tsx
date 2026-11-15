@@ -1,8 +1,9 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMutation } from 'convex/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,6 +22,7 @@ import {
   SettingsField,
   SettingsSection,
 } from '@/components/business-settings';
+import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { UserAvatar } from '@/components/UserAvatar';
 import { PaintedPressable } from '@/components/ui/PaintedPressable';
@@ -141,6 +143,30 @@ export default function CustomerAccountDetailsScreen() {
   );
   const [isSavingMarketing, setIsSavingMarketing] = useState(false);
 
+  const serverMarketingValue = JSON.stringify([
+    user?.marketingOptIn === true,
+    user?.birthdayDay ? String(user.birthdayDay) : '',
+    user?.birthdayMonth ? String(user.birthdayMonth) : '',
+    user?.anniversaryDay ? String(user.anniversaryDay) : '',
+    user?.anniversaryMonth ? String(user.anniversaryMonth) : '',
+  ]);
+  const marketingValue = JSON.stringify([
+    marketingOptIn,
+    birthdayDay,
+    birthdayMonth,
+    anniversaryDay,
+    anniversaryMonth,
+  ]);
+  const [marketingBaseline, setMarketingBaseline] =
+    useState(serverMarketingValue);
+  const hydratedMarketingUser = useRef<string | null>(null);
+  const marketingDirty = marketingValue !== marketingBaseline;
+  useBusinessWebUnsavedChanges(
+    Platform.OS === 'web' &&
+      (marketingDirty ||
+        (isEditingPhone && phoneInput.trim() !== (user?.phone?.trim() ?? '')))
+  );
+
   useEffect(() => {
     if (!isEditingPhone) {
       setPhoneInput(user?.phone?.trim() ?? '');
@@ -148,6 +174,9 @@ export default function CustomerAccountDetailsScreen() {
   }, [isEditingPhone, user?.phone]);
 
   useEffect(() => {
+    if (user?._id && hydratedMarketingUser.current === String(user._id)) return;
+    hydratedMarketingUser.current = user?._id ? String(user._id) : null;
+    setMarketingBaseline(serverMarketingValue);
     setMarketingOptIn(user?.marketingOptIn === true);
     setBirthdayDay(user?.birthdayDay ? String(user.birthdayDay) : '');
     setBirthdayMonth(user?.birthdayMonth ? String(user.birthdayMonth) : '');
@@ -156,6 +185,8 @@ export default function CustomerAccountDetailsScreen() {
       user?.anniversaryMonth ? String(user.anniversaryMonth) : ''
     );
   }, [
+    user?._id,
+    serverMarketingValue,
     user?.anniversaryDay,
     user?.anniversaryMonth,
     user?.birthdayDay,
@@ -227,6 +258,7 @@ export default function CustomerAccountDetailsScreen() {
         anniversaryDay: anniversaryDayValue,
         anniversaryMonth: anniversaryMonthValue,
       });
+      setMarketingBaseline(marketingValue);
       Alert.alert('נשמר', TEXT.marketingSaved);
     } catch {
       Alert.alert('שגיאה', TEXT.marketingError);

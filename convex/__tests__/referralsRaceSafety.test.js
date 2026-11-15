@@ -4,6 +4,7 @@ import {
   adminGetReferralRecord,
   adminListReferralAuditLog,
   adminSearchReferralRecords,
+  adminSearchReferralRecordsPage,
   getBusinessReferralCreditSummary,
   getOrCreateBusinessReferralLink,
   listBusinessReferralCustomers,
@@ -80,6 +81,17 @@ class FakeQuery {
 
   async first() {
     return this.docs()[0] ?? null;
+  }
+
+  async paginate({ cursor, numItems }) {
+    const start = Number(cursor ?? 0);
+    const docs = this.docs();
+    const end = Math.min(start + numItems, docs.length);
+    return {
+      page: docs.slice(start, end),
+      continueCursor: String(end),
+      isDone: end === docs.length,
+    };
   }
 
   async collect() {
@@ -865,4 +877,59 @@ describe('referral lists tolerate deleted users', () => {
       ],
     });
   });
+});
+
+test('paged admin search preserves sparse substring matches across all five record types', async () => {
+  const tables = baseTables();
+  tables.users = tables.users.map((u) =>
+    u._id === 'u_owner' ? { ...u, isAdmin: true } : u
+  );
+  const pairs = [
+    ['customerReferralLink', 'customerReferralLinks'],
+    ['businessReferralLink', 'businessReferralLinks'],
+    ['customerReferral', 'customerReferrals'],
+    ['referralReward', 'referralRewards'],
+    ['businessReferral', 'businessReferrals'],
+  ];
+  for (const [type, table] of pairs) {
+    tables[table] = Array.from({ length: 9 }, (_, i) => ({
+      _id: i === 8 ? 'late-match' : 'row' + i,
+      code: 'code',
+      businessId: 'biz_1',
+      referrerBusinessId: 'biz_1',
+      createdAt: 9 - i,
+      updatedAt: 9 - i,
+    }));
+    const ctx = buildCtx(tables);
+    let cursor = null,
+      all = [],
+      done = false,
+      pages = 0;
+    while (!done) {
+      const result = await adminSearchReferralRecordsPage._handler(ctx, {
+        query: 'MATCH',
+        type,
+        paginationOpts: { cursor, numItems: 2 },
+      });
+      expect(result.page.length).toBeLessThanOrEqual(2);
+      all.push(...result.page);
+      cursor = result.continueCursor;
+      done = result.isDone;
+      pages++;
+    }
+    expect(pages).toBe(5);
+    const legacy = await adminSearchReferralRecords._handler(ctx, {
+      query: 'match',
+      type,
+    });
+    expect(all.sort((a, b) => b.updatedAt - a.updatedAt)).toEqual(legacy);
+    expect(all.map((r) => r.targetId)).toEqual(['late-match']);
+  }
+  await expect(
+    adminSearchReferralRecordsPage._handler(buildCtx(baseTables()), {
+      query: '',
+      type: 'referralReward',
+      paginationOpts: { cursor: null, numItems: 10 },
+    })
+  ).rejects.toThrow('NOT_AUTHORIZED');
 });

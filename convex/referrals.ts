@@ -1,3 +1,7 @@
+import {
+  paginationOptsValidator,
+  paginationResultValidator,
+} from 'convex/server';
 import { v } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
 import { internalMutation, mutation, query } from './_generated/server';
@@ -2288,6 +2292,96 @@ export const redeemReferralBenefit = mutation({
   },
 });
 
+function formatAdminReferralSearch(
+  [
+    customerLinks,
+    businessLinks,
+    customerReferrals,
+    rewards,
+    businessReferrals,
+  ]: any[][],
+  needle: string,
+  safeLimit: number
+) {
+  const rows: Array<{
+    targetType: string;
+    targetId: string;
+    updatedAt: number;
+    payload: Record<string, unknown>;
+  }> = [];
+
+  for (const row of customerLinks as any[]) {
+    const referrerIdValue = row.referrerUserId;
+    const referrerUserId = referrerIdValue ? String(referrerIdValue) : '';
+    const haystack =
+      `${String(row._id)} ${row.code} ${String(row.businessId)} ${referrerUserId}`.toLowerCase();
+    if (needle && !haystack.includes(needle)) continue;
+    rows.push({
+      targetType: 'customerReferralLink',
+      targetId: String(row._id),
+      updatedAt: Number(row.updatedAt ?? row.createdAt),
+      payload: row,
+    });
+  }
+  for (const row of businessLinks as any[]) {
+    const haystack =
+      `${String(row._id)} ${row.code} ${String(row.referrerBusinessId)}`.toLowerCase();
+    if (needle && !haystack.includes(needle)) continue;
+    rows.push({
+      targetType: 'businessReferralLink',
+      targetId: String(row._id),
+      updatedAt: Number(row.updatedAt ?? row.createdAt),
+      payload: row,
+    });
+  }
+  for (const row of customerReferrals as any[]) {
+    const referredIdValue = row.referredUserId;
+    const referrerIdValue = row.referrerUserId;
+    const referredUserId = referredIdValue ? String(referredIdValue) : '';
+    const referrerUserId = referrerIdValue ? String(referrerIdValue) : '';
+    const haystack =
+      `${String(row._id)} ${String(row.businessId)} ${referredUserId} ${referrerUserId}`.toLowerCase();
+    if (needle && !haystack.includes(needle)) continue;
+    rows.push({
+      targetType: 'customerReferral',
+      targetId: String(row._id),
+      updatedAt: Number(row.updatedAt ?? row.createdAt),
+      payload: row,
+    });
+  }
+  for (const row of rewards as any[]) {
+    const haystack =
+      `${String(row._id)} ${String(row.businessId)} ${String(row.customerReferralId)} ${String(row.recipientUserId)}`.toLowerCase();
+    if (needle && !haystack.includes(needle)) continue;
+    rows.push({
+      targetType: 'referralReward',
+      targetId: String(row._id),
+      updatedAt: Number(row.updatedAt ?? row.createdAt),
+      payload: row,
+    });
+  }
+  for (const row of businessReferrals as any[]) {
+    const referredBusinessId = row.referredBusinessId
+      ? String(row.referredBusinessId)
+      : '';
+    const haystack =
+      `${String(row._id)} ${String(row.referrerBusinessId)} ${referredBusinessId}`.toLowerCase();
+    if (needle && !haystack.includes(needle)) continue;
+    rows.push({
+      targetType: 'businessReferral',
+      targetId: String(row._id),
+      updatedAt: Number(row.updatedAt ?? row.createdAt),
+      payload: {
+        ...row,
+        referredBusinessId: row.referredBusinessId ?? null,
+        referredBusinessDeleted: !row.referredBusinessId,
+      },
+    });
+  }
+
+  return rows.sort((a, b) => b.updatedAt - a.updatedAt).slice(0, safeLimit);
+}
+
 export const adminSearchReferralRecords = query({
   args: {
     query: v.string(),
@@ -2331,83 +2425,72 @@ export const adminSearchReferralRecords = query({
         : ctx.db.query('businessReferrals').collect(),
     ]);
 
-    const rows: Array<{
-      targetType: string;
-      targetId: string;
-      updatedAt: number;
-      payload: Record<string, unknown>;
-    }> = [];
+    return formatAdminReferralSearch(
+      [
+        customerLinks,
+        businessLinks,
+        customerReferrals,
+        rewards,
+        businessReferrals,
+      ],
+      needle,
+      safeLimit
+    );
+  },
+});
 
-    for (const row of customerLinks as any[]) {
-      const referrerIdValue = row.referrerUserId;
-      const referrerUserId = referrerIdValue ? String(referrerIdValue) : '';
-      const haystack =
-        `${String(row._id)} ${row.code} ${String(row.businessId)} ${referrerUserId}`.toLowerCase();
-      if (needle && !haystack.includes(needle)) continue;
-      rows.push({
-        targetType: 'customerReferralLink',
-        targetId: String(row._id),
-        updatedAt: Number(row.updatedAt ?? row.createdAt),
-        payload: row,
-      });
-    }
-    for (const row of businessLinks as any[]) {
-      const haystack =
-        `${String(row._id)} ${row.code} ${String(row.referrerBusinessId)}`.toLowerCase();
-      if (needle && !haystack.includes(needle)) continue;
-      rows.push({
-        targetType: 'businessReferralLink',
-        targetId: String(row._id),
-        updatedAt: Number(row.updatedAt ?? row.createdAt),
-        payload: row,
-      });
-    }
-    for (const row of customerReferrals as any[]) {
-      const referredIdValue = row.referredUserId;
-      const referrerIdValue = row.referrerUserId;
-      const referredUserId = referredIdValue ? String(referredIdValue) : '';
-      const referrerUserId = referrerIdValue ? String(referrerIdValue) : '';
-      const haystack =
-        `${String(row._id)} ${String(row.businessId)} ${referredUserId} ${referrerUserId}`.toLowerCase();
-      if (needle && !haystack.includes(needle)) continue;
-      rows.push({
-        targetType: 'customerReferral',
-        targetId: String(row._id),
-        updatedAt: Number(row.updatedAt ?? row.createdAt),
-        payload: row,
-      });
-    }
-    for (const row of rewards as any[]) {
-      const haystack =
-        `${String(row._id)} ${String(row.businessId)} ${String(row.customerReferralId)} ${String(row.recipientUserId)}`.toLowerCase();
-      if (needle && !haystack.includes(needle)) continue;
-      rows.push({
-        targetType: 'referralReward',
-        targetId: String(row._id),
-        updatedAt: Number(row.updatedAt ?? row.createdAt),
-        payload: row,
-      });
-    }
-    for (const row of businessReferrals as any[]) {
-      const referredBusinessId = row.referredBusinessId
-        ? String(row.referredBusinessId)
-        : '';
-      const haystack =
-        `${String(row._id)} ${String(row.referrerBusinessId)} ${referredBusinessId}`.toLowerCase();
-      if (needle && !haystack.includes(needle)) continue;
-      rows.push({
-        targetType: 'businessReferral',
-        targetId: String(row._id),
-        updatedAt: Number(row.updatedAt ?? row.createdAt),
-        payload: {
-          ...row,
-          referredBusinessId: row.referredBusinessId ?? null,
-          referredBusinessDeleted: !row.referredBusinessId,
-        },
-      });
-    }
-
-    return rows.sort((a, b) => b.updatedAt - a.updatedAt).slice(0, safeLimit);
+// Filter after pagination so every matching record remains reachable.
+export const adminSearchReferralRecordsPage = query({
+  args: {
+    query: v.string(),
+    type: v.union(
+      v.literal('customerReferralLink'),
+      v.literal('businessReferralLink'),
+      v.literal('customerReferral'),
+      v.literal('referralReward'),
+      v.literal('businessReferral')
+    ),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: paginationResultValidator(
+    v.object({
+      targetType: v.string(),
+      targetId: v.string(),
+      updatedAt: v.number(),
+      payload: v.any(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    await requireAdminUser(ctx);
+    const types = [
+      'customerReferralLink',
+      'businessReferralLink',
+      'customerReferral',
+      'referralReward',
+      'businessReferral',
+    ];
+    const tables = [
+      'customerReferralLinks',
+      'businessReferralLinks',
+      'customerReferrals',
+      'referralRewards',
+      'businessReferrals',
+    ] as const;
+    const index = types.indexOf(args.type);
+    const result = await ctx.db.query(tables[index]).paginate({
+      ...args.paginationOpts,
+      numItems: Math.max(1, Math.min(args.paginationOpts.numItems, 100)),
+    });
+    const records: any[][] = [[], [], [], [], []];
+    records[index] = result.page;
+    return {
+      ...result,
+      page: formatAdminReferralSearch(
+        records,
+        args.query.trim().toLowerCase(),
+        result.page.length
+      ),
+    };
   },
 });
 

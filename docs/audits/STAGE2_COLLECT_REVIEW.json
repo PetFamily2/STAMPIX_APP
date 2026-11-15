@@ -1,0 +1,878 @@
+[
+  {
+    "file": "convex/referrals.ts",
+    "line": 282,
+    "owner": "staff",
+    "expression": "ctx.db\n    .query('businessStaff')\n    .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Internal manager notification helper; business staff index is correct. Preserve removed/inactive filtering and all recipients; historical staff rows can grow.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 378,
+    "owner": "memberships",
+    "expression": "ctx.db\n    .query('memberships')\n    .withIndex('by_userId_businessId', (q: any) =>\n      q.eq('userId', args.recipientUserId).eq('businessId', args.businessId)\n    )\n    .filter((q: any) => q.eq(q.field('isActive'), true))",
+    "review": {
+      "classification": "retained_correct_scope",
+      "decision": "Internal reward target selection; user plus business index and active predicate isolate candidates. Full set needed for deterministic target choice; no arbitrary cap.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 463,
+    "owner": "rows",
+    "expression": "ctx.db\n      .query('referralRewards')\n      .withIndex('by_businessId_recipientUserId_status', (q: any) =>\n        q\n          .eq('businessId', args.businessId)\n          .eq('recipientUserId', args.referrerUserId)\n          .eq('status', status)\n      )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Monthly reward quota counts all relevant statuses before date filtering. Prefix is correct but lacks date suffix; retain exact count until equivalent aggregate/date index exists.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 546,
+    "owner": "activeCandidates",
+    "expression": "ctx.db\n    .query('customerReferralLinks')\n    .withIndex('by_referrer_business_origin_status', (q: any) =>\n      q\n        .eq('referrerUserId', args.actorUserId)\n        .eq('businessId', args.businessId)\n        .eq('originProgramId', args.originProgramId)\n        .eq('status', 'active')\n    )",
+    "review": {
+      "classification": "retained_correct_scope",
+      "decision": "Link reuse/duplicate cleanup needs all active links for the same user, business and origin. Index is exact. Preserve duplicate repair semantics.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 803,
+    "owner": "events",
+    "expression": "ctx.db\n    .query('events')\n    .withIndex('by_businessId_customerUserId_createdAt', (q: any) =>\n      q\n        .eq('businessId', args.businessId)\n        .eq('customerUserId', args.referredUserId)\n    )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Qualification inspects customer event history to determine first qualifying normal stamp. Narrow customer/business index, but lifetime growth remains; truncation changes eligibility.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1398,
+    "owner": "refs",
+    "expression": "ctx.db\n      .query('customerReferrals')\n      .withIndex('by_referrerUserId_businessId_createdAt', (q: any) =>\n        q.eq('referrerUserId', user._id)\n      )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Authenticated current-user dashboard requires lifetime referral counts across businesses. User prefix correct; incremental aggregate required for bounded lifetime metric.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1410,
+    "owner": "rows",
+    "expression": "ctx.db\n        .query('referralRewards')\n        .withIndex('by_recipientUserId_status_expiresAt', (q: any) =>\n          q.eq('recipientUserId', user._id).eq('status', status)\n        )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Authenticated current-user reward totals across four statuses. Correct recipient/status prefix; all rows contribute to totals.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1455,
+    "owner": "rows",
+    "expression": "ctx.db\n      .query('customerReferrals')\n      .withIndex('by_referrerUserId_businessId_createdAt', (q: any) =>\n        q.eq('referrerUserId', user._id)\n      )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Current-user referral list sorts/filters after full read. User scope correct; cursor contract plus equivalent ordering needed before limiting.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1523,
+    "owner": "subset",
+    "expression": "ctx.db\n        .query('referralRewards')\n        .withIndex('by_recipientUserId_status_expiresAt', (q: any) =>\n          q.eq('recipientUserId', user._id).eq('status', state)\n        )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Current-user reward list combines status partitions then sorts. Per-partition pagination must merge global order; arbitrary per-status take is incorrect.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1596,
+    "owner": "[referrals, rewards, b2b]",
+    "expression": "ctx.db\n        .query('customerReferrals')\n        .withIndex('by_businessId_status_createdAt', (q: any) =>\n          q.eq('businessId', businessId)\n        )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Business dashboard capability checked; lifetime customer referrals feed full counts. Tenant index correct, aggregate needed at scale.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1602,
+    "owner": "[referrals, rewards, b2b]",
+    "expression": "ctx.db\n        .query('referralRewards')\n        .withIndex('by_businessId_status_createdAt', (q: any) =>\n          q.eq('businessId', businessId)\n        )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Business dashboard capability checked; lifetime reward totals feed metrics. Tenant prefix correct; truncation corrupts totals.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1608,
+    "owner": "[referrals, rewards, b2b]",
+    "expression": "ctx.db\n        .query('businessReferrals')\n        .withIndex('by_referrerBusinessId_status_createdAt', (q: any) =>\n          q.eq('referrerBusinessId', businessId)\n        )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Business dashboard capability checked; business-referral totals use referrer tenant index. Preserve full earned/pending counts.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1676,
+    "owner": "rows",
+    "expression": "ctx.db\n      .query('customerReferrals')\n      .withIndex('by_businessId_status_createdAt', (q: any) => {\n        const business = q.eq('businessId', businessId);\n        return status ? business.eq('status', status) : business;\n      })",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Customers capability checked; status already included in tenant index. Remaining global sorting within tenant requires compatible cursor design.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1752,
+    "owner": "subset",
+    "expression": "ctx.db\n        .query('referralRewards')\n        .withIndex('by_businessId_status_createdAt', (q: any) =>\n          q.eq('businessId', businessId).eq('status', state)\n        )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Customers capability checked; reward type and status merge after indexed reads. Pagination must preserve merged order and filters.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1821,
+    "owner": "rows",
+    "expression": "ctx.db\n      .query('referralRewards')\n      .withIndex('by_businessId_recipientUserId_status', (q: any) =>\n        q\n          .eq('businessId', businessId)\n          .eq('recipientUserId', customerUserId)\n          .eq('status', 'granted')\n      )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Customers capability checked; business/customer/granted prefix correct. Expiry and presentation sorting happen after read; preserve late eligible rewards.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1891,
+    "owner": "[referrals, rewards, links]",
+    "expression": "ctx.db\n        .query('customerReferrals')\n        .withIndex('by_businessId_status_createdAt', (q: any) =>\n          q.eq('businessId', businessId)\n        )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Performance capability checked; window filtering occurs after status-prefixed tenant read. Need date index or per-status ranges to avoid lifetime history.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1897,
+    "owner": "[referrals, rewards, links]",
+    "expression": "ctx.db\n        .query('referralRewards')\n        .withIndex('by_businessId_status_createdAt', (q: any) =>\n          q.eq('businessId', businessId)\n        )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Performance capability checked; reward window filtering follows tenant/status prefix. Exact metric retained; date index/aggregate needed.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1903,
+    "owner": "[referrals, rewards, links]",
+    "expression": "ctx.db\n        .query('customerReferralLinks')\n        .withIndex('by_businessId_createdAt', (q: any) =>\n          q.eq('businessId', businessId)\n        )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Performance capability checked; business-createdAt index supports pushing startAt range safely, but unchanged here to preserve tested metric path.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2026,
+    "owner": "[referrer, rewards]",
+    "expression": "ctx.db\n        .query('referralRewards')\n        .withIndex('by_customerReferralId_recipientUserId', (q: any) =>\n          q.eq('customerReferralId', referral._id)\n        )",
+    "review": {
+      "classification": "retained_correct_scope",
+      "decision": "Customer referral lookup capability checked; rewards scoped by exact referral ID. All reward recipients necessary; no history-wide scan.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2311,
+    "owner": "[\n      customerLinks,\n      businessLinks,\n      customerReferrals,\n      rewards,\n      businessReferrals,\n    ]",
+    "expression": "ctx.db.query('customerReferralLinks')",
+    "review": {
+      "classification": "dangerous",
+      "decision": "Global admin link search requires admin before read. Updated UI uses bounded paginated endpoint; legacy query retained for backward compatibility and remains a scale risk.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2314,
+    "owner": "[\n      customerLinks,\n      businessLinks,\n      customerReferrals,\n      rewards,\n      businessReferrals,\n    ]",
+    "expression": "ctx.db.query('businessReferralLinks')",
+    "review": {
+      "classification": "dangerous",
+      "decision": "Global admin business-link search requires admin. New page API supports this type; legacy full-read compatibility path remains risky.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2317,
+    "owner": "[\n      customerLinks,\n      businessLinks,\n      customerReferrals,\n      rewards,\n      businessReferrals,\n    ]",
+    "expression": "ctx.db.query('customerReferrals')",
+    "review": {
+      "classification": "dangerous",
+      "decision": "Global admin customer-referral substring search requires admin. New page API preserves eventual matches without early cap; legacy read retained.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2320,
+    "owner": "[\n      customerLinks,\n      businessLinks,\n      customerReferrals,\n      rewards,\n      businessReferrals,\n    ]",
+    "expression": "ctx.db.query('referralRewards')",
+    "review": {
+      "classification": "dangerous",
+      "decision": "Global admin reward substring search requires admin. New page API scans bounded pages; legacy endpoint remains high-risk at scale.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2323,
+    "owner": "[\n      customerLinks,\n      businessLinks,\n      customerReferrals,\n      rewards,\n      businessReferrals,\n    ]",
+    "expression": "ctx.db.query('businessReferrals')",
+    "review": {
+      "classification": "dangerous",
+      "decision": "Global admin business-referral search requires admin. New page API preserves deleted-business marker; legacy full search retained.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2461,
+    "owner": "rows",
+    "expression": "ctx.db\n            .query('referralAdminAuditLog')\n            .withIndex('by_targetType_targetId', (q: any) =>\n              q.eq('targetType', args.targetType).eq('targetId', args.targetId)\n            )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Admin audit exact type/ID index is correct; all target history sorted by createdAt. Long-lived target can grow; cursor needs matching sort contract.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2467,
+    "owner": "rows",
+    "expression": "ctx.db\n            .query('referralAdminAuditLog')\n            .withIndex('by_createdAt', (q: any) => q)",
+    "review": {
+      "classification": "dangerous",
+      "decision": "Admin audit fallback reads global history before optional filters. Admin checked, no tenant leak; global scale risk remains, requires indexed pagination for each filter combination.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2619,
+    "owner": "events",
+    "expression": "ctx.db\n        .query('events')\n        .withIndex('by_membershipId_createdAt', (q: any) =>\n          q.eq('membershipId', membership._id)\n        )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Admin revocation reads membership event history to reconstruct balance. Admin checked; must preserve full accounting sequence, cannot cap.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2712,
+    "owner": "rewards",
+    "expression": "ctx.db\n      .query('referralRewards')\n      .withIndex('by_customerReferralId_recipientUserId', (q: any) =>\n        q.eq('customerReferralId', before._id)\n      )",
+    "review": {
+      "classification": "retained_correct_scope",
+      "decision": "Admin invalidation reads rewards for exact referral to revoke all. Admin checked; narrow identity index and complete transactional updates required.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2834,
+    "owner": "waiting",
+    "expression": "ctx.db\n      .query('businessReferrals')\n      .withIndex('by_status_qualificationDueAt', (q: any) =>\n        q.eq('status', 'waiting_30_days')\n      )",
+    "review": {
+      "classification": "dangerous",
+      "decision": "Internal credit sweep reads every waiting referral before due-date decisions. Status/due index can bound due subset; transactional batching needed for large backlog.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2876,
+    "owner": "creditedRows",
+    "expression": "ctx.db\n        .query('businessReferrals')\n        .withIndex('by_referrerBusinessId_status_createdAt', (q: any) =>\n          q\n            .eq('referrerBusinessId', row.referrerBusinessId)\n            .eq('status', 'credited')\n        )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Credit cap counts all credited referrals for referrer business. Correct prefix, exact cap/accounting count must not be approximated.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2949,
+    "owner": "customerActive",
+    "expression": "ctx.db\n      .query('customerReferralLinks')\n      .withIndex('by_status_expiresAt', (q: any) => q.eq('status', 'active'))",
+    "review": {
+      "classification": "dangerous",
+      "decision": "Internal expiry sweep reads all active customer links. Existing status/expiry index can narrow expired rows; batching needed to bound writes.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2963,
+    "owner": "businessActive",
+    "expression": "ctx.db\n      .query('businessReferralLinks')\n      .withIndex('by_status_expiresAt', (q: any) => q.eq('status', 'active'))",
+    "review": {
+      "classification": "dangerous",
+      "decision": "Internal expiry sweep reads all active business links. Same due-range and batching opportunity; preserve every expired update.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2990,
+    "owner": "granted",
+    "expression": "ctx.db\n      .query('referralRewards')\n      .withIndex('by_status_expiresAt', (q: any) => q.eq('status', 'granted'))",
+    "review": {
+      "classification": "dangerous",
+      "decision": "Internal reward expiry scans granted including non-expiring stamps. Existing status/expiry index can restrict defined due values; optional expiry semantics require care.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/dashboard.ts",
+    "line": 488,
+    "owner": "[\n      businessSettings,\n      usageSummary,\n      recommendationFacts,\n      allEvents,\n      allMemberships,\n    ]",
+    "expression": "ctx.db\n        .query('events')\n        .withIndex('by_businessId_createdAt', (q: any) =>\n          q.eq('businessId', businessId)\n        )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Dashboard staff/capability authorization; lifetime events required for lifetime metrics. Business/date index correct, aggregate needed instead of truncation.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/dashboard.ts",
+    "line": 494,
+    "owner": "[\n      businessSettings,\n      usageSummary,\n      recommendationFacts,\n      allEvents,\n      allMemberships,\n    ]",
+    "expression": "ctx.db\n        .query('memberships')\n        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Dashboard lifetime membership totals; tenant prefix correct and authorization checked. Deleted/inactive records affect historical totals; retain exact semantics.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/dashboard.ts",
+    "line": 609,
+    "owner": "[events, messageLog, activePrograms]",
+    "expression": "ctx.db\n        .query('events')\n        .withIndex('by_businessId_createdAt', (q: any) =>\n          q.eq('businessId', businessId).lte('createdAt', referenceNow)\n        )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Dashboard day query uses all historical stamps for lifecycle counts as well as day metrics. Lower time bound would alter inactive/new customer counts.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/dashboard.ts",
+    "line": 615,
+    "owner": "[events, messageLog, activePrograms]",
+    "expression": "ctx.db\n        .query('messageLog')\n        .withIndex('by_businessId_createdAt', (q: any) =>\n          q.eq('businessId', businessId).lte('createdAt', referenceNow)\n        )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Dashboard messageLog only contributes selected day recipients. Tenant/date upper range correct; lower range is a safe optimization candidate after date-boundary regression.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/dashboard.ts",
+    "line": 621,
+    "owner": "[events, messageLog, activePrograms]",
+    "expression": "ctx.db\n        .query('loyaltyPrograms')\n        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))\n        .filter((q: any) => q.eq(q.field('isActive'), true))",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Dashboard active programs use business index and active filter; lifecycle filtering retained. Historical program growth possible, no arbitrary cap.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/events.ts",
+    "line": 120,
+    "owner": "events",
+    "expression": "ctx.db\n      .query('events')\n      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Recent activity filters stamp/redemption then sorts createdAt. Existing index is business only; taking index order would be wrong for backdated events.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/customerLifecycle.ts",
+    "line": 599,
+    "owner": "memberships",
+    "expression": "ctx.db\n    .query('memberships')\n    .withIndex('by_businessId_createdAt', (q: any) =>\n      q.eq('businessId', businessId).lte('createdAt', now)\n    )\n    .filter((q: any) => q.eq(q.field('isActive'), true))",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Lifecycle internal helper enumerates all active memberships for tenant snapshot. Callers authorize business; full audience needed for deduplication and counts.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/customerLifecycle.ts",
+    "line": 661,
+    "owner": "[programs, users, events]",
+    "expression": "ctx.db\n      .query('events')\n      .withIndex('by_businessId_createdAt', (q: any) =>\n        q.eq('businessId', businessId).lte('createdAt', now)\n      )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Lifecycle snapshot loads history for recency/cohort computation. Business/date scope correct; full history required by current algorithm, needs aggregate redesign.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/customerCards.ts",
+    "line": 163,
+    "owner": "events",
+    "expression": "ctx.db\n    .query('events')\n    .withIndex('by_membershipId_createdAt', (q: any) =>\n      q.eq('membershipId', membershipId)\n    )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Latest balance event helper filters event types then chooses latest accounting event. Membership/date index appropriate; full history can grow, no arbitrary take.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/customerCards.ts",
+    "line": 257,
+    "owner": "activeMemberships",
+    "expression": "ctx.db\n      .query('memberships')\n      .withIndex('by_userId_businessId', (q: any) =>\n        q.eq('userId', customerUserId).eq('businessId', businessId)\n      )\n      .filter((q: any) => q.eq(q.field('isActive'), true))",
+    "review": {
+      "classification": "retained_correct_scope",
+      "decision": "Customer card requires customers capability and active user; user/business membership prefix correct. All active cards retained.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/customerCards.ts",
+    "line": 301,
+    "owner": "events",
+    "expression": "ctx.db\n      .query('events')\n      .withIndex('by_businessId_customerUserId_createdAt', (q: any) =>\n        q.eq('businessId', businessId).eq('customerUserId', customerUserId)\n      )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Customer card timeline loads all customer events then enriches actors. Capability and tenant/customer prefix correct; cursor timeline needed for large history.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/loyaltyPrograms.ts",
+    "line": 301,
+    "owner": "linkedDrafts",
+    "expression": "ctx.db\n    .query('businessOnboardingDrafts')\n    .withIndex('by_programId', (q) => q.eq('programId', programId))",
+    "review": {
+      "classification": "retained_correct_scope",
+      "decision": "Onboarding draft conflict detection by exact program; only existence is needed. Can use filtered first safely, but retained unchanged in this pass.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/loyaltyPrograms.ts",
+    "line": 312,
+    "owner": "listBusinessPrograms",
+    "expression": "ctx.db\n    .query('loyaltyPrograms')\n    .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))\n    .filter((q: any) => q.eq(q.field('isActive'), true))",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Internal business program list: tenant index + active flag; all active lifecycle programs needed by quotas/themes. Do not cap by visible list size.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/loyaltyPrograms.ts",
+    "line": 413,
+    "owner": "memberships",
+    "expression": "ctx.db\n    .query('memberships')\n    .withIndex('by_programId', (q: any) => q.eq('programId', programId))",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Program membership count must include inactive history as currently defined. Program index correct; aggregate needed, no cap.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/loyaltyPrograms.ts",
+    "line": 537,
+    "owner": "[programs, allMemberships, events]",
+    "expression": "ctx.db\n        .query('memberships')\n        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Card management capability checked; tenant membership set reused for exact active/total counts. Aggregate required at scale.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/loyaltyPrograms.ts",
+    "line": 541,
+    "owner": "[programs, allMemberships, events]",
+    "expression": "ctx.db\n        .query('events')\n        .withIndex('by_businessId_createdAt', (q: any) =>\n          q.eq('businessId', businessId).gte('createdAt', thirtyDaysAgo)\n        )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Card management last-30-day events already use business/date lower range. Time bounded, volume not bounded; preserve complete 7/30-day metrics.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/loyaltyPrograms.ts",
+    "line": 664,
+    "owner": "[allMemberships, events]",
+    "expression": "ctx.db\n        .query('memberships')\n        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Program details capability and program ownership checked; tenant memberships determine program and business totals. Preserve counts.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/loyaltyPrograms.ts",
+    "line": 668,
+    "owner": "[allMemberships, events]",
+    "expression": "ctx.db\n        .query('events')\n        .withIndex('by_businessId_createdAt', (q: any) =>\n          q.eq('businessId', businessId).gte('createdAt', thirtyDaysAgo)\n        )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Program details last-30-day events use correct range. No old events read; high monthly volume still needs aggregate.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/campaigns.ts",
+    "line": 434,
+    "owner": "memberships",
+    "expression": "ctx.db\n    .query('memberships')\n    .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))\n    .filter((q: any) => q.eq(q.field('isActive'), true))",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Campaign audience internal helper: tenant memberships, active and optional program filters. Must preserve all recipients/consent deduplication, paginated delivery redesign needed.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/campaigns.ts",
+    "line": 494,
+    "owner": "getCampaignLogs",
+    "expression": "ctx.db\n    .query('messageLog')\n    .withIndex('by_campaignId', (q: any) => q.eq('campaignId', campaignId))",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Campaign logs helper reads full campaign for exact run/history metrics. Campaign ownership checked at callers. Aggregate or paginated history needed.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/campaigns.ts",
+    "line": 785,
+    "owner": "campaigns",
+    "expression": "ctx.db\n      .query('campaigns')\n      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))\n      .filter((q: any) => q.eq(q.field('type'), 'ai_marketing'))",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "AI campaign list capability checked; business prefix and AI type filter correct. Historical drafts can grow; list cursor appropriate, preserve order.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/campaigns.ts",
+    "line": 890,
+    "owner": "campaigns",
+    "expression": "ctx.db\n      .query('campaigns')\n      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Campaign management capability checked; tenant campaigns all feed list plus per-campaign metrics. N+1 audience/log reads are scale risk; summary model needed.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/campaigns.ts",
+    "line": 1648,
+    "owner": "recurringCampaigns",
+    "expression": "ctx.db\n        .query('campaigns')\n        .withIndex('by_automationEnabled', (q: any) =>\n          q.eq('automationEnabled', true)\n        )\n        .filter((q: any) =>\n          q.and(\n            q.eq(q.field('isActive'), true),\n            q.neq(q.field('type'), 'ai_marketing')\n          )\n        )",
+    "review": {
+      "classification": "dangerous",
+      "decision": "Internal recurring automation sweep uses automation flag index but global results may exceed transaction limits. Needs scheduled cursor batches, not skipped rows.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/campaigns.ts",
+    "line": 1702,
+    "owner": "oneTimeCandidates",
+    "expression": "ctx.db\n      .query('campaigns')\n      .withIndex('by_activationStatus', (q: any) =>\n        q.eq('activationStatus', 'active')\n      )\n      .filter((q: any) =>\n        q.and(\n          q.eq(q.field('isActive'), true),\n          q.eq(q.field('automationEnabled'), false),\n          q.neq(q.field('type'), 'ai_marketing'),\n          q.neq(q.field('type'), 'ai_retention'),\n          q.neq(q.field('type'), 'retention_action')\n        )\n      )",
+    "review": {
+      "classification": "dangerous",
+      "decision": "Internal one-time automation sweep uses activation status and business rules. Global backlog can grow; scheduler batching required with idempotency.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/campaigns.ts",
+    "line": 1812,
+    "owner": "logs",
+    "expression": "ctx.db\n      .query('messageLog')\n      .withIndex('by_toUserId', (q: any) => q.eq('toUserId', user._id))",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Customer inbox derives user from auth and queries by recipient. Full read + enrichment scales with messages; pagination must preserve inbox business visibility filters.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 664,
+    "owner": "rows",
+    "expression": "ctx.db\n    .query('businesses')\n    .withIndex('by_ownerUserId', (q: any) => q.eq('ownerUserId', ownerUserId))",
+    "review": {
+      "classification": "retained_correct_scope",
+      "decision": "Internal owned-business exact count uses owner prefix. All active businesses required to enforce creation allowance; retain exact count.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 1145,
+    "owner": "ownedBusinesses",
+    "expression": "ctx.db\n      .query('businesses')\n      .withIndex('by_ownerUserId', (q: any) => q.eq('ownerUserId', user._id))",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Closed-business recovery list authenticated owner prefix. All recoverable rows filtered; correct access, historical growth possible.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 2658,
+    "owner": "businesses",
+    "expression": "ctx.db\n      .query('businesses')\n      .withIndex('by_isActive', (q: any) => q.eq('isActive', true))",
+    "review": {
+      "classification": "dangerous",
+      "decision": "Nearby discovery scans all active businesses then computes distance/filter/sort. Public business projections are intended; geo index needed for bounded global search.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 2976,
+    "owner": "[staffRows, pendingInvites]",
+    "expression": "ctx.db\n      .query('businessStaff')\n      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Team seat usage business staff prefix. Counting all historical staff currently needed to apply status/role rules; cannot count first page.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 2980,
+    "owner": "[staffRows, pendingInvites]",
+    "expression": "ctx.db\n      .query('staffInvites')\n      .withIndex('by_businessId_status', (q: any) =>\n        q.eq('businessId', businessId).eq('status', 'pending')\n      )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Team seat usage pending invitations prefix correct; expiry affects reservation. All live pending invites must count, no cap.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 3082,
+    "owner": "staffRecords",
+    "expression": "ctx.db\n      .query('businessStaff')\n      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Team management capability/feature checked; business staff prefix correct. Includes historical/removed staff intentionally; cursor list would require UI contract.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 3147,
+    "owner": "pendingInvites",
+    "expression": "ctx.db\n      .query('staffInvites')\n      .withIndex('by_businessId_status', (q: any) =>\n        q.eq('businessId', businessId).eq('status', 'pending')\n      )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Team management capability checked; tenant pending index plus expiry filter correct. Narrow scope, potential accumulated stale pending rows.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 3206,
+    "owner": "[staffRows, invites, entitlements]",
+    "expression": "ctx.db\n        .query('businessStaff')\n        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Team summary management capability checked; full staff set used for exact seats/status counts. Preserve full result.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 3210,
+    "owner": "[staffRows, invites, entitlements]",
+    "expression": "ctx.db\n        .query('staffInvites')\n        .withIndex('by_businessId_status', (q: any) =>\n          q.eq('businessId', businessId).eq('status', 'pending')\n        )",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Team summary pending-invite business/status index correct. Expired rows excluded after read; counters cannot be truncated.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 3268,
+    "owner": "events",
+    "expression": "ctx.db\n      .query('staffEvents')\n      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Team history capability checked; business-only index then createdAt sort and limit. Needs date index to safely bound without reordering backdated events.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 3413,
+    "owner": "invites",
+    "expression": "ctx.db\n      .query('staffInvites')\n      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
+    "review": {
+      "classification": "improvement_required",
+      "decision": "Closed invites management capability checked; resolved status depends on now, then sorted. Needs status/date cursor design including virtual expiry.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 3480,
+    "owner": "memberships",
+    "expression": "ctx.db\n      .query('businessStaff')\n      .withIndex('by_userId', (q: any) => q.eq('userId', actor._id))",
+    "review": {
+      "classification": "retained_correct_scope",
+      "decision": "Authenticated actor membership list indexed by user. Filters each business activity; preserve roles and all accessible tenants.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 3568,
+    "owner": "existingPendingInvites",
+    "expression": "ctx.db\n      .query('staffInvites')\n      .withIndex('by_businessId_invitedEmail_status', (q: any) =>\n        q\n          .eq('businessId', businessId)\n          .eq('invitedEmail', normalizedEmail)\n          .eq('status', 'pending')\n      )",
+    "review": {
+      "classification": "retained_correct_scope",
+      "decision": "Invite mutation management/feature/seat authorization checked; business/email/pending prefix exact. All duplicates expired/reused deliberately.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 3714,
+    "owner": "pendingByUser",
+    "expression": "ctx.db\n      .query('staffInvites')\n      .withIndex('by_invitedUserId', (q: any) =>\n        q.eq('invitedUserId', targetUser._id)\n      )\n      .filter((q: any) => q.eq(q.field('businessId'), businessId))\n      .filter((q: any) => q.eq(q.field('status'), 'pending'))",
+    "review": {
+      "classification": "retained_correct_scope",
+      "decision": "Scan invitation mutation management checked; invited-user prefix plus business/status filters. Business/email alternative cannot cover users without email; preserve deduplication.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 3724,
+    "owner": "pendingByEmail",
+    "expression": "ctx.db\n          .query('staffInvites')\n          .withIndex('by_businessId_invitedEmail_status', (q: any) =>\n            q\n              .eq('businessId', businessId)\n              .eq('invitedEmail', normalizedEmail)\n              .eq('status', 'pending')\n          )",
+    "review": {
+      "classification": "retained_correct_scope",
+      "decision": "Scan invitation duplicate email query exact business/email/pending prefix. Complete duplicate set needed before creating invite.",
+      "status": "reviewed",
+      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+    }
+  }
+]

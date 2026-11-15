@@ -197,10 +197,7 @@ export function BusinessWebSettings() {
     setSaveNotice('');
   }, [baseline, loadedAddress]);
 
-  useBusinessWebUnsavedChanges(
-    isDirty && !isSavingForm && !profile.isSaving,
-    revertDraft
-  );
+  useBusinessWebUnsavedChanges(isDirty, revertDraft);
 
   const updateDraft = (
     updater: (current: BusinessSettingsSnapshot) => BusinessSettingsSnapshot
