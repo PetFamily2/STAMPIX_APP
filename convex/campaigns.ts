@@ -117,7 +117,8 @@ function assertCampaignIsNotImmutableSmartManagerExecution(
 async function attemptCampaignPushDelivery(
   ctx: unknown,
   campaign: CampaignPushCandidate,
-  userId: Id<'users'>
+  userId: Id<'users'>,
+  dedupeKey?: string
 ) {
   if (!campaignHasPushChannel(campaign)) {
     return;
@@ -136,6 +137,7 @@ async function attemptCampaignPushDelivery(
         campaign.messageBody,
         'Open StampAix to view the latest business update.'
       ),
+      dedupeKey,
     });
   } catch {
     // Push is best-effort; campaign inbox delivery remains authoritative.
@@ -661,7 +663,14 @@ async function sendAutomationForCampaign(
       status: 'sent',
       createdAt: now,
     });
-    await attemptCampaignPushDelivery(ctx, campaign, userId);
+    // The same recipient may legitimately receive a later recurring run.
+    // The fixed sweep time is stable across retries and cursor continuations.
+    await attemptCampaignPushDelivery(
+      ctx,
+      campaign,
+      userId,
+      `campaign_automation:${String(campaign._id)}:${now}`
+    );
 
     userHistory.push(now);
     historyByUserId.set(userKey, userHistory);

@@ -250,6 +250,36 @@ describe('transactional push outbox', () => {
     expect(ctx.rows('pushDeliveryLog')).toHaveLength(1);
   });
 
+  test('separate recurring runs deliver distinct intents while a replay is deduplicated', async () => {
+    const ctx = createMockCtx({ pushTokens: [buildPushToken()] });
+    const args = {
+      businessId: BUSINESS_ID,
+      campaignId: 'campaign_1',
+      toUserId: USER_ID,
+      title: 'Recurring campaign',
+      body: 'Hello again',
+    };
+    expect(
+      (await sendPushNotificationToUser(ctx, {
+        ...args,
+        dedupeKey: 'campaign_automation:campaign_1:run_1',
+      })).queued
+    ).toBe(true);
+    expect(
+      (await sendPushNotificationToUser(ctx, {
+        ...args,
+        dedupeKey: 'campaign_automation:campaign_1:run_1',
+      })).queued
+    ).toBe(false);
+    expect(
+      (await sendPushNotificationToUser(ctx, {
+        ...args,
+        dedupeKey: 'campaign_automation:campaign_1:run_2',
+      })).queued
+    ).toBe(true);
+    expect(ctx.rows('pushDeliveryOutbox')).toHaveLength(2);
+  });
+
   test('stale claimed delivery is terminal unknown, never re-queued', async () => {
     const ctx = createMockCtx({ pushTokens: [buildPushToken()] });
     await sendPushNotificationToUser(ctx, {
