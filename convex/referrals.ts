@@ -1917,7 +1917,7 @@ export const getBusinessReferralPerformance = query({
       ctx.db
         .query('customerReferralLinks')
         .withIndex('by_businessId_createdAt', (q: any) =>
-          q.eq('businessId', businessId)
+          q.eq('businessId', businessId).gte('createdAt', startAt)
         )
         .collect(),
     ]);
@@ -2591,14 +2591,29 @@ export const adminListReferralAuditLogPage = query({
   returns: paginationResultValidator(v.any()),
   handler: async (ctx, args) => {
     await requireAdminUser(ctx);
-    const result = await ctx.db
-      .query('referralAdminAuditLog')
-      .withIndex('by_createdAt')
-      .order('desc')
-      .paginate({
-        ...args.paginationOpts,
-        numItems: Math.max(1, Math.min(args.paginationOpts.numItems, 100)),
-      });
+    // Exact target and type-only pages use ordered index prefixes. The
+    // targetId-only fallback still pages the global ordered index so
+    // incomplete filters never silently suppress late matches.
+    const auditQuery =
+      args.targetType && args.targetId
+        ? ctx.db
+            .query('referralAdminAuditLog')
+            .withIndex('by_targetType_targetId_createdAt', (q: any) =>
+              q.eq('targetType', args.targetType).eq('targetId', args.targetId)
+            )
+        : args.targetType
+          ? ctx.db
+              .query('referralAdminAuditLog')
+              .withIndex('by_targetType_createdAt', (q: any) =>
+                q.eq('targetType', args.targetType)
+              )
+          : ctx.db
+              .query('referralAdminAuditLog')
+              .withIndex('by_createdAt');
+    const result = await auditQuery.order('desc').paginate({
+      ...args.paginationOpts,
+      numItems: Math.max(1, Math.min(args.paginationOpts.numItems, 100)),
+    });
     return {
       ...result,
       page: result.page.filter(

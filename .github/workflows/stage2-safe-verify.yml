@@ -28,7 +28,7 @@ jobs:
       - name: TypeScript
         run: bun run type-check
       - name: Focused Push and automation regression
-        run: bun test convex/__tests__/pushNotifications.test.js convex/__tests__/campaignPushDelivery.test.js
+        run: bun test convex/__tests__/pushNotifications.test.js convex/__tests__/campaignPushDelivery.test.js convex/__tests__/referralsRaceSafety.test.js
       - name: Lint modified backend files
         run: bunx biome check convex/schema.ts convex/pushNotifications.ts convex/crons.ts convex/referrals.ts convex/__tests__/pushNotifications.test.js convex/__tests__/campaignPushDelivery.test.js
       - name: Web Android iOS JavaScript export

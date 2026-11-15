@@ -9,6 +9,7 @@ import {
   expireReferralLinksInternal,
   expireReferralRewardsInternal,
   getBusinessReferralCreditSummary,
+  getBusinessReferralPerformance,
   getOrCreateBusinessReferralLink,
   listBusinessReferralCustomers,
   listMyCustomerReferrals,
@@ -35,6 +36,10 @@ class FakeQuery {
         conditions.push({ field, value, op: 'lte' });
         return q;
       },
+      gte: (field, value) => {
+        conditions.push({ field, value, op: 'gte' });
+        return q;
+      },
     };
     if (builder) builder(q);
     this.db.indexCalls.push({
@@ -48,7 +53,9 @@ class FakeQuery {
       conditions.every((condition) =>
         condition.op === 'lte'
           ? doc[condition.field] <= condition.value
-          : doc[condition.field] === condition.value
+          : condition.op === 'gte'
+            ? doc[condition.field] >= condition.value
+            : doc[condition.field] === condition.value
       )
     );
     return this;
@@ -1129,4 +1136,84 @@ test('paged audit keeps admin authorization, chronological order and sparse matc
     done = page.isDone;
   }
   expect(rows.map((r) => r.createdAt)).toEqual([200, 100, 0]);
+});
+
+test('referral performance bounds historical link reads to requested date', async () => {
+  const tables = baseTables();
+  const now = Date.now();
+  const day = 24 * 60 * 60 * 1000;
+  tables.customerReferralLinks = Array.from({ length: 1000 }, (_, i) => ({
+    _id: `old_${i}`,
+    businessId: 'biz_1',
+    createdAt: now - 110 * day,
+  }));
+  tables.customerReferralLinks.push(
+    { _id: 'recent_1', businessId: 'biz_1', createdAt: now - 2 * day },
+    { _id: 'recent_2', businessId: 'biz_1', createdAt: now - 1 * day },
+    { _id: 'other_business', businessId: 'biz_2', createdAt: now - day }
+  );
+  const ctx = buildCtx(tables);
+  const result = await getBusinessReferralPerformance._handler(ctx, {
+    businessId: 'biz_1',
+    range: '30d',
+  });
+  expect(result.referralsGenerated).toBe(2);
+  const query = ctx.db.indexCalls.find(
+    (call) =>
+      call.table === 'customerReferralLinks' &&
+      call.index === 'by_businessId_createdAt'
+  );
+  expect(query?.conditions[0]).toEqual({ field: 'businessId', value: 'biz_1' });
+  expect(query?.conditions[1]).toMatchObject({
+    field: 'createdAt',
+    op: 'gte',
+  });
+  expect(query.conditions[1].value).toBeGreaterThan(now - 31 * day);
+});
+
+test('admin audit pages use target and timestamp indexes for scoped search', async () => {
+  const tables = baseTables();
+  const now = Date.now();
+  tables.users = tables.users.map((u) =>
+    u._id === 'u_owner' ? { ...u, isAdmin: true } : u
+  );
+  tables.referralAdminAuditLog = Array.from({ length: 90 }, (_, i) => ({
+    _id: `unrelated_${i}`,
+    targetType: 'customerReferral',
+    targetId: 'unrelated',
+    createdAt: now - 1000 + i,
+  }));
+  for (let i = 0; i < 7; i++) {
+    tables.referralAdminAuditLog.push({
+      _id: `target_${i}`,
+      targetType: 'customerReferralLink',
+      targetId: 'specific',
+      createdAt: now + i,
+    });
+  }
+  const ctx = buildCtx(tables);
+  let cursor = null;
+  const received = [];
+  let done = false;
+  while (!done) {
+    const page = await adminListReferralAuditLogPage._handler(ctx, {
+      targetType: 'customerReferralLink',
+      targetId: 'specific',
+      paginationOpts: { cursor, numItems: 3 },
+    });
+    received.push(...page.page);
+    cursor = page.continueCursor;
+    done = page.isDone;
+  }
+  expect(received.map((row) => row._id)).toEqual(
+    Array.from({ length: 7 }, (_, i) => `target_${6 - i}`)
+  );
+  expect(ctx.db.indexCalls).toContainEqual({
+    table: 'referralAdminAuditLog',
+    index: 'by_targetType_targetId_createdAt',
+    conditions: [
+      { field: 'targetType', value: 'customerReferralLink' },
+      { field: 'targetId', value: 'specific' },
+    ],
+  });
 });
