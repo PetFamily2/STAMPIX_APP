@@ -1675,9 +1675,10 @@ export const listBusinessReferralCustomers = query({
     );
     const rows = await ctx.db
       .query('customerReferrals')
-      .withIndex('by_businessId_status_createdAt', (q: any) =>
-        q.eq('businessId', businessId)
-      )
+      .withIndex('by_businessId_status_createdAt', (q: any) => {
+        const business = q.eq('businessId', businessId);
+        return status ? business.eq('status', status) : business;
+      })
       .collect();
     const safeLimit = Math.max(1, Math.min(limit ?? 120, 400));
     const filtered = rows
@@ -2455,10 +2456,18 @@ export const adminListReferralAuditLog = query({
   },
   handler: async (ctx, args) => {
     await requireAdminUser(ctx);
-    const rows = await ctx.db
-      .query('referralAdminAuditLog')
-      .withIndex('by_createdAt', (q: any) => q)
-      .collect();
+    const rows =
+      args.targetType && args.targetId
+        ? await ctx.db
+            .query('referralAdminAuditLog')
+            .withIndex('by_targetType_targetId', (q: any) =>
+              q.eq('targetType', args.targetType).eq('targetId', args.targetId)
+            )
+            .collect()
+        : await ctx.db
+            .query('referralAdminAuditLog')
+            .withIndex('by_createdAt', (q: any) => q)
+            .collect();
 
     return rows
       .filter((row: any) =>

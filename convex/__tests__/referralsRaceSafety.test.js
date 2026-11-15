@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   adminGetReferralRecord,
+  adminListReferralAuditLog,
   adminSearchReferralRecords,
   getBusinessReferralCreditSummary,
   getOrCreateBusinessReferralLink,
@@ -28,6 +29,11 @@ class FakeQuery {
       },
     };
     builder(q);
+    this.db.indexCalls.push({
+      table: this.tableName,
+      index: _indexName,
+      conditions: [...conditions],
+    });
     this.predicates.push((doc) =>
       conditions.every((condition) => doc[condition.field] === condition.value)
     );
@@ -90,6 +96,7 @@ class FakeDb {
     this.tables = tables;
     this.counter = 0;
     this.getCalls = [];
+    this.indexCalls = [];
   }
 
   query(tableName) {
@@ -660,6 +667,60 @@ describe('business referral deleted-business compatibility', () => {
 });
 
 describe('referral lists tolerate deleted users', () => {
+  test('admin audit filtering uses the target index and still denies non-admins', async () => {
+    const tables = baseTables();
+    tables.referralAdminAuditLog = [
+      {
+        _id: 'one',
+        targetType: 'customerReferral',
+        targetId: 'target',
+        createdAt: 3,
+      },
+      {
+        _id: 'two',
+        targetType: 'customerReferral',
+        targetId: 'other',
+        createdAt: 4,
+      },
+      {
+        _id: 'three',
+        targetType: 'referralReward',
+        targetId: 'target',
+        createdAt: 5,
+      },
+      {
+        _id: 'four',
+        targetType: 'customerReferral',
+        targetId: 'target',
+        createdAt: 9,
+      },
+    ];
+    const regular = buildCtx(tables);
+    await expect(
+      adminListReferralAuditLog._handler(regular, {
+        targetType: 'customerReferral',
+        targetId: 'target',
+      })
+    ).rejects.toThrow('NOT_AUTHORIZED');
+    tables.users = tables.users.map((user) =>
+      user._id === 'u_owner' ? { ...user, isAdmin: true } : user
+    );
+    const admin = buildCtx(tables);
+    const rows = await adminListReferralAuditLog._handler(admin, {
+      targetType: 'customerReferral',
+      targetId: 'target',
+      limit: 1,
+    });
+    expect(rows.map((row) => row._id)).toEqual(['four']);
+    expect(admin.db.indexCalls).toContainEqual({
+      table: 'referralAdminAuditLog',
+      index: 'by_targetType_targetId',
+      conditions: [
+        { field: 'targetType', value: 'customerReferral' },
+        { field: 'targetId', value: 'target' },
+      ],
+    });
+  });
   test('customer referral list suppresses a deleted referrer user', async () => {
     const tables = baseTables();
     tables.users = tables.users.map((user) =>
@@ -768,6 +829,40 @@ describe('referral lists tolerate deleted users', () => {
       referredUserId: null,
       referredName: null,
       referredDeleted: true,
+    });
+  });
+
+  test('status-filtered referral list scopes both business and status in the index', async () => {
+    const tables = baseTables();
+    for (const [id, businessId, status] of [
+      ['match', 'biz_1', 'pending'],
+      ['other-status', 'biz_1', 'completed'],
+      ['other-business', 'biz_2', 'pending'],
+    ]) {
+      tables.customerReferrals.push({
+        _id: id,
+        businessId,
+        referralLinkId: 'link_1',
+        referrerUserId: 'u_referrer',
+        referredUserId: 'u_referred',
+        status,
+        rewardGrantStatus: 'not_applicable',
+        createdAt: Date.now(),
+      });
+    }
+    const ctx = buildCtx(tables, 'u_owner');
+    const rows = await listBusinessReferralCustomers._handler(ctx, {
+      businessId: 'biz_1',
+      status: 'pending',
+    });
+    expect(rows.map((row) => row.referralId)).toEqual(['match']);
+    expect(ctx.db.indexCalls).toContainEqual({
+      table: 'customerReferrals',
+      index: 'by_businessId_status_createdAt',
+      conditions: [
+        { field: 'businessId', value: 'biz_1' },
+        { field: 'status', value: 'pending' },
+      ],
     });
   });
 });

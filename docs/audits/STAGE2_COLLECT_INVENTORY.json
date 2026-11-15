@@ -87,138 +87,145 @@
     "file": "convex/referrals.ts",
     "line": 1676,
     "owner": "rows",
-    "expression": "ctx.db\n      .query('customerReferrals')\n      .withIndex('by_businessId_status_createdAt', (q: any) =>\n        q.eq('businessId', businessId)\n      )",
+    "expression": "ctx.db\n      .query('customerReferrals')\n      .withIndex('by_businessId_status_createdAt', (q: any) => {\n        const business = q.eq('businessId', businessId);\n        return status ? business.eq('status', status) : business;\n      })",
     "review": "requires semantic and scale review; do not truncate results"
   },
   {
     "file": "convex/referrals.ts",
-    "line": 1751,
+    "line": 1752,
     "owner": "subset",
     "expression": "ctx.db\n        .query('referralRewards')\n        .withIndex('by_businessId_status_createdAt', (q: any) =>\n          q.eq('businessId', businessId).eq('status', state)\n        )",
     "review": "requires semantic and scale review; do not truncate results"
   },
   {
     "file": "convex/referrals.ts",
-    "line": 1820,
+    "line": 1821,
     "owner": "rows",
     "expression": "ctx.db\n      .query('referralRewards')\n      .withIndex('by_businessId_recipientUserId_status', (q: any) =>\n        q\n          .eq('businessId', businessId)\n          .eq('recipientUserId', customerUserId)\n          .eq('status', 'granted')\n      )",
     "review": "requires semantic and scale review; do not truncate results"
   },
   {
     "file": "convex/referrals.ts",
-    "line": 1890,
+    "line": 1891,
     "owner": "[referrals, rewards, links]",
     "expression": "ctx.db\n        .query('customerReferrals')\n        .withIndex('by_businessId_status_createdAt', (q: any) =>\n          q.eq('businessId', businessId)\n        )",
     "review": "requires semantic and scale review; do not truncate results"
   },
   {
     "file": "convex/referrals.ts",
-    "line": 1896,
+    "line": 1897,
     "owner": "[referrals, rewards, links]",
     "expression": "ctx.db\n        .query('referralRewards')\n        .withIndex('by_businessId_status_createdAt', (q: any) =>\n          q.eq('businessId', businessId)\n        )",
     "review": "requires semantic and scale review; do not truncate results"
   },
   {
     "file": "convex/referrals.ts",
-    "line": 1902,
+    "line": 1903,
     "owner": "[referrals, rewards, links]",
     "expression": "ctx.db\n        .query('customerReferralLinks')\n        .withIndex('by_businessId_createdAt', (q: any) =>\n          q.eq('businessId', businessId)\n        )",
     "review": "requires semantic and scale review; do not truncate results"
   },
   {
     "file": "convex/referrals.ts",
-    "line": 2025,
+    "line": 2026,
     "owner": "[referrer, rewards]",
     "expression": "ctx.db\n        .query('referralRewards')\n        .withIndex('by_customerReferralId_recipientUserId', (q: any) =>\n          q.eq('customerReferralId', referral._id)\n        )",
     "review": "requires semantic and scale review; do not truncate results"
   },
   {
     "file": "convex/referrals.ts",
-    "line": 2310,
+    "line": 2311,
     "owner": "[\n      customerLinks,\n      businessLinks,\n      customerReferrals,\n      rewards,\n      businessReferrals,\n    ]",
     "expression": "ctx.db.query('customerReferralLinks')",
     "review": "requires semantic and scale review; do not truncate results"
   },
   {
     "file": "convex/referrals.ts",
-    "line": 2313,
+    "line": 2314,
     "owner": "[\n      customerLinks,\n      businessLinks,\n      customerReferrals,\n      rewards,\n      businessReferrals,\n    ]",
     "expression": "ctx.db.query('businessReferralLinks')",
     "review": "requires semantic and scale review; do not truncate results"
   },
   {
     "file": "convex/referrals.ts",
-    "line": 2316,
+    "line": 2317,
     "owner": "[\n      customerLinks,\n      businessLinks,\n      customerReferrals,\n      rewards,\n      businessReferrals,\n    ]",
     "expression": "ctx.db.query('customerReferrals')",
     "review": "requires semantic and scale review; do not truncate results"
   },
   {
     "file": "convex/referrals.ts",
-    "line": 2319,
+    "line": 2320,
     "owner": "[\n      customerLinks,\n      businessLinks,\n      customerReferrals,\n      rewards,\n      businessReferrals,\n    ]",
     "expression": "ctx.db.query('referralRewards')",
     "review": "requires semantic and scale review; do not truncate results"
   },
   {
     "file": "convex/referrals.ts",
-    "line": 2322,
+    "line": 2323,
     "owner": "[\n      customerLinks,\n      businessLinks,\n      customerReferrals,\n      rewards,\n      businessReferrals,\n    ]",
     "expression": "ctx.db.query('businessReferrals')",
     "review": "requires semantic and scale review; do not truncate results"
   },
   {
     "file": "convex/referrals.ts",
-    "line": 2458,
+    "line": 2461,
     "owner": "rows",
-    "expression": "ctx.db\n      .query('referralAdminAuditLog')\n      .withIndex('by_createdAt', (q: any) => q)",
+    "expression": "ctx.db\n            .query('referralAdminAuditLog')\n            .withIndex('by_targetType_targetId', (q: any) =>\n              q.eq('targetType', args.targetType).eq('targetId', args.targetId)\n            )",
     "review": "requires semantic and scale review; do not truncate results"
   },
   {
     "file": "convex/referrals.ts",
-    "line": 2610,
+    "line": 2467,
+    "owner": "rows",
+    "expression": "ctx.db\n            .query('referralAdminAuditLog')\n            .withIndex('by_createdAt', (q: any) => q)",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2619,
     "owner": "events",
     "expression": "ctx.db\n        .query('events')\n        .withIndex('by_membershipId_createdAt', (q: any) =>\n          q.eq('membershipId', membership._id)\n        )",
     "review": "requires semantic and scale review; do not truncate results"
   },
   {
     "file": "convex/referrals.ts",
-    "line": 2703,
+    "line": 2712,
     "owner": "rewards",
     "expression": "ctx.db\n      .query('referralRewards')\n      .withIndex('by_customerReferralId_recipientUserId', (q: any) =>\n        q.eq('customerReferralId', before._id)\n      )",
     "review": "requires semantic and scale review; do not truncate results"
   },
   {
     "file": "convex/referrals.ts",
-    "line": 2825,
+    "line": 2834,
     "owner": "waiting",
     "expression": "ctx.db\n      .query('businessReferrals')\n      .withIndex('by_status_qualificationDueAt', (q: any) =>\n        q.eq('status', 'waiting_30_days')\n      )",
     "review": "requires semantic and scale review; do not truncate results"
   },
   {
     "file": "convex/referrals.ts",
-    "line": 2867,
+    "line": 2876,
     "owner": "creditedRows",
     "expression": "ctx.db\n        .query('businessReferrals')\n        .withIndex('by_referrerBusinessId_status_createdAt', (q: any) =>\n          q\n            .eq('referrerBusinessId', row.referrerBusinessId)\n            .eq('status', 'credited')\n        )",
     "review": "requires semantic and scale review; do not truncate results"
   },
   {
     "file": "convex/referrals.ts",
-    "line": 2940,
+    "line": 2949,
     "owner": "customerActive",
     "expression": "ctx.db\n      .query('customerReferralLinks')\n      .withIndex('by_status_expiresAt', (q: any) => q.eq('status', 'active'))",
     "review": "requires semantic and scale review; do not truncate results"
   },
   {
     "file": "convex/referrals.ts",
-    "line": 2954,
+    "line": 2963,
     "owner": "businessActive",
     "expression": "ctx.db\n      .query('businessReferralLinks')\n      .withIndex('by_status_expiresAt', (q: any) => q.eq('status', 'active'))",
     "review": "requires semantic and scale review; do not truncate results"
   },
   {
     "file": "convex/referrals.ts",
-    "line": 2981,
+    "line": 2990,
     "owner": "granted",
     "expression": "ctx.db\n      .query('referralRewards')\n      .withIndex('by_status_expiresAt', (q: any) => q.eq('status', 'granted'))",
     "review": "requires semantic and scale review; do not truncate results"

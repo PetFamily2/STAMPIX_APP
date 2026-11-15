@@ -1,3 +1,4 @@
+import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import { useMutation } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -11,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
 import { LoyaltyCardClassic } from '@/components/loyalty/LoyaltyCardClassic';
 import { LoyaltyThemePalette } from '@/components/loyalty/LoyaltyThemePalette';
 import { StampIconPicker } from '@/components/loyalty/StampIconPicker';
@@ -57,6 +59,7 @@ const STEPS = [
 
 export function ClassicCardWizard() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { businessId: businessIdParam } = useLocalSearchParams<{
     businessId?: string;
   }>();
@@ -79,6 +82,31 @@ export function ClassicCardWizard() {
   const [stampShape, setStampShape] = useState<StampShape>(DEFAULT_STAMP_SHAPE);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitLock = useRef(false);
+  const isDirty =
+    title !== '' ||
+    rewardName !== '' ||
+    maxStamps !== 10 ||
+    cardThemeId !== DEFAULT_CARD_THEME_ID ||
+    stampIcon !== DEFAULT_STAMP_ICON_ID ||
+    stampShape !== DEFAULT_STAMP_SHAPE;
+  useBusinessWebUnsavedChanges(Platform.OS === 'web' && isDirty);
+  usePreventRemove(
+    Platform.OS === 'web' && isDirty && !isSubmitting,
+    ({ data }) => {
+      Alert.alert(
+        'יש שינויים שלא נשמרו',
+        'אפשר להמשיך לערוך או לצאת ללא שמירה.',
+        [
+          { text: 'המשך עריכה', style: 'cancel' },
+          {
+            text: 'יציאה ללא שמירה',
+            style: 'destructive',
+            onPress: () => navigation.dispatch(data.action),
+          },
+        ]
+      );
+    }
+  );
 
   const draft = {
     title,

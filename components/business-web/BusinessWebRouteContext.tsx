@@ -5,17 +5,17 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
+import {
+  createNavigationGuardRegistry,
+  type NavigationGuard,
+} from '@/lib/network/navigationGuards';
 import { registerUnsavedEdits } from '@/lib/network/unsavedEdits';
 
-type NavigationGuard = {
-  isDirty: boolean;
-  onDiscard?: () => void;
-};
-
 type BusinessWebRouteContextValue = {
-  setNavigationGuard: (guard: NavigationGuard | null) => void;
+  setNavigationGuard: (key: symbol, guard: NavigationGuard | null) => void;
 };
 
 const BusinessWebRouteContext = createContext<
@@ -30,7 +30,9 @@ export function BusinessWebRouteProvider({
   onGuardChange: (guard: NavigationGuard | null) => void;
 }) {
   const value = useMemo(
-    () => ({ setNavigationGuard: onGuardChange }),
+    () => ({
+      setNavigationGuard: createNavigationGuardRegistry(onGuardChange),
+    }),
     [onGuardChange]
   );
   return (
@@ -45,13 +47,15 @@ export function useBusinessWebUnsavedChanges(
   onDiscard?: () => void
 ) {
   const context = useContext(BusinessWebRouteContext);
+  const guardKey = useRef(Symbol('form'));
 
   useEffect(() => {
     if (!context) {
       return;
     }
-    context.setNavigationGuard({ isDirty, onDiscard });
-    return () => context.setNavigationGuard(null);
+    const key = guardKey.current;
+    context.setNavigationGuard(key, { isDirty, onDiscard });
+    return () => context.setNavigationGuard(key, null);
   }, [context, isDirty, onDiscard]);
 
   useEffect(() => {
