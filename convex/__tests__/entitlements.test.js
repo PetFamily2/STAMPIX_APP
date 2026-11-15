@@ -555,6 +555,50 @@ describe('business entitlements', () => {
     expect(state.referralConfigs[0]).toEqual(original);
   });
 
+  test('two editing sessions cannot overwrite a newer referral configuration', async () => {
+    const business = buildBusiness({ _id: 'business_two_sessions' });
+    const { ctx, state } = buildCtxWithBusiness(business);
+    state.referralConfigs = [
+      buildReferralConfig({
+        businessId: business._id,
+        configVersion: 4,
+        isEnabled: false,
+      }),
+    ];
+    const input = {
+      businessId: business._id,
+      isEnabled: false,
+      rewardType: 'STAMP',
+      rewardValue: 2,
+      rewardRecipients: 'both',
+      monthlyLimit: 10,
+    };
+    const saved = await saveReferralConfig._handler(ctx, {
+      ...input,
+      expectedConfigVersion: 4,
+    });
+    expect(saved.configVersion).toBe(5);
+    expect(saved.rewardValue).toBe(2);
+    await expect(
+      saveReferralConfig._handler(ctx, {
+        ...input,
+        rewardValue: 9,
+        expectedConfigVersion: 4,
+      })
+    ).rejects.toThrow('REFERRAL_CONFIG_CONFLICT');
+    expect(state.referralConfigs[0].rewardValue).toBe(2);
+    // Older clients can still save; their writes advance the version and are detected by updated clients.
+    const legacy = await saveReferralConfig._handler(ctx, {
+      ...input,
+      rewardValue: 3,
+    });
+    expect(legacy.configVersion).toBe(6);
+    await expect(
+      saveReferralConfig._handler(ctx, { ...input, expectedConfigVersion: 5 })
+    ).rejects.toThrow('REFERRAL_CONFIG_CONFLICT');
+    expect(state.referralConfigs[0].rewardValue).toBe(3);
+  });
+
   test('required plan mapping is correct for all feature keys', () => {
     expect(REQUIRED_PLAN_BY_FEATURE.canManageTeam).toBe('pro');
     expect(REQUIRED_PLAN_BY_FEATURE.canSeeAdvancedReports).toBe('premium');

@@ -532,30 +532,22 @@ export const listManagementByBusiness = query({
     const sevenDaysAgo = now - 7 * DAY_MS;
     const thirtyDaysAgo = now - 30 * DAY_MS;
 
-    const [programs, activeMemberships, allMemberships, events] =
-      await Promise.all([
-        listBusinessPrograms(ctx, businessId),
-        ctx.db
-          .query('memberships')
-          .withIndex('by_businessId', (q: any) =>
-            q.eq('businessId', businessId)
-          )
-          .filter((q: any) => q.eq(q.field('isActive'), true))
-          .collect(),
-        ctx.db
-          .query('memberships')
-          .withIndex('by_businessId', (q: any) =>
-            q.eq('businessId', businessId)
-          )
-          .collect(),
-        ctx.db
-          .query('events')
-          .withIndex('by_businessId', (q: any) =>
-            q.eq('businessId', businessId)
-          )
-          .filter((q: any) => q.gte(q.field('createdAt'), thirtyDaysAgo))
-          .collect(),
-      ]);
+    const [programs, allMemberships, events] = await Promise.all([
+      listBusinessPrograms(ctx, businessId),
+      ctx.db
+        .query('memberships')
+        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+        .collect(),
+      ctx.db
+        .query('events')
+        .withIndex('by_businessId_createdAt', (q: any) =>
+          q.eq('businessId', businessId).gte('createdAt', thirtyDaysAgo)
+        )
+        .collect(),
+    ]);
+    const activeMemberships = allMemberships.filter(
+      (membership) => membership.isActive === true
+    );
 
     const mapped = await Promise.all(
       programs.map(async (program: any) => {
@@ -668,22 +660,21 @@ export const getProgramDetailsForManagement = query({
     const sevenDaysAgo = now - 7 * DAY_MS;
     const thirtyDaysAgo = now - 30 * DAY_MS;
 
-    const [activeMemberships, allMemberships, events] = await Promise.all([
-      ctx.db
-        .query('memberships')
-        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-        .filter((q: any) => q.eq(q.field('isActive'), true))
-        .collect(),
+    const [allMemberships, events] = await Promise.all([
       ctx.db
         .query('memberships')
         .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
         .collect(),
       ctx.db
         .query('events')
-        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-        .filter((q: any) => q.gte(q.field('createdAt'), thirtyDaysAgo))
+        .withIndex('by_businessId_createdAt', (q: any) =>
+          q.eq('businessId', businessId).gte('createdAt', thirtyDaysAgo)
+        )
         .collect(),
     ]);
+    const activeMemberships = allMemberships.filter(
+      (membership) => membership.isActive === true
+    );
 
     const programIdString = String(program._id);
     const programEvents = events.filter(

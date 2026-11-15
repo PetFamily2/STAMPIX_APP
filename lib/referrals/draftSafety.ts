@@ -4,6 +4,31 @@ export type ReferralDraftBaseline = {
   value: string;
 };
 
+export function canApplyReferralServerUpdate(
+  dirty: boolean,
+  saveConflict: boolean
+) {
+  return !dirty && !saveConflict;
+}
+
+export function referralSaveBlocked(input: {
+  canEdit: boolean;
+  saving: boolean;
+  hasBaseline: boolean;
+  businessChanged: boolean;
+  conflict: boolean;
+  saveConflict: boolean;
+}) {
+  return (
+    !input.canEdit ||
+    input.saving ||
+    !input.hasBaseline ||
+    input.businessChanged ||
+    input.conflict ||
+    input.saveConflict
+  );
+}
+
 export function referralDraftState(
   baseline: ReferralDraftBaseline | null,
   businessId: string,

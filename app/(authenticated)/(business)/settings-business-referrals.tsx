@@ -7,7 +7,7 @@ import {
   useLocalSearchParams,
   useRouter,
 } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -21,7 +21,6 @@ import {
   BusinessSettingsSubpageHeader,
   useSettingsContentWidth,
 } from '@/components/business-settings';
-import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
 import { ReferralEmptyState } from '@/components/referrals/ReferralEmptyState';
 import { PlanLimitModal } from '@/components/subscription/PlanLimitModal';
 import {
@@ -39,10 +38,6 @@ import {
   getEntitlementError,
 } from '@/lib/entitlements/errors';
 import { NATIVE_REFERRAL_DESTINATIONS } from '@/lib/navigation/referralSettingsDestinations';
-import {
-  type ReferralDraftBaseline,
-  referralDraftState,
-} from '@/lib/referrals/draftSafety';
 import { flexDirection } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
 
@@ -154,9 +149,6 @@ export default function BusinessReferralSettingsScreen({
   const params = useLocalSearchParams<{ tab?: string }>();
   const tabBarHeight = useBottomTabBarHeight();
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
-  const [activeTab, setActiveTab] = useState<ReferralTab>(
-    normalizeTab(params.tab)
-  );
 
   const capabilities = activeBusiness
     ? resolveBusinessCapabilities(
@@ -183,30 +175,27 @@ export default function BusinessReferralSettingsScreen({
   );
   const performanceQuery = useQuery(
     api.referrals.getBusinessReferralPerformance,
-    activeBusinessId &&
-      canViewDashboard &&
-      (!webPresentation || activeTab === 'performance')
+    activeBusinessId && canViewDashboard
       ? { businessId: activeBusinessId, range: '30d' }
       : 'skip'
   );
   const customersQuery = useQuery(
     api.referrals.listBusinessReferralCustomers,
-    activeBusinessId &&
-      canViewCustomers &&
-      (!webPresentation || activeTab === 'customers')
+    activeBusinessId && canViewCustomers
       ? { businessId: activeBusinessId, limit: 80 }
       : 'skip'
   );
   const rewardsQuery = useQuery(
     api.referrals.listBusinessReferralRewards,
-    activeBusinessId &&
-      canViewCustomers &&
-      (!webPresentation || activeTab === 'rewards')
+    activeBusinessId && canViewCustomers
       ? { businessId: activeBusinessId, limit: 80 }
       : 'skip'
   );
   const saveReferralConfig = useMutation(api.referrals.saveReferralConfig);
 
+  const [activeTab, setActiveTab] = useState<ReferralTab>(
+    normalizeTab(params.tab)
+  );
   const [isEnabled, setIsEnabled] = useState(true);
   const [rewardType, setRewardType] = useState<RewardType>('STAMP');
   const [rewardValueText, setRewardValueText] = useState('1');
@@ -217,48 +206,6 @@ export default function BusinessReferralSettingsScreen({
   const [rewardRecipients, setRewardRecipients] =
     useState<RewardRecipients>('both');
   const [monthlyLimit, setMonthlyLimit] = useState<MonthlyLimit>(10);
-  const [baseline, setBaseline] = useState<ReferralDraftBaseline | null>(null);
-  const draftValue = JSON.stringify([
-    isEnabled,
-    rewardType,
-    rewardValueText,
-    benefitTitle,
-    benefitDescription,
-    benefitExpirationDays,
-    rewardRecipients,
-    monthlyLimit,
-  ]);
-  const draftStatus = referralDraftState(
-    baseline,
-    String(activeBusinessId ?? ''),
-    draftValue,
-    configQuery?.configVersion
-  );
-  const discardDraft = useCallback(() => {
-    if (!baseline) return;
-    const [
-      enabled,
-      type,
-      value,
-      title,
-      description,
-      expiration,
-      recipients,
-      limit,
-    ] = JSON.parse(baseline.value);
-    setIsEnabled(enabled);
-    setRewardType(type);
-    setRewardValueText(value);
-    setBenefitTitle(title);
-    setBenefitDescription(description);
-    setBenefitExpirationDays(expiration);
-    setRewardRecipients(recipients);
-    setMonthlyLimit(limit);
-  }, [baseline]);
-  useBusinessWebUnsavedChanges(
-    webPresentation && draftStatus.dirty,
-    discardDraft
-  );
   const [isSaving, setIsSaving] = useState(false);
   const [planLimitNotice, setPlanLimitNotice] = useState<{
     reason: string;
@@ -273,39 +220,6 @@ export default function BusinessReferralSettingsScreen({
     if (!configQuery) {
       return;
     }
-    if (draftStatus.dirty) return;
-    if (
-      baseline?.businessId === String(activeBusinessId ?? '') &&
-      configQuery.configVersion < baseline.version
-    )
-      return;
-    const nextEnabled = configQuery.isEnabled === true;
-    const nextType = configQuery.rewardType === 'BENEFIT' ? 'BENEFIT' : 'STAMP';
-    const nextValue = String(Math.max(1, Number(configQuery.rewardValue ?? 1)));
-    const nextExpiration = [14, 30, 60, 90].includes(
-      configQuery.benefitExpirationDays ?? 0
-    )
-      ? configQuery.benefitExpirationDays
-      : 30;
-    const nextLimit = ['unlimited', 5, 10, 20, 50].includes(
-      configQuery.monthlyLimit
-    )
-      ? configQuery.monthlyLimit
-      : 10;
-    setBaseline({
-      businessId: String(activeBusinessId ?? ''),
-      version: configQuery.configVersion,
-      value: JSON.stringify([
-        nextEnabled,
-        nextType,
-        nextValue,
-        configQuery.benefitTitle ?? '',
-        configQuery.benefitDescription ?? '',
-        nextExpiration,
-        configQuery.rewardRecipients ?? 'both',
-        nextLimit,
-      ]),
-    });
     setIsEnabled(configQuery.isEnabled === true);
     setRewardType(configQuery.rewardType === 'BENEFIT' ? 'BENEFIT' : 'STAMP');
     setRewardValueText(
@@ -331,13 +245,7 @@ export default function BusinessReferralSettingsScreen({
         ? configQuery.monthlyLimit
         : 10
     );
-  }, [
-    configQuery,
-    activeBusinessId,
-    draftStatus.dirty,
-    baseline?.businessId,
-    baseline?.version,
-  ]);
+  }, [configQuery]);
 
   const rewardValue = useMemo(() => {
     const parsed = Number.parseInt(rewardValueText, 10);
@@ -377,22 +285,13 @@ export default function BusinessReferralSettingsScreen({
   };
 
   const handleSaveConfig = async () => {
-    if (
-      !activeBusinessId ||
-      !canEditConfig ||
-      isSaving ||
-      !baseline ||
-      draftStatus.businessChanged ||
-      draftStatus.conflict
-    ) {
+    if (!activeBusinessId || !canEditConfig || isSaving) {
       return;
     }
     try {
       setIsSaving(true);
-      const submitted = draftValue;
-      const saved = await saveReferralConfig({
+      await saveReferralConfig({
         businessId: activeBusinessId,
-        expectedConfigVersion: baseline.version,
         isEnabled,
         rewardType,
         rewardValue,
@@ -403,12 +302,6 @@ export default function BusinessReferralSettingsScreen({
         rewardRecipients,
         monthlyLimit,
       });
-      if (saved)
-        setBaseline({
-          businessId: String(activeBusinessId),
-          version: saved.configVersion,
-          value: submitted,
-        });
       Alert.alert('', 'הגדרות החבר-מביא-חבר נשמרו');
     } catch (error) {
       const entitlementError = getEntitlementError(error);
@@ -426,12 +319,7 @@ export default function BusinessReferralSettingsScreen({
         });
         return;
       }
-      Alert.alert(
-        'שגיאה',
-        String(error).includes('REFERRAL_CONFIG_CONFLICT')
-          ? 'ההגדרות השתנו במקום אחר. הטיוטה נשמרה; טענו את הגרסה העדכנית לפני שמירה.'
-          : 'שמירת ההגדרות נכשלה'
-      );
+      Alert.alert('שגיאה', 'שמירת ההגדרות נכשלה');
     } finally {
       setIsSaving(false);
     }
@@ -515,17 +403,6 @@ export default function BusinessReferralSettingsScreen({
           ) : (
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>הגדרות הקמפיין</Text>
-              {draftStatus.conflict || draftStatus.businessChanged ? (
-                <View>
-                  <Text accessibilityRole="alert">
-                    ההגדרות השתנו במקום אחר. הטיוטה לא נדרסה; אפשר לטעון את
-                    הגרסה העדכנית ולוותר על הטיוטה.
-                  </Text>
-                  <Pressable onPress={discardDraft}>
-                    <Text>ויתור על הטיוטה וטעינת הגרסה העדכנית</Text>
-                  </Pressable>
-                </View>
-              ) : null}
 
               <View style={styles.row}>
                 <Text style={styles.label}>הקמפיין פעיל</Text>
