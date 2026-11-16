@@ -1326,6 +1326,46 @@ describe('business profile settings and discovery filters', () => {
     expect(result[0].serviceTags).toEqual(['איפור']);
   });
 
+  test('nearby discovery retains pre-backfill businesses without duplicates', async () => {
+    const { ctx } = createMockCtx({
+      users: [buildUser()],
+      businesses: [
+        buildBusiness({
+          _id: 'legacy',
+          name: 'Legacy',
+          location: { lat: 0, lng: 0.001 },
+          discoveryH3R5: undefined,
+        }),
+        buildBusiness({
+          _id: 'indexed',
+          name: 'Indexed',
+          location: { lat: 0, lng: 0.002 },
+          discoveryH3R5: getDiscoveryH3Cell({ lat: 0, lng: 0.002 }),
+        }),
+        buildBusiness({
+          _id: 'far',
+          name: 'Far',
+          location: { lat: 20, lng: 20 },
+          discoveryH3R5: undefined,
+        }),
+        buildBusiness({
+          _id: 'inactive',
+          name: 'Closed',
+          isActive: false,
+          discoveryH3R5: undefined,
+        }),
+      ],
+      businessStaff: [],
+    });
+    const result = await getBusinessesNearby._handler(ctx, {
+      userLat: 0,
+      userLng: 0,
+      radiusKm: 10,
+      sortBy: 'distance',
+    });
+    expect(result.map((row) => row.businessId)).toEqual(['legacy', 'indexed']);
+  });
+
   test('getBusinessesNearby sorts by service type when requested', async () => {
     const { ctx } = createMockCtx({
       users: [buildUser()],

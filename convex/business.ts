@@ -2676,9 +2676,20 @@ export const getBusinessesNearby = query({
           .collect()
       )
     );
+    // Include pre-migration records until every valid location has an H3 cell.
+    // This compatibility read can be large and must be monitored until backfill.
+    const legacyBusinesses = await ctx.db
+      .query('businesses')
+      .withIndex('by_isActive_discoveryH3R5', (q: any) =>
+        q.eq('isActive', true).eq('discoveryH3R5', undefined)
+      )
+      .collect();
     const businesses = [
       ...new Map(
-        pages.flat().map((business) => [String(business._id), business])
+        [...pages.flat(), ...legacyBusinesses].map((business) => [
+          String(business._id),
+          business,
+        ])
       ).values(),
     ];
 
