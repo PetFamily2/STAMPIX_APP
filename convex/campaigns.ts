@@ -436,13 +436,18 @@ async function loadAudienceRows(
 ) {
   const memberships = await ctx.db
     .query('memberships')
-    .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+    .withIndex(programId ? 'by_programId' : 'by_businessId', (q: any) =>
+      programId ? q.eq('programId', programId) : q.eq('businessId', businessId)
+    )
     .filter((q: any) => q.eq(q.field('isActive'), true))
     .collect();
 
+  // A program ID must never broaden the business scope, even if a legacy
+  // membership contains inconsistent references.
   const filteredMemberships = programId
     ? memberships.filter(
-        (membership: any) => String(membership.programId) === String(programId)
+        (membership: any) =>
+          String(membership.businessId) === String(businessId)
       )
     : memberships;
 

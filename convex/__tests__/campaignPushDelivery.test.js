@@ -701,3 +701,31 @@ test('recurring sweep scans all batches and repeated sweep does not redeliver', 
   }
   expect(ctx.db.rows('messageLog')).toHaveLength(initial);
 });
+
+test('program-scoped campaign audience excludes another business and users without marketing consent', async () => {
+  const tables = baseTables({ campaignChannels: ['in_app'] });
+  tables.campaigns[0].programId = PROGRAM_ID;
+  tables.users.push(
+    { _id: 'other_customer', isActive: true, marketingOptIn: true },
+    { _id: 'no_consent', isActive: true, marketingOptIn: false }
+  );
+  const base = tables.memberships[0];
+  tables.memberships.push(
+    {
+      ...base,
+      _id: 'bad_other_business',
+      businessId: 'other_business',
+      userId: 'other_customer',
+    },
+    { ...base, _id: 'no_consent_membership', userId: 'no_consent' }
+  );
+  const ctx = buildCtx(tables);
+  const result = await sendCampaignNow._handler(ctx, {
+    businessId: BUSINESS_ID,
+    campaignId: CAMPAIGN_ID,
+  });
+  expect(result.sentCount).toBe(1);
+  expect(ctx.db.rows('messageLog').map((row) => row.toUserId)).toEqual([
+    CUSTOMER_ID,
+  ]);
+});

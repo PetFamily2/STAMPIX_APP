@@ -617,8 +617,8 @@
     "owner": "memberships",
     "expression": "ctx.db\n    .query('memberships')\n    .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))\n    .filter((q: any) => q.eq(q.field('isActive'), true))",
     "review": {
-      "classification": "improvement_required",
-      "decision": "Campaign audience internal helper: tenant memberships, active and optional program filters. Must preserve all recipients/consent deduplication, paginated delivery redesign needed.",
+      "classification": "open",
+      "decision": "Program-filtered audiences now use the program index with explicit business isolation and consent regression. A large single-program audience still uses an unbounded read; paged delivery and exact counts remain open.",
       "status": "reviewed",
       "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
     }
@@ -725,8 +725,8 @@
     "owner": "H3 candidate cells",
     "expression": "ctx.db.query('businesses').withIndex('by_isActive_discoveryH3R5', ...)",
     "review": {
-      "classification": "fixed_and_tested",
-      "decision": "Discovery reads only active H3 cells covering the radius and then retains exact Haversine filtering and ordering. New/updated locations write their cell; the idempotent backfill awaits an approved isolated environment.",
+      "classification": "open",
+      "decision": "H3 reads include missing-cell active businesses during migration to prevent silent disappearance. This legacy compatibility scan can be unbounded; verify complete backfill, density and H3 boundary coverage before retiring it.",
       "status": "fixed_and_tested",
       "regression": "Local tests cover service filtering and distance/service-type order against H3-indexed fixtures. Backfill execution and production-scale cell density remain external gates."
     }
