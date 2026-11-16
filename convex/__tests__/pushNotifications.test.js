@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test';
 
 import {
   claimQueuedPush,
+  deliverQueuedPush,
   disablePushToken,
   expireQueuedPushClaim,
   finishQueuedPush,
@@ -329,3 +330,41 @@ describe('transactional push outbox', () => {
     expect(ctx.rows('pushDeliveryLog')[0].status).toBe('skipped_no_push_token');
   });
 });
+
+for (const mode of ['transport', 'malformed', 'short_tickets']) {
+  test(
+    'ambiguous ' +
+      mode +
+      ' outcome remains unknown and retry never sends again',
+    async () => {
+      const ctx = createMockCtx({ pushTokens: [buildPushToken()] });
+      await sendPushNotificationToUser(ctx, {
+        businessId: BUSINESS_ID,
+        toUserId: USER_ID,
+        title: 'Alert',
+        body: 'Hello',
+      });
+      const outboxId = ctx.rows('pushDeliveryOutbox')[0]._id;
+      ctx.runMutation = async (_ref, args) =>
+        args.status
+          ? finishQueuedPush._handler(ctx, args)
+          : claimQueuedPush._handler(ctx, args);
+      let calls = 0;
+      globalThis.fetch = async () => {
+        calls++;
+        if (mode === 'transport') throw Error('lost response');
+        if (mode === 'malformed')
+          return new Response('not-json', { status: 200 });
+        return new Response(JSON.stringify({ data: [] }), { status: 200 });
+      };
+      expect(await deliverQueuedPush._handler(ctx, { outboxId })).toEqual({
+        status: 'unknown',
+      });
+      expect(ctx.rows('pushDeliveryOutbox')[0].status).toBe('unknown');
+      expect(await deliverQueuedPush._handler(ctx, { outboxId })).toEqual({
+        status: 'already_claimed_or_finished',
+      });
+      expect(calls).toBe(1);
+    }
+  );
+}
