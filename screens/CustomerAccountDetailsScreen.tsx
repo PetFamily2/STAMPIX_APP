@@ -250,9 +250,24 @@ export default function CustomerAccountDetailsScreen() {
 
     try {
       setIsSavingMarketing(true);
+      const [
+        baselineOptIn,
+        baselineDay,
+        baselineMonth,
+        baselineAnniversaryDay,
+        baselineAnniversaryMonth,
+      ] = JSON.parse(marketingBaseline);
+      const valueOrNull = (value: string) => (value ? Number(value) : null);
       await setMyMarketingProfile({
         marketingOptIn,
         source: 'account_details',
+        expectedMarketingSnapshot: {
+          marketingOptIn: baselineOptIn,
+          birthdayDay: valueOrNull(baselineDay),
+          birthdayMonth: valueOrNull(baselineMonth),
+          anniversaryDay: valueOrNull(baselineAnniversaryDay),
+          anniversaryMonth: valueOrNull(baselineAnniversaryMonth),
+        },
         birthdayDay: birthdayDayValue,
         birthdayMonth: birthdayMonthValue,
         anniversaryDay: anniversaryDayValue,
@@ -260,8 +275,62 @@ export default function CustomerAccountDetailsScreen() {
       });
       setMarketingBaseline(marketingValue);
       Alert.alert('נשמר', TEXT.marketingSaved);
-    } catch {
-      Alert.alert('שגיאה', TEXT.marketingError);
+    } catch (error) {
+      const data = (
+        error as {
+          data?: {
+            code?: string;
+            current?: {
+              marketingOptIn: boolean;
+              birthdayDay: number | null;
+              birthdayMonth: number | null;
+              anniversaryDay: number | null;
+              anniversaryMonth: number | null;
+            };
+          };
+        }
+      )?.data;
+      if (data?.code === 'MARKETING_PROFILE_CONFLICT' && data.current) {
+        const current = data.current;
+        Alert.alert(
+          'הפרטים השתנו',
+          'הטיוטה נשמרה. אפשר להמשיך לערוך או לטעון את הפרטים העדכניים.',
+          [
+            { text: 'המשך עריכה', style: 'cancel' },
+            {
+              text: 'טען פרטים עדכניים',
+              onPress: () => {
+                const day = current.birthdayDay
+                  ? String(current.birthdayDay)
+                  : '';
+                const month = current.birthdayMonth
+                  ? String(current.birthdayMonth)
+                  : '';
+                const anniversaryDay = current.anniversaryDay
+                  ? String(current.anniversaryDay)
+                  : '';
+                const anniversaryMonth = current.anniversaryMonth
+                  ? String(current.anniversaryMonth)
+                  : '';
+                setMarketingOptIn(current.marketingOptIn);
+                setBirthdayDay(day);
+                setBirthdayMonth(month);
+                setAnniversaryDay(anniversaryDay);
+                setAnniversaryMonth(anniversaryMonth);
+                setMarketingBaseline(
+                  JSON.stringify([
+                    current.marketingOptIn,
+                    day,
+                    month,
+                    anniversaryDay,
+                    anniversaryMonth,
+                  ])
+                );
+              },
+            },
+          ]
+        );
+      } else Alert.alert('שגיאה', TEXT.marketingError);
     } finally {
       setIsSavingMarketing(false);
     }

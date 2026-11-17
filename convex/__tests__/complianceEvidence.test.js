@@ -494,3 +494,54 @@ describe('compliance backfill safety', () => {
     }
   });
 });
+
+test('marketing profile rejects stale edits and toggle preserves concurrently saved dates', async () => {
+  const { ctx, db } = makeCtx();
+  const original = {
+    marketingOptIn: false,
+    birthdayMonth: null,
+    birthdayDay: null,
+    anniversaryMonth: null,
+    anniversaryDay: null,
+  };
+  await setMyMarketingProfile._handler(ctx, {
+    source: 'account_details',
+    marketingOptIn: true,
+    birthdayMonth: 5,
+    birthdayDay: 14,
+    expectedMarketingSnapshot: original,
+  });
+  await expect(
+    setMyMarketingProfile._handler(ctx, {
+      source: 'account_details',
+      marketingOptIn: false,
+      birthdayMonth: 7,
+      birthdayDay: 20,
+      expectedMarketingSnapshot: original,
+    })
+  ).rejects.toMatchObject({
+    data: {
+      code: 'MARKETING_PROFILE_CONFLICT',
+      current: { marketingOptIn: true, birthdayMonth: 5, birthdayDay: 14 },
+    },
+  });
+  expect(db.rows('users')[0]).toMatchObject({
+    marketingOptIn: true,
+    birthdayMonth: 5,
+    birthdayDay: 14,
+  });
+  expect(db.rows('marketingConsentEvents')).toHaveLength(1);
+  await setMyMarketingProfile._handler(ctx, {
+    source: 'settings',
+    marketingOptIn: false,
+    preserveDates: true,
+    birthdayMonth: 7,
+    birthdayDay: 20,
+  });
+  expect(db.rows('users')[0]).toMatchObject({
+    marketingOptIn: false,
+    birthdayMonth: 5,
+    birthdayDay: 14,
+  });
+  expect(db.rows('marketingConsentEvents')).toHaveLength(2);
+});

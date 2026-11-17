@@ -655,10 +655,7 @@ export default function SettingsScreen() {
       await setMyMarketingProfile({
         marketingOptIn: nextValue,
         source: 'settings',
-        birthdayMonth: user.birthdayMonth,
-        birthdayDay: user.birthdayDay,
-        anniversaryMonth: user.anniversaryMonth,
-        anniversaryDay: user.anniversaryDay,
+        preserveDates: true,
       });
     } catch (error) {
       setMarketingEnabled(user.marketingOptIn === true);

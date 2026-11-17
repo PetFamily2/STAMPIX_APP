@@ -57,10 +57,25 @@ let config = {
 };
 let scope = 'biz1';
 const saves = [];
+let marketingConflict = false;
+let lastAlert = null;
 mock.module('convex/react', () => ({
   useQuery: (_, args) => (args === 'skip' ? undefined : config),
   useMutation: (name) => async (args) => {
     saves.push({ name, args });
+    if (name === 'marketing' && marketingConflict)
+      throw {
+        data: {
+          code: 'MARKETING_PROFILE_CONFLICT',
+          current: {
+            marketingOptIn: true,
+            birthdayDay: 3,
+            birthdayMonth: 4,
+            anniversaryDay: null,
+            anniversaryMonth: null,
+          },
+        },
+      };
     return { ...config, ...args, configVersion: config.configVersion + 1 };
   },
 }));
@@ -100,7 +115,13 @@ mock.module('@/components/subscription/PlanLimitModal', () => ({
 mock.module('@/components/ui/PaintedPressable', () => ({
   PaintedPressable: host('button'),
 }));
-mock.module('@/lib/alert', () => ({ Alert: { alert() {} } }));
+mock.module('@/lib/alert', () => ({
+  Alert: {
+    alert(...args) {
+      lastAlert = args;
+    },
+  },
+}));
 for (const [path, names] of [
   ['@/components/loyalty/LoyaltyCardClassic', ['LoyaltyCardClassic']],
   ['@/components/loyalty/LoyaltyThemePalette', ['LoyaltyThemePalette']],
@@ -217,6 +238,23 @@ try {
     input().props.value,
     '12',
     'reactive account changes preserve marketing draft'
+  );
+  marketingConflict = true;
+  const save = tree.root
+    .findAllByType('button')
+    .find((button) => button.props.accessibilityLabel === 'שמירת העדפות שיווק');
+  await act(async () => save.props.onPress());
+  assert.equal(lastAlert[0], 'הפרטים השתנו');
+  assert.equal(input().props.value, '12', 'conflict must preserve the draft');
+  assert.equal(saves.at(-1).args.expectedMarketingSnapshot.birthdayDay, 1);
+  const load = lastAlert[2].find(
+    (button) => button.text === 'טען פרטים עדכניים'
+  );
+  await act(async () => load.onPress());
+  assert.equal(
+    input().props.value,
+    '3',
+    'explicit reload shows authoritative value'
   );
   console.log(
     'PASS rendered customer account: marketing draft survives reactive update; mocked host/transport'

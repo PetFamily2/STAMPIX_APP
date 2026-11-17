@@ -1,6 +1,6 @@
 import { getAuthUserId } from '@convex-dev/auth/server';
 import type { PaginationResult } from 'convex/server';
-import { v } from 'convex/values';
+import { ConvexError, v } from 'convex/values';
 import type { SubscriptionPlan } from '../lib/domain/subscriptions';
 import {
   BUSINESS_TERMS_VERSION,
@@ -1585,6 +1585,16 @@ export const setMyPhone = mutation({
 export const setMyMarketingProfile = mutation({
   args: {
     marketingOptIn: v.boolean(),
+    preserveDates: v.optional(v.boolean()),
+    expectedMarketingSnapshot: v.optional(
+      v.object({
+        marketingOptIn: v.boolean(),
+        birthdayMonth: v.union(v.number(), v.null()),
+        birthdayDay: v.union(v.number(), v.null()),
+        anniversaryMonth: v.union(v.number(), v.null()),
+        anniversaryDay: v.union(v.number(), v.null()),
+      })
+    ),
     source: MARKETING_CONSENT_SOURCE_UNION,
     birthdayMonth: v.optional(v.number()),
     birthdayDay: v.optional(v.number()),
@@ -1596,6 +1606,8 @@ export const setMyMarketingProfile = mutation({
     {
       marketingOptIn,
       source,
+      preserveDates,
+      expectedMarketingSnapshot,
       birthdayMonth,
       birthdayDay,
       anniversaryMonth,
@@ -1603,6 +1615,29 @@ export const setMyMarketingProfile = mutation({
     }
   ) => {
     const user = await requireCurrentUser(ctx);
+    const current = {
+      marketingOptIn: user.marketingOptIn === true,
+      birthdayMonth: user.birthdayMonth ?? null,
+      birthdayDay: user.birthdayDay ?? null,
+      anniversaryMonth: user.anniversaryMonth ?? null,
+      anniversaryDay: user.anniversaryDay ?? null,
+    };
+    if (
+      expectedMarketingSnapshot &&
+      Object.keys(current).some(
+        (key) =>
+          current[key as keyof typeof current] !==
+          expectedMarketingSnapshot[key as keyof typeof current]
+      )
+    ) {
+      throw new ConvexError({ code: 'MARKETING_PROFILE_CONFLICT', current });
+    }
+    if (preserveDates) {
+      birthdayMonth = user.birthdayMonth;
+      birthdayDay = user.birthdayDay;
+      anniversaryMonth = user.anniversaryMonth;
+      anniversaryDay = user.anniversaryDay;
+    }
 
     const normalizedBirthdayMonth = normalizeMonth(
       birthdayMonth,
