@@ -27,7 +27,9 @@ function scan(dir) {
       const shared = /useBusinessWebUnsavedChanges\(/.test(s),
         navigation = /usePreventRemove\(/.test(s),
         version =
-          /expectedUpdatedAt|expectedConfigVersion|expectedDocument/.test(s);
+          /expectedUpdatedAt|expectedConfigVersion|expectedDocument|expectedName|expectedPhone|expectedMarketingSnapshot|expectedMarketingOptIn/.test(
+            s
+          );
       rows.push({
         file: p,
         input: inputs,
@@ -44,7 +46,7 @@ function scan(dir) {
               : 'action-or-delegated-write',
         decision:
           inputs && writes.length
-            ? `Persistent editor/action input. ${shared ? 'Shared Web/PWA guard present.' : 'No direct shared Web/PWA guard; parent coverage must be proven before claiming protection.'} ${navigation ? 'Route removal guard present.' : 'No direct route removal guard.'} ${version ? 'Version argument present.' : 'No direct optimistic version argument; concurrent existing-record edits are not proven safe.'}`
+            ? `Persistent editor/action input. ${shared ? 'Shared Web/PWA guard present.' : 'No direct shared Web/PWA guard; parent coverage must be proven before claiming protection.'} ${navigation ? 'Route removal guard present.' : 'No direct route removal guard.'} ${version ? 'A version or snapshot argument appears in this file; verify each write and legacy clients separately.' : 'No direct optimistic version argument; concurrent existing-record edits are not proven safe.'}`
             : inputs
               ? 'Search/auth/scanner or delegated input: no direct persistence hook. Parent owns saving; no automatic blanket guard added.'
               : 'Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative.',

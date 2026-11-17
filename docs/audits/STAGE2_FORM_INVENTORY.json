@@ -84,7 +84,7 @@
     "versionArgument": true,
     "serverHydration": true,
     "classification": "persistent-input",
-    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. Route removal guard present. Version argument present."
+    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. Route removal guard present. A version or snapshot argument appears in this file; verify each write and legacy clients separately."
   },
   {
     "file": "app/(authenticated)/(business)/cards/campaigns.tsx",
@@ -124,7 +124,7 @@
     "versionArgument": true,
     "serverHydration": true,
     "classification": "persistent-input",
-    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. Route removal guard present. Version argument present."
+    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. Route removal guard present. A version or snapshot argument appears in this file; verify each write and legacy clients separately."
   },
   {
     "file": "app/(authenticated)/(business)/customers.tsx",
@@ -184,10 +184,10 @@
     "writes": ["api.users.setMyName", "api.users.setMyPhone"],
     "sharedGuard": true,
     "navigationGuard": true,
-    "versionArgument": false,
+    "versionArgument": true,
     "serverHydration": false,
     "classification": "persistent-input",
-    "decision": "Persistent editor/action input. Shared Web/PWA guard present. Route removal guard present. No direct optimistic version argument; concurrent existing-record edits are not proven safe."
+    "decision": "Persistent editor/action input. Shared Web/PWA guard present. Route removal guard present. A version or snapshot argument appears in this file; verify each write and legacy clients separately."
   },
   {
     "file": "app/(authenticated)/(business)/settings-business-address.tsx",
@@ -223,7 +223,7 @@
     "versionArgument": true,
     "serverHydration": true,
     "classification": "persistent-input",
-    "decision": "Persistent editor/action input. Shared Web/PWA guard present. Route removal guard present. Version argument present."
+    "decision": "Persistent editor/action input. Shared Web/PWA guard present. Route removal guard present. A version or snapshot argument appears in this file; verify each write and legacy clients separately."
   },
   {
     "file": "app/(authenticated)/(business)/team/add.tsx",
@@ -480,10 +480,10 @@
     "writes": ["api.users.setMyPhone", "api.users.setMyMarketingProfile"],
     "sharedGuard": true,
     "navigationGuard": false,
-    "versionArgument": false,
+    "versionArgument": true,
     "serverHydration": true,
     "classification": "persistent-input",
-    "decision": "Persistent editor/action input. Shared Web/PWA guard present. No direct route removal guard. No direct optimistic version argument; concurrent existing-record edits are not proven safe."
+    "decision": "Persistent editor/action input. Shared Web/PWA guard present. No direct route removal guard. A version or snapshot argument appears in this file; verify each write and legacy clients separately."
   },
   {
     "file": "screens/SettingsScreen.tsx",
@@ -495,10 +495,10 @@
     ],
     "sharedGuard": false,
     "navigationGuard": false,
-    "versionArgument": false,
+    "versionArgument": true,
     "serverHydration": true,
     "classification": "persistent-input",
-    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. No direct route removal guard. No direct optimistic version argument; concurrent existing-record edits are not proven safe."
+    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. No direct route removal guard. A version or snapshot argument appears in this file; verify each write and legacy clients separately."
   },
   {
     "file": "screens/StaffSettingsScreen.tsx",
@@ -599,7 +599,7 @@
     "versionArgument": true,
     "serverHydration": true,
     "classification": "persistent-input",
-    "decision": "Persistent editor/action input. Shared Web/PWA guard present. No direct route removal guard. Version argument present."
+    "decision": "Persistent editor/action input. Shared Web/PWA guard present. No direct route removal guard. A version or snapshot argument appears in this file; verify each write and legacy clients separately."
   },
   {
     "file": "components/business-web/BusinessWebBilling.tsx",
@@ -643,7 +643,7 @@
     "versionArgument": true,
     "serverHydration": true,
     "classification": "persistent-input",
-    "decision": "Persistent editor/action input. Shared Web/PWA guard present. Route removal guard present. Version argument present."
+    "decision": "Persistent editor/action input. Shared Web/PWA guard present. Route removal guard present. A version or snapshot argument appears in this file; verify each write and legacy clients separately."
   },
   {
     "file": "components/business-web/BusinessWebCustomers.tsx",
@@ -834,7 +834,7 @@
     "versionArgument": true,
     "serverHydration": false,
     "classification": "persistent-input",
-    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. No direct route removal guard. Version argument present."
+    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. No direct route removal guard. A version or snapshot argument appears in this file; verify each write and legacy clients separately."
   },
   {
     "file": "components/web-scanner/BusinessScanner.web.tsx",
