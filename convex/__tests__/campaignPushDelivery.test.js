@@ -31,13 +31,27 @@ class FakeQuery {
     const conditions = [];
     const q = {
       eq: (field, value) => {
-        conditions.push({ field, value });
+        conditions.push({ field, value, op: 'eq' });
+        return q;
+      },
+      gte: (field, value) => {
+        conditions.push({ field, value, op: 'gte' });
+        return q;
+      },
+      lt: (field, value) => {
+        conditions.push({ field, value, op: 'lt' });
         return q;
       },
     };
     builder(q);
     this.predicates.push((doc) =>
-      conditions.every((condition) => doc[condition.field] === condition.value)
+      conditions.every((condition) =>
+        condition.op === 'gte'
+          ? doc[condition.field] >= condition.value
+          : condition.op === 'lt'
+            ? doc[condition.field] < condition.value
+            : doc[condition.field] === condition.value
+      )
     );
     return this;
   }
@@ -728,4 +742,37 @@ test('program-scoped campaign audience excludes another business and users witho
   expect(ctx.db.rows('messageLog').map((row) => row.toUserId)).toEqual([
     CUSTOMER_ID,
   ]);
+});
+
+test('annual automation history uses the exact Israel new-year boundary', async () => {
+  const now = Date.UTC(2026, 0, 1, 7);
+  for (const [when, expected] of [
+    [Date.UTC(2025, 11, 31, 21, 59, 59, 999), 1],
+    [Date.UTC(2025, 11, 31, 22), 0],
+  ]) {
+    const tables = baseTables({ campaignChannels: ['in_app'] });
+    tables.users.find((user) => user._id === CUSTOMER_ID).birthdayDay = 1;
+    tables.users.find((user) => user._id === CUSTOMER_ID).birthdayMonth = 1;
+    Object.assign(tables.campaigns[0], {
+      type: 'birthday',
+      rules: { audience: 'birthday_today' },
+      status: 'active',
+      activationStatus: 'active',
+      automationEnabled: true,
+    });
+    tables.messageLog.push({
+      _id: 'old_log',
+      businessId: BUSINESS_ID,
+      campaignId: CAMPAIGN_ID,
+      toUserId: CUSTOMER_ID,
+      createdAt: when,
+      status: 'sent',
+    });
+    const ctx = buildCtx(tables);
+    const result = await runAutomationSweepInternal._handler(ctx, {
+      phase: 'recurring',
+      referenceNow: now,
+    });
+    expect(result.sentCount).toBe(expected);
+  }
 });

@@ -542,21 +542,46 @@ async function countMissingBirthdayForCampaign(ctx: any, campaign: any) {
   return countMissingBirthdayFromRows(rows);
 }
 
-function shouldSkipAutomationByHistory(
-  campaignType: ManagementCampaignType,
-  previousSentTimestamps: number[],
+// Exact year boundaries in the same time zone used to classify historical sends.
+function israelYearStart(year: number) {
+  let low = Date.UTC(year - 1, 11, 28),
+    high = Date.UTC(year, 0, 3);
+  while (low + 1 < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (getIsraelYear(middle) < year) low = middle;
+    else high = middle;
+  }
+  return high;
+}
+
+async function hasAutomationHistory(
+  ctx: any,
+  campaignId: Id<'campaigns'>,
+  userId: Id<'users'>,
+  type: ManagementCampaignType,
   now: number
 ) {
-  if (previousSentTimestamps.length === 0) {
-    return false;
+  if (type === 'birthday' || type === 'anniversary') {
+    const year = getIsraelYear(now),
+      start = israelYearStart(year),
+      end = israelYearStart(year + 1);
+    return !!(await ctx.db
+      .query('messageLog')
+      .withIndex('by_campaignId_toUserId_createdAt', (q: any) =>
+        q
+          .eq('campaignId', campaignId)
+          .eq('toUserId', userId)
+          .gte('createdAt', start)
+          .lt('createdAt', end)
+      )
+      .first());
   }
-  if (campaignType === 'birthday' || campaignType === 'anniversary') {
-    const currentIsraelYear = getIsraelYear(now);
-    return previousSentTimestamps.some(
-      (sentAt) => getIsraelYear(sentAt) === currentIsraelYear
-    );
-  }
-  return true;
+  return !!(await ctx.db
+    .query('messageLog')
+    .withIndex('by_campaignId_toUserId', (q: any) =>
+      q.eq('campaignId', campaignId).eq('toUserId', userId)
+    )
+    .first());
 }
 
 function rowMatchesRule(rule: CampaignRules, row: AudienceRow, now: number) {
@@ -596,7 +621,8 @@ function rowMatchesRule(rule: CampaignRules, row: AudienceRow, now: number) {
 
 async function estimateAudienceForCampaign(
   ctx: any,
-  campaign: any
+  campaign: any,
+  referenceNow = Date.now()
 ): Promise<{ userIds: Id<'users'>[]; total: number; sample: string[] }> {
   const normalizedType = normalizeManagementType(campaign.type);
   const rules = normalizeCampaignRules(normalizedType, campaign.rules);
@@ -605,7 +631,7 @@ async function estimateAudienceForCampaign(
     campaign.businessId,
     campaign.programId
   );
-  const now = Date.now();
+  const now = referenceNow;
 
   const userIdSet = new Set<string>();
   const sample: string[] = [];
@@ -637,25 +663,16 @@ async function sendAutomationForCampaign(
   campaign: any,
   now: number
 ): Promise<{ sentCount: number; skippedCount: number }> {
-  const estimate = await estimateAudienceForCampaign(ctx, campaign);
+  const estimate = await estimateAudienceForCampaign(ctx, campaign, now);
   const campaignType = normalizeManagementType(campaign.type);
-  const logs = await getCampaignLogs(ctx, campaign._id);
-
-  const historyByUserId = new Map<string, number[]>();
-  for (const log of logs) {
-    const key = String(log.toUserId);
-    const values = historyByUserId.get(key) ?? [];
-    values.push(Number(log.createdAt));
-    historyByUserId.set(key, values);
-  }
 
   let sentCount = 0;
   let skippedCount = 0;
 
   for (const userId of estimate.userIds) {
-    const userKey = String(userId);
-    const userHistory = historyByUserId.get(userKey) ?? [];
-    if (shouldSkipAutomationByHistory(campaignType, userHistory, now)) {
+    if (
+      await hasAutomationHistory(ctx, campaign._id, userId, campaignType, now)
+    ) {
       skippedCount += 1;
       continue;
     }
@@ -677,8 +694,6 @@ async function sendAutomationForCampaign(
       `campaign_automation:${String(campaign._id)}:${now}`
     );
 
-    userHistory.push(now);
-    historyByUserId.set(userKey, userHistory);
     sentCount += 1;
   }
 
@@ -710,7 +725,7 @@ async function sendCampaignDeliveryOnce(
   skippedCount: number;
   estimatedAudience: number;
 }> {
-  const estimate = await estimateAudienceForCampaign(ctx, campaign);
+  const estimate = await estimateAudienceForCampaign(ctx, campaign, now);
   let sentCount = 0;
   let skippedCount = 0;
 

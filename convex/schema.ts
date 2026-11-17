@@ -2263,6 +2263,11 @@ export default defineSchema({
       'dedupeKey',
     ])
     .index('by_campaignId_toUserId', ['campaignId', 'toUserId'])
+    .index('by_campaignId_toUserId_createdAt', [
+      'campaignId',
+      'toUserId',
+      'createdAt',
+    ])
     .index('by_toUserId', ['toUserId'])
     .index('by_toUserId_createdAt', ['toUserId', 'createdAt'])
     .index('by_toUserId_dedupeKey', ['toUserId', 'dedupeKey'])
