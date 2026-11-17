@@ -656,12 +656,24 @@ export default function SettingsScreen() {
         marketingOptIn: nextValue,
         source: 'settings',
         preserveDates: true,
+        expectedMarketingOptIn: marketingEnabled,
       });
     } catch (error) {
-      setMarketingEnabled(user.marketingOptIn === true);
+      const data = (
+        error as {
+          data?: { code?: string; current?: { marketingOptIn?: boolean } };
+        }
+      )?.data;
+      setMarketingEnabled(
+        data?.code === 'MARKETING_PROFILE_CONFLICT'
+          ? data.current?.marketingOptIn === true
+          : user.marketingOptIn === true
+      );
       Alert.alert(
         TEXT.errorTitle,
-        toErrorMessage(error, TEXT.marketingSaveFailed)
+        data?.code === 'MARKETING_PROFILE_CONFLICT'
+          ? 'העדפת הדיוור עודכנה במכשיר אחר. בדקו את המצב העדכני ונסו שוב.'
+          : toErrorMessage(error, TEXT.marketingSaveFailed)
       );
     } finally {
       setMarketingBusy(false);

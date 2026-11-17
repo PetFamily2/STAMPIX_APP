@@ -1586,6 +1586,7 @@ export const setMyMarketingProfile = mutation({
   args: {
     marketingOptIn: v.boolean(),
     preserveDates: v.optional(v.boolean()),
+    expectedMarketingOptIn: v.optional(v.boolean()),
     expectedMarketingSnapshot: v.optional(
       v.object({
         marketingOptIn: v.boolean(),
@@ -1607,6 +1608,7 @@ export const setMyMarketingProfile = mutation({
       marketingOptIn,
       source,
       preserveDates,
+      expectedMarketingOptIn,
       expectedMarketingSnapshot,
       birthdayMonth,
       birthdayDay,
@@ -1622,6 +1624,12 @@ export const setMyMarketingProfile = mutation({
       anniversaryMonth: user.anniversaryMonth ?? null,
       anniversaryDay: user.anniversaryDay ?? null,
     };
+    if (
+      expectedMarketingOptIn !== undefined &&
+      current.marketingOptIn !== expectedMarketingOptIn
+    ) {
+      throw new ConvexError({ code: 'MARKETING_PROFILE_CONFLICT', current });
+    }
     if (
       expectedMarketingSnapshot &&
       Object.keys(current).some(

@@ -545,3 +545,32 @@ test('marketing profile rejects stale edits and toggle preserves concurrently sa
   });
   expect(db.rows('marketingConsentEvents')).toHaveLength(2);
 });
+
+test('marketing toggle rejects a stale consent state without changing dates or evidence', async () => {
+  const { ctx, db } = makeCtx();
+  await setMyMarketingProfile._handler(ctx, {
+    source: 'account_details',
+    marketingOptIn: true,
+    birthdayMonth: 5,
+    birthdayDay: 14,
+  });
+  await expect(
+    setMyMarketingProfile._handler(ctx, {
+      source: 'settings',
+      marketingOptIn: true,
+      preserveDates: true,
+      expectedMarketingOptIn: false,
+    })
+  ).rejects.toMatchObject({
+    data: {
+      code: 'MARKETING_PROFILE_CONFLICT',
+      current: { marketingOptIn: true },
+    },
+  });
+  expect(db.rows('users')[0]).toMatchObject({
+    marketingOptIn: true,
+    birthdayMonth: 5,
+    birthdayDay: 14,
+  });
+  expect(db.rows('marketingConsentEvents')).toHaveLength(1);
+});
