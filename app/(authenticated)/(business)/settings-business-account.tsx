@@ -170,11 +170,43 @@ export default function BusinessSettingsAccountScreen() {
           await setMyName({
             firstName: trimmedFirstName,
             lastName: trimmedLastName,
+            expectedName: {
+              firstName: baselines.firstName,
+              lastName: baselines.lastName,
+            },
           });
           formState = commitAccountSaveGroup(formState, 'name', savedValues);
           applyAccountFormState(formState);
           savedGroups.push('name');
-        } catch {
+        } catch (error) {
+          const data = (
+            error as {
+              data?: {
+                code?: string;
+                current?: { firstName: string; lastName: string };
+              };
+            }
+          )?.data;
+          if (data?.code === 'ACCOUNT_NAME_CONFLICT' && data.current) {
+            const current = data.current;
+            Alert.alert(
+              'השם השתנה במכשיר אחר',
+              'הטיוטה נשמרה. אפשר להמשיך לערוך או לטעון את השם העדכני.',
+              [
+                { text: 'המשך עריכה', style: 'cancel' },
+                {
+                  text: 'טען שם עדכני',
+                  onPress: () => {
+                    setCommittedFirstName(current.firstName);
+                    setCommittedLastName(current.lastName);
+                    setFirstNameDraft(null);
+                    setLastNameDraft(null);
+                  },
+                },
+              ]
+            );
+            return;
+          }
           const result = accountSaveResultMessage(savedGroups, 'name');
           Alert.alert(result.title, result.message);
           return;
@@ -182,11 +214,38 @@ export default function BusinessSettingsAccountScreen() {
       }
       if (isPhoneDirty) {
         try {
-          await setMyPhone({ phone: trimmedPhone });
+          await setMyPhone({
+            phone: trimmedPhone,
+            expectedPhone: baselines.phone,
+          });
           formState = commitAccountSaveGroup(formState, 'phone', savedValues);
           applyAccountFormState(formState);
           savedGroups.push('phone');
-        } catch {
+        } catch (error) {
+          const data = (
+            error as { data?: { code?: string; currentPhone?: string } }
+          )?.data;
+          if (
+            data?.code === 'ACCOUNT_PHONE_CONFLICT' &&
+            typeof data.currentPhone === 'string'
+          ) {
+            const current = data.currentPhone;
+            Alert.alert(
+              'הטלפון השתנה במכשיר אחר',
+              'הטיוטה נשמרה. אפשר להמשיך לערוך או לטעון את הטלפון העדכני.',
+              [
+                { text: 'המשך עריכה', style: 'cancel' },
+                {
+                  text: 'טען טלפון עדכני',
+                  onPress: () => {
+                    setCommittedPhone(current);
+                    setPhoneDraft(null);
+                  },
+                },
+              ]
+            );
+            return;
+          }
           const result = accountSaveResultMessage(savedGroups, 'phone');
           Alert.alert(result.title, result.message);
           return;
@@ -272,7 +331,13 @@ export default function BusinessSettingsAccountScreen() {
           >
             <TextInput
               value={firstNameInput}
-              onChangeText={setFirstNameDraft}
+              onChangeText={(value) => {
+                if (firstNameDraft === null && lastNameDraft === null) {
+                  setCommittedFirstName(baselines.firstName);
+                  setCommittedLastName(baselines.lastName);
+                }
+                setFirstNameDraft(value);
+              }}
               editable={!isSaving}
               placeholder="הזינו שם פרטי"
               placeholderTextColor={SETTINGS_TOKENS.textTertiary}
@@ -293,7 +358,13 @@ export default function BusinessSettingsAccountScreen() {
           >
             <TextInput
               value={lastNameInput}
-              onChangeText={setLastNameDraft}
+              onChangeText={(value) => {
+                if (firstNameDraft === null && lastNameDraft === null) {
+                  setCommittedFirstName(baselines.firstName);
+                  setCommittedLastName(baselines.lastName);
+                }
+                setLastNameDraft(value);
+              }}
               editable={!isSaving}
               placeholder="הזינו שם משפחה"
               placeholderTextColor={SETTINGS_TOKENS.textTertiary}
@@ -321,7 +392,10 @@ export default function BusinessSettingsAccountScreen() {
           >
             <TextInput
               value={phoneInput}
-              onChangeText={setPhoneDraft}
+              onChangeText={(value) => {
+                if (phoneDraft === null) setCommittedPhone(baselines.phone);
+                setPhoneDraft(value);
+              }}
               editable={!isSaving}
               placeholder="הזינו מספר טלפון"
               placeholderTextColor={SETTINGS_TOKENS.textTertiary}

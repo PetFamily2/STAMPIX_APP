@@ -125,6 +125,7 @@ export default function CustomerAccountDetailsScreen() {
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [phoneInput, setPhoneInput] = useState(user?.phone?.trim() ?? '');
   const [isSavingPhone, setIsSavingPhone] = useState(false);
+  const phoneBaseline = useRef('');
 
   const [marketingOptIn, setMarketingOptIn] = useState(
     user?.marketingOptIn === true
@@ -222,11 +223,36 @@ export default function CustomerAccountDetailsScreen() {
   const handleSavePhone = async () => {
     try {
       setIsSavingPhone(true);
-      await setMyPhone({ phone: phoneInput.trim() });
+      await setMyPhone({
+        phone: phoneInput.trim(),
+        expectedPhone: phoneBaseline.current,
+      });
       setIsEditingPhone(false);
       Alert.alert('נשמר', TEXT.phoneSaved);
-    } catch {
-      Alert.alert('שגיאה', TEXT.phoneError);
+    } catch (error) {
+      const data = (
+        error as { data?: { code?: string; currentPhone?: string } }
+      )?.data;
+      if (
+        data?.code === 'ACCOUNT_PHONE_CONFLICT' &&
+        typeof data.currentPhone === 'string'
+      ) {
+        const current = data.currentPhone;
+        Alert.alert(
+          'הטלפון השתנה במכשיר אחר',
+          'הטיוטה נשמרה. אפשר להמשיך לערוך או לטעון את הטלפון העדכני.',
+          [
+            { text: 'המשך עריכה', style: 'cancel' },
+            {
+              text: 'טען טלפון עדכני',
+              onPress: () => {
+                phoneBaseline.current = current;
+                setPhoneInput(current);
+              },
+            },
+          ]
+        );
+      } else Alert.alert('שגיאה', TEXT.phoneError);
     } finally {
       setIsSavingPhone(false);
     }
@@ -441,7 +467,10 @@ export default function CustomerAccountDetailsScreen() {
                   </View>
                 ) : (
                   <PaintedPressable
-                    onPress={() => setIsEditingPhone(true)}
+                    onPress={() => {
+                      phoneBaseline.current = user?.phone?.trim() ?? '';
+                      setIsEditingPhone(true);
+                    }}
                     accessibilityRole="button"
                     accessibilityLabel={
                       phone === TEXT.missingValue

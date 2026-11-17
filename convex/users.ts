@@ -1537,10 +1537,26 @@ export const setMyName = mutation({
   args: {
     firstName: v.string(),
     lastName: v.string(),
+    expectedName: v.optional(
+      v.object({ firstName: v.string(), lastName: v.string() })
+    ),
   },
-  handler: async (ctx, { firstName, lastName }) => {
+  handler: async (ctx, { firstName, lastName, expectedName }) => {
     const user = await requireCurrentUser(ctx);
 
+    const currentName = {
+      firstName: user.firstName?.trim() ?? '',
+      lastName: user.lastName?.trim() ?? '',
+    };
+    if (
+      expectedName &&
+      (expectedName.firstName !== currentName.firstName ||
+        expectedName.lastName !== currentName.lastName)
+    )
+      throw new ConvexError({
+        code: 'ACCOUNT_NAME_CONFLICT',
+        current: currentName,
+      });
     const normalizedFirstName = normalizeNamePart(firstName, 'FIRST_NAME');
     const normalizedLastName = normalizeNamePart(lastName, 'LAST_NAME');
     const now = Date.now();
@@ -1563,9 +1579,13 @@ export const setMyName = mutation({
 export const setMyPhone = mutation({
   args: {
     phone: v.string(),
+    expectedPhone: v.optional(v.string()),
   },
-  handler: async (ctx, { phone }) => {
+  handler: async (ctx, { phone, expectedPhone }) => {
     const user = await requireCurrentUser(ctx);
+    const currentPhone = user.phone?.trim() ?? '';
+    if (expectedPhone !== undefined && expectedPhone !== currentPhone)
+      throw new ConvexError({ code: 'ACCOUNT_PHONE_CONFLICT', currentPhone });
     const normalizedPhone = normalizePhone(phone);
     const now = Date.now();
 
