@@ -174,7 +174,11 @@ function createMockCtx({
           const filters = [];
           const q = {
             eq(field, value) {
-              filters.push([field, value]);
+              filters.push([field, value, 'eq']);
+              return q;
+            },
+            gte(field, value) {
+              filters.push([field, value, 'gte']);
               return q;
             },
           };
@@ -185,7 +189,12 @@ function createMockCtx({
           const rows = table ? Array.from(table.values()) : [];
 
           const filteredRows = rows.filter((row) =>
-            filters.every(([field, value]) => row[field] === value)
+            filters.every(([field, value, operator]) => {
+              const actual = field
+                .split('.')
+                .reduce((item, key) => item?.[key], row);
+              return operator === 'gte' ? actual >= value : actual === value;
+            })
           );
 
           return {
@@ -1386,24 +1395,37 @@ describe('business profile settings and discovery filters', () => {
     state.discoveryH3Readiness = new Map([
       ['gate', { _id: 'gate', key: 'business_discovery_h3_r5_v1', status }],
     ]);
+    state.businesses.set(
+      'late_legacy',
+      buildBusiness({
+        _id: 'late_legacy',
+        location: { lat: 0, lng: 0.0005 },
+      })
+    );
+    state.businesses.set(
+      'unlocated',
+      buildBusiness({
+        _id: 'unlocated',
+        location: undefined,
+      })
+    );
     const query = ctx.db.query;
-    let missingIndexReads = 0;
+    let compatibilityRows;
     ctx.db.query = (table) => {
       const result = query(table);
       if (table !== 'businesses') return result;
       const original = result.withIndex;
       result.withIndex = (index, builder) => {
-        if (index === 'by_isActive_discoveryH3R5') {
-          const recorder = {
-            eq(field, value) {
-              if (field === 'discoveryH3R5' && value === undefined)
-                missingIndexReads++;
-              return recorder;
-            },
+        const indexed = original(index, builder);
+        if (index === 'by_discovery_missing_cell_location') {
+          const collect = indexed.collect;
+          indexed.collect = async () => {
+            const rows = await collect();
+            compatibilityRows = rows.map((row) => row._id);
+            return rows;
           };
-          builder(recorder);
         }
-        return original(index, builder);
+        return indexed;
       };
       return result;
     };
@@ -1412,8 +1434,11 @@ describe('business profile settings and discovery filters', () => {
       userLng: 0,
       radiusKm: 10,
     });
-    expect(result.map((row) => row.businessId)).toEqual(['indexed']);
-    expect(missingIndexReads).toBe(1);
+    expect(result.map((row) => row.businessId)).toEqual([
+      'late_legacy',
+      'indexed',
+    ]);
+    expect(compatibilityRows).toEqual(['late_legacy']);
   });
 
   test('getBusinessesNearby sorts by service type when requested', async () => {

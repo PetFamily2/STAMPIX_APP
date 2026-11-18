@@ -39,6 +39,15 @@ export const enabled = () =>
       process.env.STAMPAIX_ENV,
       process.env.PWA_RELEASE_GATE
     ));
+export function webPushDeliveryConfigured() {
+  return (
+    enabled() &&
+    !!process.env.WEB_PUSH_VAPID_PUBLIC_KEY &&
+    !!process.env.WEB_PUSH_VAPID_PRIVATE_KEY &&
+    !!process.env.WEB_PUSH_VAPID_SUBJECT
+  );
+}
+
 export const configuration = query({
   args: {},
   returns: v.object({

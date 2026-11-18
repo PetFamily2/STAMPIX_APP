@@ -2676,12 +2676,15 @@ export const getBusinessesNearby = query({
           .collect()
       )
     );
-    // Keep the compatibility read even after a scan: concurrent legacy writes
-    // could otherwise create an unindexed business after its page was checked.
+    // After backfill this index range is empty. Keep probing it so a late
+    // legacy write stays discoverable, without scanning unlocated businesses.
     const legacyBusinesses = await ctx.db
       .query('businesses')
-      .withIndex('by_isActive_discoveryH3R5', (q: any) =>
-        q.eq('isActive', true).eq('discoveryH3R5', undefined)
+      .withIndex('by_discovery_missing_cell_location', (q) =>
+        q
+          .eq('isActive', true)
+          .eq('discoveryH3R5', undefined)
+          .gte('location.lat', -Infinity)
       )
       .collect();
     const businesses = [

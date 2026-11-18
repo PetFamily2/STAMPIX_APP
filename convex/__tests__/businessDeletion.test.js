@@ -1253,7 +1253,10 @@ describe('bounded recipients and ephemeral push state', () => {
     expect(ctx.db.rows('pushDeliveryLog')).toHaveLength(0);
   });
 
-  test('provider failure is terminal for the recipient and never creates persistent logs', async () => {
+  test.each([
+    'timeout',
+    'short ticket list',
+  ])('uncertain deletion push (%s) is terminal and never creates persistent logs', async (scenario) => {
     const now = Date.now();
     const ctx = buildCtx({
       businessDeletionJobs: [
@@ -1292,7 +1295,8 @@ describe('bounded recipients and ephemeral push state', () => {
     let fetchCalls = 0;
     globalThis.fetch = async () => {
       fetchCalls += 1;
-      throw new Error('provider unavailable');
+      if (scenario === 'timeout') throw new Error('provider unavailable');
+      return Response.json({ data: [] });
     };
     const actionCtx = {
       runMutation: async (_reference, args) => {
@@ -1313,7 +1317,7 @@ describe('bounded recipients and ephemeral push state', () => {
         actionCtx,
         { recipientId: 'recipient_push_failure' }
       );
-      expect(result.status).toBe('failed');
+      expect(result.status).toBe('unknown');
       expect(
         await deliverPermanentDeletionPushInternal._handler(actionCtx, {
           recipientId: 'recipient_push_failure',
@@ -1324,7 +1328,7 @@ describe('bounded recipients and ephemeral push state', () => {
     }
     expect(fetchCalls).toBe(1);
     expect(ctx.db.rows('businessDeletionRecipients')[0].pushStatus).toBe(
-      'failed'
+      'unknown'
     );
     expect(ctx.db.rows('messageLog')).toHaveLength(0);
     expect(ctx.db.rows('pushDeliveryLog')).toHaveLength(0);

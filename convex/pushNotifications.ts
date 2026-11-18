@@ -8,7 +8,7 @@ import {
   query,
 } from './_generated/server';
 import { requireCurrentUser } from './guards';
-import { scheduleWebPush } from './webPush';
+import { scheduleWebPush, webPushDeliveryConfigured } from './webPush';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const EXPO_PUSH_DEFAULT_CHANNEL_ID = 'default';
@@ -449,12 +449,14 @@ export const recoverPendingPushOutbox = internalMutation({
         updatedAt: Date.now(),
       });
     }
-    const webPending = await ctx.db
-      .query('pushDeliveryOutbox')
-      .withIndex('by_web_status_createdAt', (q) =>
-        q.eq('webDeliveryStatus', 'pending')
-      )
-      .take(PUSH_OUTBOX_RECOVERY_PAGE_SIZE);
+    const webPending = webPushDeliveryConfigured()
+      ? await ctx.db
+          .query('pushDeliveryOutbox')
+          .withIndex('by_web_status_createdAt', (q) =>
+            q.eq('webDeliveryStatus', 'pending')
+          )
+          .take(PUSH_OUTBOX_RECOVERY_PAGE_SIZE)
+      : [];
     for (const job of webPending) {
       await ctx.scheduler.runAfter(
         0,

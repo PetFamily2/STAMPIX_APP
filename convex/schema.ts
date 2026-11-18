@@ -619,6 +619,11 @@ export default defineSchema({
     .index('by_joinCode', ['joinCode'])
     .index('by_isActive', ['isActive'])
     .index('by_isActive_discoveryH3R5', ['isActive', 'discoveryH3R5'])
+    .index('by_discovery_missing_cell_location', [
+      'isActive',
+      'discoveryH3R5',
+      'location.lat',
+    ])
     .index('by_onboardingResearchPurgeAfter', ['onboardingResearchPurgeAfter'])
     .index('by_placeId', ['placeId'])
     .searchIndex('search_public_name', {
@@ -691,6 +696,7 @@ export default defineSchema({
       v.literal('pending'),
       v.literal('scheduled'),
       v.literal('attempted'),
+      v.literal('unknown'),
       v.literal('sent'),
       v.literal('failed'),
       v.literal('skipped')

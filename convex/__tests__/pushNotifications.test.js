@@ -408,9 +408,33 @@ test('outbox recovery schedules pending browser work but never retries stale cla
   ctx.scheduler = {
     runAfter: async (_delay, _ref, args) => scheduled.push(args),
   };
-  const result = await recoverPendingPushOutbox._handler(ctx, {});
-  expect(result.webScheduled).toBe(1);
-  expect(result.webUnknown).toBe(1);
+  const env = {
+    STAMPAIX_ENV: 'preview',
+    WEB_PUSH_ENABLED: 'true',
+    WEB_PUSH_VAPID_PUBLIC_KEY: 'test-public',
+    WEB_PUSH_VAPID_PRIVATE_KEY: 'test-private',
+    WEB_PUSH_VAPID_SUBJECT: 'mailto:test@example.com',
+  };
+  const previous = Object.fromEntries(
+    Object.keys(env).map((key) => [key, process.env[key]])
+  );
+  Object.assign(process.env, env);
+  try {
+    delete process.env.WEB_PUSH_VAPID_PRIVATE_KEY;
+    const paused = await recoverPendingPushOutbox._handler(ctx, {});
+    expect(paused.webScheduled).toBe(0);
+    expect(paused.webUnknown).toBe(1);
+    expect(scheduled).toEqual([]);
+    process.env.WEB_PUSH_VAPID_PRIVATE_KEY = env.WEB_PUSH_VAPID_PRIVATE_KEY;
+    const resumed = await recoverPendingPushOutbox._handler(ctx, {});
+    expect(resumed.webScheduled).toBe(1);
+    expect(resumed.webUnknown).toBe(0);
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
   expect(scheduled).toEqual([{ userId: USER_ID, outboxId: 'web_pending' }]);
   expect(
     ctx.rows('pushDeliveryOutbox').find((row) => row._id === 'web_stale')

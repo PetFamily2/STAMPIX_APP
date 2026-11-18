@@ -63,16 +63,16 @@ const internalDeletionApi = {
     'mutation',
     {
       recipientId: Id<'businessDeletionRecipients'>;
-      status: 'sent' | 'failed';
+      status: 'sent' | 'failed' | 'unknown';
       failureDetail?: string;
       deviceNotRegisteredTokenIds: Array<Id<'pushTokens'>>;
     },
-    { status: 'stale' | 'sent' | 'failed' }
+    { status: 'stale' | 'sent' | 'failed' | 'unknown' }
   >('businessDeletion:finalizePermanentDeletionPushAttemptInternal'),
   deliverPermanentDeletionPushInternal: makeFunctionReference<
     'action',
     { recipientId: Id<'businessDeletionRecipients'> },
-    { status: 'stale_or_skipped' | 'sent' | 'failed' }
+    { status: 'stale_or_skipped' | 'sent' | 'failed' | 'unknown' }
   >('businessDeletion:deliverPermanentDeletionPushInternal'),
 } as const;
 
@@ -652,24 +652,25 @@ export const claimPermanentDeletionPushAttemptInternal = internalMutation({
 export const finalizePermanentDeletionPushAttemptInternal = internalMutation({
   args: {
     recipientId: v.id('businessDeletionRecipients'),
-    status: v.union(v.literal('sent'), v.literal('failed')),
+    status: v.union(
+      v.literal('sent'),
+      v.literal('failed'),
+      v.literal('unknown')
+    ),
     failureDetail: v.optional(v.string()),
     deviceNotRegisteredTokenIds: v.array(v.id('pushTokens')),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
     const recipient = await ctx.db.get(args.recipientId);
-    for (const tokenId of args.deviceNotRegisteredTokenIds) {
-      const token = await ctx.db.get(tokenId);
-      if (
-        token &&
-        (!recipient || String(token.userId) === String(recipient.userId))
-      ) {
-        await ctx.db.patch(token._id, { isActive: false, updatedAt: now });
-      }
-    }
     if (!recipient || recipient.pushStatus !== 'attempted') {
       return { status: 'stale' as const };
+    }
+    for (const tokenId of args.deviceNotRegisteredTokenIds) {
+      const token = await ctx.db.get(tokenId);
+      if (token && String(token.userId) === String(recipient.userId)) {
+        await ctx.db.patch(token._id, { isActive: false, updatedAt: now });
+      }
     }
     await ctx.db.patch(recipient._id, {
       pushStatus: args.status,
@@ -705,7 +706,15 @@ export const deliverPermanentDeletionPushInternal = internalAction({
     );
     const deviceNotRegisteredTokenIds: Id<'pushTokens'>[] = [];
     let sent = false;
-    if (result.ok) {
+    const failureDetail = !result.ok
+      ? result.errorMessage
+      : result.tickets.length !== claim.tokens.length ||
+          result.tickets.some(
+            (ticket) => ticket?.status !== 'ok' && ticket?.status !== 'error'
+          )
+        ? 'expo_push_ticket_alignment_uncertain'
+        : undefined;
+    if (result.ok && !failureDetail) {
       result.tickets.forEach((ticket, index) => {
         if (ticket?.status === 'ok') {
           sent = true;
@@ -718,16 +727,17 @@ export const deliverPermanentDeletionPushInternal = internalAction({
         }
       });
     }
+    const status = failureDetail ? 'unknown' : sent ? 'sent' : 'failed';
     await ctx.runMutation(
       internalDeletionApi.finalizePermanentDeletionPushAttemptInternal,
       {
         recipientId,
-        status: sent ? 'sent' : 'failed',
-        failureDetail: result.ok ? undefined : result.errorMessage,
+        status,
+        failureDetail,
         deviceNotRegisteredTokenIds,
       }
     );
-    return { status: sent ? ('sent' as const) : ('failed' as const) };
+    return { status };
   },
 });
 
