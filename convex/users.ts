@@ -277,6 +277,7 @@ const WIPE_ALL_TABLE_ORDER = [
   'customerReferralLinks',
   'referralConfigs',
   'pushDeliveryLog',
+  'pushDeliveryOutbox',
   'pushTokens',
   'messageLog',
   'redemptionCelebrationReceipts',
@@ -356,6 +357,7 @@ type DeleteStats = {
   campaignRunRecipients: number;
   pushTokens: number;
   pushDeliveryLog: number;
+  pushDeliveryOutbox: number;
   supportRequests: number;
   marketingConsentEvents: number;
   legalAcceptances: number;
@@ -429,6 +431,7 @@ function emptyDeleteStats(): DeleteStats {
     campaignRunRecipients: 0,
     pushTokens: 0,
     pushDeliveryLog: 0,
+    pushDeliveryOutbox: 0,
     supportRequests: 0,
     marketingConsentEvents: 0,
     legalAcceptances: 0,
@@ -469,6 +472,7 @@ function emptyWipeAllDataHardCounts(): WipeAllDataHardCounts {
     customerReferralLinks: 0,
     referralConfigs: 0,
     pushDeliveryLog: 0,
+    pushDeliveryOutbox: 0,
     pushTokens: 0,
     messageLog: 0,
     redemptionCelebrationReceipts: 0,
@@ -978,6 +982,13 @@ async function deleteUserScopedBusinessData(
   );
   deleted.campaignRunRecipients +=
     await deleteSmartManagerExecutionRecipientsForAccount(ctx, userId);
+  deleted.pushDeliveryOutbox += await deleteByIndexInBatches(
+    ctx,
+    'pushDeliveryOutbox',
+    'by_toUserId',
+    'toUserId',
+    userId
+  );
   deleted.pushDeliveryLog += await deleteByIndexInBatches(
     ctx,
     'pushDeliveryLog',

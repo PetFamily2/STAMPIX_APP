@@ -1323,6 +1323,12 @@ async function findRemainingPhase(
       [
         {
           name: '',
+          table: 'pushDeliveryOutbox',
+          index: 'by_businessId',
+          field: 'businessId',
+        },
+        {
+          name: '',
           table: 'messageLog',
           index: 'by_businessId',
           field: 'businessId',
@@ -1698,6 +1704,12 @@ const SCAN_EVENT_STEPS: DeleteStep[] = [
 ];
 
 const MESSAGE_STEPS: DeleteStep[] = [
+  {
+    name: 'pending_push',
+    table: 'pushDeliveryOutbox',
+    index: 'by_businessId',
+    field: 'businessId',
+  },
   {
     name: 'messages',
     table: 'messageLog',

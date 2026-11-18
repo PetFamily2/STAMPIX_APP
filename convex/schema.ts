@@ -2513,6 +2513,7 @@ export default defineSchema({
     ),
     webClaimedAt: v.optional(v.number()),
   })
+    .index('by_businessId', ['businessId'])
     .index('by_deliveryKey', ['deliveryKey'])
     .index('by_status_createdAt', ['status', 'createdAt'])
     .index('by_status_claimedAt', ['status', 'claimedAt'])

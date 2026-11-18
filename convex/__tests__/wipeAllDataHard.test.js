@@ -274,6 +274,7 @@ describe('wipeAllDataHardImpl', () => {
       authRefreshTokens: [{ _id: 'art_1', sessionId: 'as_1' }],
       authVerifiers: [{ _id: 'aver_1', sessionId: 'as_1' }],
       authSessions: [{ _id: 'as_1', userId: 'u_admin' }],
+      pushDeliveryOutbox: [{ _id: 'outbox_1', toUserId: 'u_admin' }],
       authAccounts: [{ _id: 'aa_1', userId: 'u_admin' }],
       authRateLimits: [{ _id: 'arl_1', identifier: '127.0.0.1' }],
       users: [
@@ -337,6 +338,7 @@ describe('wipeAllDataHardImpl', () => {
       webPushSubscriptions: 1,
       pushTokens: 0,
       pushDeliveryLog: 0,
+      pushDeliveryOutbox: 1,
       referralAdminAuditLog: 0,
       referralRewards: 0,
       customerReferrals: 0,

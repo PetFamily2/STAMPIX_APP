@@ -596,6 +596,10 @@ describe('deleteMyAccountHardImpl', () => {
         { _id: 'push_customer', userId: 'u_customer' },
         { _id: 'push_other', userId: 'u_other' },
       ],
+      pushDeliveryOutbox: [
+        { _id: 'outbox_customer', toUserId: 'u_customer' },
+        { _id: 'outbox_other', toUserId: 'u_other' },
+      ],
       messageLog: [
         { _id: 'msg_customer', toUserId: 'u_customer' },
         { _id: 'msg_other', toUserId: 'u_other' },
@@ -718,6 +722,9 @@ describe('deleteMyAccountHardImpl', () => {
     ]);
     expect(ctx.db.rows('pushTokens').map((doc) => doc._id)).toEqual([
       'push_other',
+    ]);
+    expect(ctx.db.rows('pushDeliveryOutbox').map((row) => row._id)).toEqual([
+      'outbox_other',
     ]);
     expect(ctx.db.rows('messageLog').map((doc) => doc._id)).toEqual([
       'msg_other',
