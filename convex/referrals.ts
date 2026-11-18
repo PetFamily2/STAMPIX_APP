@@ -2445,10 +2445,16 @@ export const adminSearchReferralRecordsPage = query({
       'businessReferrals',
     ] as const;
     const index = types.indexOf(args.type);
-    const result = await ctx.db.query(tables[index]).paginate({
-      ...args.paginationOpts,
-      numItems: Math.max(1, Math.min(args.paginationOpts.numItems, 100)),
-    });
+    // Page the timestamp index before applying the substring predicate so
+    // the earliest loaded matching page is also the most recently updated.
+    const result = await ctx.db
+      .query(tables[index])
+      .withIndex('by_updatedAt')
+      .order('desc')
+      .paginate({
+        ...args.paginationOpts,
+        numItems: Math.max(1, Math.min(args.paginationOpts.numItems, 100)),
+      });
     const records: any[][] = [[], [], [], [], []];
     records[index] = result.page;
     return {

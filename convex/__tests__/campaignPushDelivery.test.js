@@ -776,3 +776,125 @@ test('annual automation history uses the exact Israel new-year boundary', async 
     expect(result.sentCount).toBe(expected);
   }
 });
+
+test('overlapping one-time sweeps recover a dropped continuation and never duplicate opted-in deliveries across 125 businesses', async () => {
+  const now = Date.now(),
+    tables = baseTables({ campaignChannels: ['in_app'] });
+  const originalBusiness = tables.businesses[0],
+    originalMembership = tables.memberships[0],
+    originalCampaign = tables.campaigns[0];
+  const count = 125;
+  tables.businesses = Array.from({ length: count }, (_, i) => ({
+    ...originalBusiness,
+    _id: 'load_business_' + i,
+  }));
+  tables.users.push(
+    ...Array.from({ length: count }, (_, i) => ({
+      _id: 'load_user_' + i,
+      isActive: true,
+      marketingOptIn: i % 4 !== 0,
+      createdAt: now,
+      updatedAt: now,
+    }))
+  );
+  tables.memberships = Array.from({ length: count }, (_, i) => ({
+    ...originalMembership,
+    _id: 'load_membership_' + i,
+    businessId: 'load_business_' + i,
+    userId: 'load_user_' + i,
+  }));
+  tables.campaigns = Array.from({ length: count }, (_, i) => ({
+    ...originalCampaign,
+    _id: 'load_campaign_' + i,
+    businessId: 'load_business_' + i,
+    status: 'active',
+    activationStatus: 'active',
+    automationEnabled: false,
+    schedule: { mode: 'one_time', sendAt: now - 1000, nextRunAt: now - 1000 },
+  }));
+  const ctx = buildCtx(tables);
+  await runAutomationSweepInternal._handler(ctx, {
+    phase: 'one_time',
+    referenceNow: now,
+  });
+  // Model a continuation being lost before the next sweep. A later sweep must
+  // start at the beginning without repeating already committed deliveries.
+  const lost = ctx.scheduled.findIndex(
+    (task) => task.args.phase === 'one_time'
+  );
+  expect(lost).toBeGreaterThanOrEqual(0);
+  ctx.scheduled.splice(lost, 1);
+  await runAutomationSweepInternal._handler(ctx, {
+    phase: 'one_time',
+    referenceNow: now,
+  });
+  await runAutomationSweepInternal._handler(ctx, {
+    phase: 'one_time',
+    referenceNow: now,
+  });
+  let cursor = 0,
+    continuations = 0;
+  while (cursor < ctx.scheduled.length) {
+    const task = ctx.scheduled[cursor++];
+    if (task.args.phase) {
+      continuations++;
+      if (continuations > 100) throw Error('CONTINUATION_NOT_TERMINATING');
+      await runAutomationSweepInternal._handler(ctx, task.args);
+    }
+  }
+  expect(
+    tables.campaigns.filter((row) => row.status === 'completed')
+  ).toHaveLength(count);
+  const logs = ctx.db.rows('messageLog');
+  expect(logs).toHaveLength(count - Math.ceil(count / 4));
+  expect(new Set(logs.map((row) => String(row.campaignId))).size).toBe(
+    logs.length
+  );
+  for (const row of logs) {
+    const number = Number(String(row.toUserId).replace('load_user_', ''));
+    expect(number % 4).not.toBe(0);
+    expect(row.businessId).toBe('load_business_' + number);
+    expect(row.campaignId).toBe('load_campaign_' + number);
+  }
+});
+
+test('a simulated read limit on a single large audience leaves campaign active and emits no partial inbox delivery', async () => {
+  // This is a fake transaction-limit guard, not a Convex server benchmark.
+  // It records the still-open failure path for one campaign with many members.
+  const now = Date.now(),
+    tables = baseTables({ campaignChannels: ['in_app'] });
+  const campaign = tables.campaigns[0];
+  Object.assign(campaign, {
+    status: 'active',
+    activationStatus: 'active',
+    automationEnabled: false,
+    schedule: { mode: 'one_time', sendAt: now - 1000, nextRunAt: now - 1000 },
+  });
+  const membership = tables.memberships[0];
+  tables.memberships = Array.from({ length: 10001 }, (_, i) => ({
+    ...membership,
+    _id: 'large_membership_' + i,
+  }));
+  const ctx = buildCtx(tables),
+    query = ctx.db.query.bind(ctx.db);
+  ctx.db.query = (table) => {
+    const q = query(table);
+    if (table === 'memberships')
+      q.collect = async () => {
+        const rows = q.docs();
+        if (rows.length > 10000)
+          throw new Error('SIMULATED_TRANSACTION_READ_LIMIT');
+        return rows;
+      };
+    return q;
+  };
+  await expect(
+    runAutomationSweepInternal._handler(ctx, {
+      phase: 'one_time',
+      referenceNow: now,
+    })
+  ).rejects.toThrow('SIMULATED_TRANSACTION_READ_LIMIT');
+  expect(ctx.db.rows('messageLog')).toHaveLength(0);
+  expect(ctx.db.rows('pushDeliveryOutbox')).toHaveLength(0);
+  expect(ctx.db.rows('campaigns')[0].activationStatus).toBe('active');
+});

@@ -22,6 +22,7 @@ mock.module('react-native', () => ({
   Modal: component,
   Platform: { OS: 'web' },
   StyleSheet: { create: (v) => v, hairlineWidth: 1 },
+  useWindowDimensions: () => ({ width: 800, height: 800 }),
 }));
 mock.module('react-native-safe-area-context', () => ({
   SafeAreaView: component,
@@ -92,6 +93,7 @@ mock.module('@/lib/domain/businessPermissions', () => ({
   resolveBusinessCapabilities: () => ({
     view_settings: true,
     edit_loyalty_cards: true,
+    edit_business_profile: true,
     access_dashboard: true,
     access_customers: true,
     view_usage_quota: true,
@@ -100,6 +102,7 @@ mock.module('@/lib/domain/businessPermissions', () => ({
 }));
 mock.module('@/components/business-settings', () => ({
   SETTINGS_TOKENS: {},
+  validateProfileFields: () => null,
   SettingsCard: component,
   SettingsField: component,
   SettingsSection: component,
@@ -201,6 +204,33 @@ try {
     inputs[1].props.onChangeText('קפה');
   });
   assert(JSON.stringify(tree.toJSON()).includes('כרטיס בדיקה'));
+  const byText = (label) =>
+    tree.root
+      .findAllByType('button')
+      .find((button) =>
+        button
+          .findAllByType('text')
+          .some((text) => text.props.children === label)
+      );
+  await act(async () => byText('המשך').props.onPress());
+  await act(async () => byText('המשך').props.onPress());
+  scope = 'biz3';
+  await act(async () => tree.update(<ClassicCardWizard />));
+  assert(JSON.stringify(tree.toJSON()).includes('העסק הפעיל השתנה'));
+  assert(JSON.stringify(tree.toJSON()).includes('כרטיס בדיקה'));
+  const save = byText('שמירת טיוטה');
+  assert.equal(
+    save.props.disabled,
+    true,
+    'cannot save to a different business'
+  );
+  const before = saves.length;
+  await act(async () => save.props.onPress());
+  assert.equal(saves.length, before, 'submit guard refuses changed business');
+  scope = 'biz2';
+  await act(async () => tree.update(<ClassicCardWizard />));
+  assert.equal(byText('שמירת טיוטה').props.disabled, false);
+
   console.log(
     'PASS rendered card wizard: initial screen and editable draft; mocked transport and host primitives'
   );
@@ -258,6 +288,163 @@ try {
   );
   console.log(
     'PASS rendered customer account: marketing draft survives reactive update; mocked host/transport'
+  );
+} finally {
+  if (tree) await act(async () => tree.unmount());
+}
+
+// Exercise the real profile hook across an in-flight business switch.
+let profileSettings = { businessId: 'A', name: 'Business A', updatedAt: 1 };
+let resolveProfileSave;
+let rejectProfileSave;
+const profileWrites = [];
+api.business = {
+  getBusinessSettings: 'getBusinessSettings',
+  updateBusinessProfile: 'updateBusinessProfile',
+  updateBusinessAddress: 'updateBusinessAddress',
+  saveBusinessOnboardingSnapshot: 'saveBusinessOnboardingSnapshot',
+};
+mock.module('convex/react', () => ({
+  useQuery: (_name, args) => (args === 'skip' ? undefined : profileSettings),
+  useMutation: (name) => async (args) => {
+    profileWrites.push({ name, args });
+    if (name === 'updateBusinessProfile')
+      return new Promise((resolve, reject) => {
+        resolveProfileSave = resolve;
+        rejectProfileSave = reject;
+      });
+    return { updatedAt: 20 };
+  },
+}));
+const { useBusinessSettingsProfile } = await import(
+  '../hooks/useBusinessSettingsProfile'
+);
+let profile;
+function ProfileHarness() {
+  profile = useBusinessSettingsProfile();
+  return null;
+}
+try {
+  scope = 'A';
+  await act(async () => {
+    tree = create(<ProfileHarness />);
+  });
+  assert.equal(profile.baseUpdatedAt, 1);
+  let pending;
+  await act(async () => {
+    pending = profile.saveProfileFields({ name: 'Edited A' });
+    await Promise.resolve();
+  });
+  assert.equal(profileWrites[0].args.businessId, 'A');
+  assert.equal(profileWrites[0].args.expectedUpdatedAt, 1);
+  scope = 'B';
+  profileSettings = { businessId: 'B', name: 'Business B', updatedAt: 10 };
+  await act(async () => tree.update(<ProfileHarness />));
+  assert.equal(profile.baseUpdatedAt, 10);
+  resolveProfileSave({ updatedAt: 2 });
+  let result;
+  await act(async () => {
+    result = await pending;
+  });
+  assert.equal(result.ok, false);
+  assert.equal(profile.baseUpdatedAt, 10);
+  assert.equal(
+    profile.snapshot.name,
+    'Business B',
+    'late save must not replace current business state'
+  );
+  console.log(
+    'PASS rendered profile hook: late save cannot contaminate switched business; mocked transport'
+  );
+} finally {
+  if (tree) await act(async () => tree.unmount());
+}
+
+// Render the business form with the real profile hook and a mocked backend.
+mock.module('lucide-react-native', () =>
+  Object.fromEntries(
+    [
+      'AlertTriangle',
+      'Building2',
+      'Check',
+      'MapPin',
+      'Plus',
+      'Save',
+      'Tags',
+      'X',
+    ].map((name) => [name, component])
+  )
+);
+mock.module('@/components/business/BusinessAddressSelector', () => ({
+  default: component,
+}));
+mock.module('@/components/business-web/BusinessLogoField', () => ({
+  BusinessLogoField: component,
+}));
+mock.module('@/components/ui/AppText', () => ({ AppText: host('text') }));
+mock.module('@/components/WebPushSettings', () => ({ default: component }));
+mock.module('@/components/web-scanner/ScannerCameraSettings', () => ({
+  ScannerCameraSettings: component,
+}));
+const { BusinessWebSettings } = await import(
+  '../components/business-web/BusinessWebSettings'
+);
+try {
+  scope = 'A';
+  profileSettings = { businessId: 'A', name: 'Business A', updatedAt: 1 };
+  await act(async () => {
+    tree = create(<BusinessWebSettings />);
+  });
+  const nameField = () =>
+    tree.root
+      .findAllByType('input')
+      .find((node) => node.props.accessibilityLabel === 'שם העסק');
+  assert.equal(nameField().props.value, 'Business A');
+  await act(async () => nameField().props.onChangeText('Edited Business A'));
+  const save = () =>
+    tree.root
+      .findAllByType('button')
+      .find((node) => node.props.accessibilityLabel === 'שמירת פרטי העסק');
+  let attempt;
+  await act(async () => {
+    attempt = save().props.onPress();
+    await Promise.resolve();
+  });
+  rejectProfileSave(new Error('simulated failure'));
+  await act(async () => {
+    await attempt;
+  });
+  assert.equal(
+    nameField().props.value,
+    'Edited Business A',
+    'failed save preserves draft'
+  );
+  scope = 'B';
+  profileSettings = { businessId: 'B', name: 'Business B', updatedAt: 10 };
+  await act(async () => tree.update(<BusinessWebSettings />));
+  assert(JSON.stringify(tree.toJSON()).includes('העסק הפעיל השתנה'));
+  scope = 'A';
+  profileSettings = { businessId: 'A', name: 'Business A', updatedAt: 1 };
+  await act(async () => tree.update(<BusinessWebSettings />));
+  assert.equal(
+    nameField().props.value,
+    'Edited Business A',
+    'returning to original business restores the draft'
+  );
+  scope = 'B';
+  profileSettings = { businessId: 'B', name: 'Business B', updatedAt: 10 };
+  await act(async () => tree.update(<BusinessWebSettings />));
+  const discard = tree.root
+    .findAllByType('button')
+    .find((node) => node.props.accessibilityLabel === 'ויתור על הטיוטה');
+  await act(async () => discard.props.onPress());
+  assert.equal(
+    nameField().props.value,
+    'Business B',
+    'explicit discard loads new business'
+  );
+  console.log(
+    'PASS rendered business settings: failed save and business switches preserve draft; mocked backend'
   );
 } finally {
   if (tree) await act(async () => tree.unmount());

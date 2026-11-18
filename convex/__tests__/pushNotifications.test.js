@@ -6,6 +6,7 @@ import {
   disablePushToken,
   expireQueuedPushClaim,
   finishQueuedPush,
+  recoverPendingPushOutbox,
   registerPushToken,
   sendPushNotificationToUser,
 } from '../pushNotifications';
@@ -46,8 +47,9 @@ function createMockCtx(initial = {}, authUserId = USER_ID) {
   const buildResult = (tableName, indexFilters = [], predicates = []) => {
     const filtered = rows(tableName).filter(
       (row) =>
-        indexFilters.every(([field, value]) => row[field] === value) &&
-        predicates.every((predicate) => predicate(row))
+        indexFilters.every(([field, value, op]) =>
+          op === 'lte' ? row[field] <= value : row[field] === value
+        ) && predicates.every((predicate) => predicate(row))
     );
 
     return {
@@ -66,6 +68,7 @@ function createMockCtx(initial = {}, authUserId = USER_ID) {
         );
       },
       collect: async () => filtered,
+      take: async (limit) => filtered.slice(0, limit),
       first: async () => filtered[0] ?? null,
     };
   };
@@ -102,6 +105,10 @@ function createMockCtx(initial = {}, authUserId = USER_ID) {
           const q = {
             eq(field, value) {
               indexFilters.push([field, value]);
+              return q;
+            },
+            lte(field, value) {
+              indexFilters.push([field, value, 'lte']);
               return q;
             },
           };
@@ -368,3 +375,45 @@ for (const mode of ['transport', 'malformed', 'short_tickets']) {
     }
   );
 }
+
+test('outbox recovery schedules pending browser work but never retries stale claimed work', async () => {
+  const now = Date.now();
+  const ctx = createMockCtx({
+    pushDeliveryOutbox: [
+      {
+        _id: 'web_pending',
+        status: 'sent',
+        toUserId: USER_ID,
+        webDeliveryStatus: 'pending',
+        createdAt: now,
+      },
+      {
+        _id: 'web_stale',
+        status: 'sent',
+        toUserId: USER_ID,
+        webDeliveryStatus: 'sending',
+        webClaimedAt: now - 16 * 60 * 1000,
+        createdAt: now,
+      },
+      {
+        _id: 'web_unknown',
+        status: 'sent',
+        toUserId: USER_ID,
+        webDeliveryStatus: 'unknown',
+        createdAt: now,
+      },
+    ],
+  });
+  const scheduled = [];
+  ctx.scheduler = {
+    runAfter: async (_delay, _ref, args) => scheduled.push(args),
+  };
+  const result = await recoverPendingPushOutbox._handler(ctx, {});
+  expect(result.webScheduled).toBe(1);
+  expect(result.webUnknown).toBe(1);
+  expect(scheduled).toEqual([{ userId: USER_ID, outboxId: 'web_pending' }]);
+  expect(
+    ctx.rows('pushDeliveryOutbox').find((row) => row._id === 'web_stale')
+      .webDeliveryStatus
+  ).toBe('unknown');
+});

@@ -1263,6 +1263,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
+    .index('by_updatedAt', ['updatedAt'])
     .index('by_code', ['code'])
     .index('by_referrer_business_origin_status', [
       'referrerUserId',
@@ -1328,6 +1329,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
+    .index('by_updatedAt', ['updatedAt'])
     .index('by_businessId_referredUserId', ['businessId', 'referredUserId'])
     .index('by_referredUserId', ['referredUserId'])
     .index('by_referrerUserId_businessId_createdAt', [
@@ -1374,6 +1376,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
+    .index('by_updatedAt', ['updatedAt'])
     .index('by_customerReferralId_recipientUserId', [
       'customerReferralId',
       'recipientUserId',
@@ -1416,6 +1419,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
+    .index('by_updatedAt', ['updatedAt'])
     .index('by_code', ['code'])
     .index('by_referrerBusinessId', ['referrerBusinessId'])
     .index('by_referrerBusinessId_status', ['referrerBusinessId', 'status'])
@@ -1448,6 +1452,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
+    .index('by_updatedAt', ['updatedAt'])
     .index('by_referredBusinessId', ['referredBusinessId'])
     .index('by_referrerBusinessId_status_createdAt', [
       'referrerBusinessId',
@@ -2490,10 +2495,23 @@ export default defineSchema({
     claimedAt: v.optional(v.number()),
     completedAt: v.optional(v.number()),
     outcome: v.optional(v.string()),
+    webDeliveryStatus: v.optional(
+      v.union(
+        v.literal('pending'),
+        v.literal('sending'),
+        v.literal('sent'),
+        v.literal('failed'),
+        v.literal('unknown'),
+        v.literal('skipped')
+      )
+    ),
+    webClaimedAt: v.optional(v.number()),
   })
     .index('by_deliveryKey', ['deliveryKey'])
     .index('by_status_createdAt', ['status', 'createdAt'])
     .index('by_status_claimedAt', ['status', 'claimedAt'])
+    .index('by_web_status_createdAt', ['webDeliveryStatus', 'createdAt'])
+    .index('by_web_status_claimedAt', ['webDeliveryStatus', 'webClaimedAt'])
     .index('by_toUserId', ['toUserId']),
 
   pushDeliveryLog: defineTable({
@@ -3006,4 +3024,19 @@ export default defineSchema({
     notes: v.optional(v.string()),
     createdAt: v.number(),
   }).index('by_businessId', ['businessId']),
+
+  discoveryH3Readiness: defineTable({
+    key: v.literal('business_discovery_h3_r5_v1'),
+    generation: v.number(),
+    status: v.union(
+      v.literal('checking'),
+      v.literal('failed'),
+      v.literal('ready')
+    ),
+    cursor: v.optional(v.string()),
+    scanned: v.number(),
+    mismatched: v.number(),
+    startedAt: v.number(),
+    verifiedAt: v.optional(v.number()),
+  }).index('by_key', ['key']),
 });

@@ -44,6 +44,7 @@ class FakeQuery {
     if (builder) {
       builder(q);
     }
+    this.indexName = _indexName;
     this.db.indexCalls.push({
       table: this.tableName,
       index: _indexName,
@@ -112,8 +113,10 @@ class FakeQuery {
 
   async paginate({ cursor, numItems }) {
     const all = this.desc
-      ? [...this.db.rows(this.tableName)].sort(
-          (a, b) => b.createdAt - a.createdAt
+      ? [...this.db.rows(this.tableName)].sort((a, b) =>
+          this.indexName === 'by_updatedAt'
+            ? b.updatedAt - a.updatedAt
+            : b.createdAt - a.createdAt
         )
       : this.db.rows(this.tableName);
     const start = cursor ? all.findIndex((row) => row._id === cursor) + 1 : 0;
@@ -1276,5 +1279,49 @@ test('legacy admin audit API preserves complete top-N results with bounded index
         index: item.index,
       })
     );
+  }
+});
+
+test('paged admin searches return matching records newest first across pages', async () => {
+  const tables = baseTables();
+  tables.users = tables.users.map((u) =>
+    u._id === 'u_owner' ? { ...u, isAdmin: true } : u
+  );
+  const pairs = [
+    ['customerReferralLink', 'customerReferralLinks'],
+    ['businessReferralLink', 'businessReferralLinks'],
+    ['customerReferral', 'customerReferrals'],
+    ['referralReward', 'referralRewards'],
+    ['businessReferral', 'businessReferrals'],
+  ];
+  for (const [type, table] of pairs) {
+    tables[table] = [1, 7, 3, 9, 5].map((n) => ({
+      _id: 'match_' + n,
+      code: 'match',
+      businessId: 'biz',
+      referrerBusinessId: 'biz',
+      updatedAt: n,
+      createdAt: 10 - n,
+    }));
+    const ctx = buildCtx(tables);
+    let cursor = null,
+      done = false,
+      rows = [];
+    while (!done) {
+      const result = await adminSearchReferralRecordsPage._handler(ctx, {
+        query: 'match',
+        type,
+        paginationOpts: { cursor, numItems: 2 },
+      });
+      rows.push(...result.page);
+      cursor = result.continueCursor;
+      done = result.isDone;
+    }
+    expect(rows.map((r) => r.updatedAt)).toEqual([9, 7, 5, 3, 1]);
+    expect(
+      ctx.db.indexCalls.some(
+        (call) => call.table === table && call.index === 'by_updatedAt'
+      )
+    ).toBe(true);
   }
 });

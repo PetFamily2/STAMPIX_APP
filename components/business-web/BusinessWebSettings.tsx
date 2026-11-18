@@ -104,6 +104,8 @@ export function BusinessWebSettings() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const { activeBusiness, activeBusinessId } = useActiveBusiness();
+  const activeBusinessIdRef = useRef(activeBusinessId);
+  activeBusinessIdRef.current = activeBusinessId;
   const profile = useBusinessSettingsProfile();
   const hydratedBusinessRef = useRef<string | null>(null);
   const [draft, setDraft] = useState<BusinessSettingsSnapshot | null>(null);
@@ -131,7 +133,30 @@ export function BusinessWebSettings() {
   const isCurrentSettings =
     settings?.businessId === activeBusinessId && activeBusinessId != null;
 
+  const dirtyDocumentFields = useMemo(
+    () =>
+      draft && baseline ? dirtyProfileDocumentFields(draft, baseline) : [],
+    [baseline, draft]
+  );
+  const addressDirty = useMemo(
+    () =>
+      isProfileAddressDirty(loadedAddress, selectedAddress, addressDraftText),
+    [addressDraftText, loadedAddress, selectedAddress]
+  );
+  const isDirty = dirtyDocumentFields.length > 0 || addressDirty;
+  const hasUnsavedInput = isDirty || tagDraft.trim().length > 0;
+  const businessChanged =
+    hydratedBusinessRef.current !== null &&
+    hydratedBusinessRef.current !== String(activeBusinessId ?? '') &&
+    hasUnsavedInput;
+
   useEffect(() => {
+    if (
+      hydratedBusinessRef.current !== null &&
+      hydratedBusinessRef.current !== String(activeBusinessId ?? '') &&
+      (isDirty || tagDraft.trim().length > 0)
+    )
+      return;
     if (!activeBusinessId) {
       hydratedBusinessRef.current = null;
       setDraft(null);
@@ -167,19 +192,7 @@ export function BusinessWebSettings() {
     setAddressError(null);
     setFormError('');
     setSaveNotice('');
-  }, [activeBusinessId, settings]);
-
-  const dirtyDocumentFields = useMemo(
-    () =>
-      draft && baseline ? dirtyProfileDocumentFields(draft, baseline) : [],
-    [baseline, draft]
-  );
-  const addressDirty = useMemo(
-    () =>
-      isProfileAddressDirty(loadedAddress, selectedAddress, addressDraftText),
-    [addressDraftText, loadedAddress, selectedAddress]
-  );
-  const isDirty = dirtyDocumentFields.length > 0 || addressDirty;
+  }, [activeBusinessId, settings, isDirty, tagDraft]);
 
   const revertDraft = useCallback(() => {
     if (!baseline) {
@@ -197,7 +210,7 @@ export function BusinessWebSettings() {
     setSaveNotice('');
   }, [baseline, loadedAddress]);
 
-  useBusinessWebUnsavedChanges(isDirty, revertDraft);
+  useBusinessWebUnsavedChanges(hasUnsavedInput, revertDraft);
 
   const updateDraft = (
     updater: (current: BusinessSettingsSnapshot) => BusinessSettingsSnapshot
@@ -269,10 +282,13 @@ export function BusinessWebSettings() {
     if (
       !draft ||
       !baseline ||
+      !isCurrentSettings ||
+      hydratedBusinessRef.current !== String(activeBusinessId ?? '') ||
       !profile.canEditBusiness ||
       profile.isSaving ||
       isSavingForm ||
       profile.conflictLocked ||
+      profile.baseUpdatedAt === null ||
       !isDirty
     ) {
       return;
@@ -295,6 +311,7 @@ export function BusinessWebSettings() {
       return;
     }
 
+    const savingBusinessId = activeBusinessId;
     setIsSavingForm(true);
     setFormError('');
     setSaveNotice('');
@@ -320,6 +337,12 @@ export function BusinessWebSettings() {
         setBaseline(nextBaseline);
       }
 
+      if (activeBusinessIdRef.current !== savingBusinessId) {
+        setFormError(
+          'העסק הפעיל השתנה בזמן השמירה. חזרו לעסק המקורי כדי לבדוק את הטיוטה.'
+        );
+        return;
+      }
       if (addressDirty && selectedAddress) {
         const result = await profile.saveBusinessAddress(selectedAddress);
         if (result.conflict) {
@@ -352,6 +375,24 @@ export function BusinessWebSettings() {
     }
   };
 
+  if (businessChanged) {
+    return (
+      <View accessibilityRole="alert" style={styles.pageState}>
+        <Text style={styles.pageStateDescription}>
+          העסק הפעיל השתנה. הטיוטה נשמרה; חזרו לעסק המקורי או ותרו עליה כדי
+          לעבור לעסק החדש.
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="ויתור על הטיוטה"
+          onPress={revertDraft}
+          style={styles.secondaryButton}
+        >
+          <Text>ויתור על הטיוטה</Text>
+        </Pressable>
+      </View>
+    );
+  }
   if (!activeBusinessId || !activeBusiness) {
     return (
       <PageState
@@ -441,16 +482,21 @@ export function BusinessWebSettings() {
             title="פרטי העסק"
           >
             <BusinessLogoField
+              key={activeBusinessId}
               businessId={activeBusinessId}
               businessName={draft.name || activeBusiness.name}
-              canEdit={editable && !isSaving}
+              canEdit={editable && !isSaving && profile.baseUpdatedAt !== null}
               expectedUpdatedAt={profile.baseUpdatedAt}
               logoUrl={
                 profile.businessSettings?.businessId === activeBusinessId
                   ? (profile.businessSettings.logoUrl ?? null)
                   : (activeBusiness.logoUrl ?? null)
               }
-              onRevision={profile.noteProfileRevision}
+              onRevision={(updatedAt) => {
+                if (activeBusinessIdRef.current === activeBusinessId) {
+                  profile.noteProfileRevision(updatedAt);
+                }
+              }}
             />
             <FormField label="שם העסק">
               <TextInput
@@ -687,9 +733,18 @@ export function BusinessWebSettings() {
             accessibilityRole="button"
             accessibilityState={{
               busy: isSaving,
-              disabled: !isDirty || isSaving || profile.conflictLocked,
+              disabled:
+                !isDirty ||
+                isSaving ||
+                profile.conflictLocked ||
+                profile.baseUpdatedAt === null,
             }}
-            disabled={!isDirty || isSaving || profile.conflictLocked}
+            disabled={
+              !isDirty ||
+              isSaving ||
+              profile.conflictLocked ||
+              profile.baseUpdatedAt === null
+            }
             onPress={() => void handleSave()}
             style={({ pressed }) => [
               styles.primaryButton,

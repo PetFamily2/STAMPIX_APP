@@ -229,7 +229,7 @@ export async function sendPushNotificationToUser(
   await ctx.scheduler.runAfter(0, deliverQueuedPushRef, {
     outboxId,
   });
-  await scheduleWebPush(ctx, args.toUserId);
+  await scheduleWebPush(ctx, args.toUserId, outboxId);
   return { queued: true };
 }
 
@@ -449,7 +449,35 @@ export const recoverPendingPushOutbox = internalMutation({
         updatedAt: Date.now(),
       });
     }
-    return { scheduled: pending.length, unknown: stale.length };
+    const webPending = await ctx.db
+      .query('pushDeliveryOutbox')
+      .withIndex('by_web_status_createdAt', (q) =>
+        q.eq('webDeliveryStatus', 'pending')
+      )
+      .take(PUSH_OUTBOX_RECOVERY_PAGE_SIZE);
+    for (const job of webPending) {
+      await ctx.scheduler.runAfter(
+        0,
+        makeFunctionReference<'action'>('webPushDelivery:send'),
+        { userId: job.toUserId, outboxId: job._id }
+      );
+    }
+    const webStale = await ctx.db
+      .query('pushDeliveryOutbox')
+      .withIndex('by_web_status_claimedAt', (q) =>
+        q
+          .eq('webDeliveryStatus', 'sending')
+          .lte('webClaimedAt', Date.now() - PUSH_CLAIM_TIMEOUT_MS)
+      )
+      .take(PUSH_OUTBOX_RECOVERY_PAGE_SIZE);
+    for (const job of webStale)
+      await ctx.db.patch(job._id, { webDeliveryStatus: 'unknown' });
+    return {
+      scheduled: pending.length,
+      unknown: stale.length,
+      webScheduled: webPending.length,
+      webUnknown: webStale.length,
+    };
   },
 });
 

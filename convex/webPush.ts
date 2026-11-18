@@ -3,6 +3,7 @@ import { bytesToHex } from '@noble/hashes/utils.js';
 import { makeFunctionReference } from 'convex/server';
 import { v } from 'convex/values';
 import { productionWebEnabled } from '../lib/pwa/releaseGate';
+import type { Id } from './_generated/dataModel';
 import {
   internalMutation,
   internalQuery,
@@ -156,11 +157,76 @@ export const retire = internalMutation({
     return null;
   },
 });
-export async function scheduleWebPush(ctx: any, userId: string) {
+const WEB_PUSH_CLAIM_TIMEOUT_MS = 15 * 60 * 1000;
+const expireWebClaimRef = makeFunctionReference<'mutation'>(
+  'webPush:expireWebClaim'
+);
+export const claimWebDelivery = internalMutation({
+  args: { outboxId: v.id('pushDeliveryOutbox'), userId: v.id('users') },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const job = await ctx.db.get(args.outboxId);
+    if (
+      !job ||
+      job.toUserId !== args.userId ||
+      job.webDeliveryStatus !== 'pending'
+    )
+      return false;
+    const now = Date.now();
+    await ctx.db.patch(args.outboxId, {
+      webDeliveryStatus: 'sending',
+      webClaimedAt: now,
+    });
+    await ctx.scheduler.runAfter(WEB_PUSH_CLAIM_TIMEOUT_MS, expireWebClaimRef, {
+      outboxId: args.outboxId,
+    });
+    return true;
+  },
+});
+export const finishWebDelivery = internalMutation({
+  args: {
+    outboxId: v.id('pushDeliveryOutbox'),
+    status: v.union(
+      v.literal('sent'),
+      v.literal('failed'),
+      v.literal('unknown'),
+      v.literal('skipped')
+    ),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const job = await ctx.db.get(args.outboxId);
+    if (!job || job.webDeliveryStatus !== 'sending') return false;
+    await ctx.db.patch(args.outboxId, { webDeliveryStatus: args.status });
+    return true;
+  },
+});
+export const expireWebClaim = internalMutation({
+  args: { outboxId: v.id('pushDeliveryOutbox') },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const job = await ctx.db.get(args.outboxId);
+    if (
+      !job ||
+      job.webDeliveryStatus !== 'sending' ||
+      typeof job.webClaimedAt !== 'number' ||
+      job.webClaimedAt > Date.now() - WEB_PUSH_CLAIM_TIMEOUT_MS
+    )
+      return false;
+    await ctx.db.patch(args.outboxId, { webDeliveryStatus: 'unknown' });
+    return true;
+  },
+});
+export async function scheduleWebPush(
+  ctx: any,
+  userId: Id<'users'>,
+  outboxId: Id<'pushDeliveryOutbox'>
+) {
   if (!enabled()) return;
+  await ctx.db.patch(outboxId, { webDeliveryStatus: 'pending' });
   await ctx.scheduler.runAfter(
     0,
     makeFunctionReference<'action'>('webPushDelivery:send'),
-    { userId }
+    { userId, outboxId }
   );
 }

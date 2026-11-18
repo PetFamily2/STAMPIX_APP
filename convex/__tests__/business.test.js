@@ -1366,6 +1366,56 @@ describe('business profile settings and discovery filters', () => {
     expect(result.map((row) => row.businessId)).toEqual(['legacy', 'indexed']);
   });
 
+  test.each([
+    'checking',
+    'failed',
+    'ready',
+  ])('legacy fallback remains active even after a verification scan: %s', async (status) => {
+    const loc = { lat: 0, lng: 0.001 };
+    const { ctx, state } = createMockCtx({
+      users: [buildUser()],
+      businesses: [
+        buildBusiness({
+          _id: 'indexed',
+          location: loc,
+          discoveryH3R5: getDiscoveryH3Cell(loc),
+        }),
+      ],
+      businessStaff: [],
+    });
+    state.discoveryH3Readiness = new Map([
+      ['gate', { _id: 'gate', key: 'business_discovery_h3_r5_v1', status }],
+    ]);
+    const query = ctx.db.query;
+    let missingIndexReads = 0;
+    ctx.db.query = (table) => {
+      const result = query(table);
+      if (table !== 'businesses') return result;
+      const original = result.withIndex;
+      result.withIndex = (index, builder) => {
+        if (index === 'by_isActive_discoveryH3R5') {
+          const recorder = {
+            eq(field, value) {
+              if (field === 'discoveryH3R5' && value === undefined)
+                missingIndexReads++;
+              return recorder;
+            },
+          };
+          builder(recorder);
+        }
+        return original(index, builder);
+      };
+      return result;
+    };
+    const result = await getBusinessesNearby._handler(ctx, {
+      userLat: 0,
+      userLng: 0,
+      radiusKm: 10,
+    });
+    expect(result.map((row) => row.businessId)).toEqual(['indexed']);
+    expect(missingIndexReads).toBe(1);
+  });
+
   test('getBusinessesNearby sorts by service type when requested', async () => {
     const { ctx } = createMockCtx({
       users: [buildUser()],
