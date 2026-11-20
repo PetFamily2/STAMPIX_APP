@@ -414,7 +414,10 @@ describe('campaign push delivery', () => {
         campaignId: CAMPAIGN_ID,
       })
     ).rejects.toThrow('SMART_MANAGER_APPROVED_CAMPAIGN_IMMUTABLE');
-    const sweep = await runAutomationSweepInternal._handler(ctx, {});
+    const sweep = await runAutomationSweepInternal._handler(ctx, {
+      phase: 'one_time',
+      referenceNow: now,
+    });
 
     expect(sweep.processedCampaigns).toBe(0);
     expect(ctx.db.rows('messageLog')).toHaveLength(0);
@@ -449,7 +452,10 @@ describe('campaign push delivery', () => {
       })
     ).rejects.toThrow('BUSINESS_CLOSED');
 
-    const sweep = await runAutomationSweepInternal._handler(ctx, {});
+    const sweep = await runAutomationSweepInternal._handler(ctx, {
+      phase: 'one_time',
+      referenceNow: now,
+    });
     expect(sweep.processedCampaigns).toBe(0);
     expect(ctx.db.rows('messageLog')).toHaveLength(0);
     expect(fetchCalls).toBe(0);
@@ -468,7 +474,10 @@ describe('campaign push delivery', () => {
     };
     const ctx = buildCtx(tables);
 
-    const sweep = await runAutomationSweepInternal._handler(ctx, {});
+    const sweep = await runAutomationSweepInternal._handler(ctx, {
+      phase: 'one_time',
+      referenceNow: now,
+    });
 
     expect(sweep.processedCampaigns).toBe(0);
     expect(ctx.db.rows('messageLog')).toHaveLength(0);
@@ -488,7 +497,10 @@ describe('campaign push delivery', () => {
     };
     const ctx = buildCtx(tables);
 
-    const sweep = await runAutomationSweepInternal._handler(ctx, {});
+    const sweep = await runAutomationSweepInternal._handler(ctx, {
+      phase: 'one_time',
+      referenceNow: now,
+    });
 
     expect(sweep.oneTimeProcessedCampaigns).toBe(1);
     expect(ctx.db.rows('smartManagerEvaluationStates')).toHaveLength(1);
@@ -925,6 +937,26 @@ test('large scheduled campaign processes 10,001 memberships with bounded pages a
       nextAttemptAt: now - 1,
     },
   });
+  // Simulate a worker abort before page writes. The last committed checkpoint
+  // must still be eligible for the same recovery path as a dropped worker.
+  const workingQuery = ctx.db.query;
+  ctx.db.query = (table) => {
+    const q = workingQuery(table);
+    if (table === 'memberships')
+      q.paginate = async () => {
+        throw Error('SIMULATED_PAGE_ABORT');
+      };
+    return q;
+  };
+  try {
+    await expect(
+      processManagementDeliveryBatch._handler(ctx, pages()[1].args)
+    ).rejects.toThrow('SIMULATED_PAGE_ABORT');
+    expect(ctx.db.rows('campaigns')[0].managementDelivery.page).toBe(1);
+    expect(ctx.db.rows('messageLog')).toHaveLength(1);
+  } finally {
+    ctx.db.query = workingQuery;
+  }
   const lost = ctx.scheduled.findIndex(({ args }) => args.page === 1);
   ctx.scheduled.splice(lost, 1);
   expect(await recoverManagementDeliveries._handler(ctx, {})).toBe(1);
