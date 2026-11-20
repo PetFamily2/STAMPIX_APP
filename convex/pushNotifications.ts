@@ -238,6 +238,19 @@ export const claimQueuedPush = internalMutation({
   handler: async (ctx, { outboxId }) => {
     const job = await ctx.db.get(outboxId);
     if (!job || job.status !== 'pending') return null;
+    if (job.campaignId) {
+      const user = await ctx.db.get(job.toUserId);
+      if (!user?.isActive || user.marketingOptIn !== true) {
+        const now = Date.now();
+        await ctx.db.patch(outboxId, {
+          status: 'skipped',
+          outcome: 'marketing_consent_unavailable',
+          completedAt: now,
+          updatedAt: now,
+        });
+        return null;
+      }
+    }
     const tokens = await ctx.db
       .query('pushTokens')
       .withIndex('by_userId', (q) => q.eq('userId', job.toUserId))
@@ -336,7 +349,11 @@ export const finishQueuedPush = internalMutation({
       });
       if (entry.errorMessage === 'DeviceNotRegistered') {
         const token = await ctx.db.get(entry.pushTokenId);
-        if (token?.token === entry.token && token.isActive === true) {
+        if (
+          token?.token === entry.token &&
+          token.isActive === true &&
+          token.userId === job.toUserId
+        ) {
           await ctx.db.patch(token._id, {
             isActive: false,
             updatedAt: now,

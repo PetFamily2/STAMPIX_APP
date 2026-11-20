@@ -181,6 +181,13 @@ export const claimWebDelivery = internalMutation({
       job.webDeliveryStatus !== 'pending'
     )
       return false;
+    if (job.campaignId) {
+      const user = await ctx.db.get(job.toUserId);
+      if (!user?.isActive || user.marketingOptIn !== true) {
+        await ctx.db.patch(args.outboxId, { webDeliveryStatus: 'skipped' });
+        return false;
+      }
+    }
     const now = Date.now();
     await ctx.db.patch(args.outboxId, {
       webDeliveryStatus: 'sending',

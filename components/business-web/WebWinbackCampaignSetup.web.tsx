@@ -20,7 +20,9 @@ export function WebWinbackCampaignSetup({
     (!requestedBusinessId || requestedBusinessId === String(activeBusinessId));
   const campaigns = useQuery(
     api.campaigns.listManagementCampaignsByBusiness,
-    scopeMatches && activeBusinessId ? { businessId: activeBusinessId } : 'skip'
+    scopeMatches && activeBusinessId
+      ? { businessId: activeBusinessId, deferLargeStats: true }
+      : 'skip'
   );
   const [days, setDays] = useState('30');
   const [mode, setMode] = useState<'invite' | 'offer'>('invite');

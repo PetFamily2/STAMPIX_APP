@@ -338,3 +338,23 @@ test('temporarily unavailable browser push configuration does not claim or lose 
   expect(result).toEqual({ sent: 0, failed: 0 });
   expect(claimed).toBe(false);
 });
+
+test('deferred browser marketing delivery skips withdrawn consent before requesting the provider', async () => {
+  const userId = 'staff_1';
+  const tables = baseTables({
+    pushDeliveryOutbox: [
+      {
+        _id: 'outbox_consent',
+        toUserId: userId,
+        campaignId: 'campaign_1',
+        webDeliveryStatus: 'pending',
+      },
+    ],
+  });
+  const ctx = context(tables);
+  await ctx.db.patch(userId, { marketingOptIn: false });
+  expect(
+    await claimWebDelivery._handler(ctx, { outboxId: 'outbox_consent', userId })
+  ).toBeFalse();
+  expect(tables.pushDeliveryOutbox[0].webDeliveryStatus).toBe('skipped');
+});

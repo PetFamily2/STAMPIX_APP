@@ -87,3 +87,11 @@ Account name/phone follow-up: updated business-account forms capture the name/ph
 - A07: the audit ledger remains authoritative. The 46 open findings were not reclassified as closed.
 - A08: Production SUMIT remains fail-closed. Test and Production provider evidence for the six products, renewal and refund still needs verification.
 - A09: isolated React renderer and mock Convex results are code checks. The branch CI provides regression and three JavaScript exports for the published revision, independently of acceptance on devices or Convex.
+
+## Campaign delivery follow-up
+
+Large management campaigns use a cursor checkpoint on the campaign document. Recipient pages are ordered by user ID, so qualifying members with multiple cards count once across page boundaries. The worker checks business state, campaign revision, quota and consent in each transaction. A committed page advances its cursor and schedules the next page atomically. A minute-based recovery sweep requeues due checkpoints. Manual callers that opt in may receive a queued response. Legacy clients retain synchronous delivery for small audiences and receive an explicit update-required error for large ones.
+
+Local regression covered 10,001 memberships, cross-page duplicate memberships, overlapping sweeps, replay of an already committed page, a lost continuation, a withdrawn consent, and repeated recurring delivery. The current editor loads audience and history in pages. The current list defers large metrics to the editor. Legacy readers retain their previous contract and therefore still have unbounded reads. The paged estimate is a live estimate across separate queries, and rechecks campaign revision on every page. It does not provide a point-in-time snapshot of all memberships.
+
+A02 still requires isolated Convex limit and scheduler validation, and a legacy reader cutover with verified compatibility. Deploy the additive backend before any client that calls the new actions or sends optional arguments. The tests use a local mock, no hosted data or external Push. A03 now rechecks consent before either native or browser deferred marketing delivery and rejects an obsolete token result if the token moved to another account.

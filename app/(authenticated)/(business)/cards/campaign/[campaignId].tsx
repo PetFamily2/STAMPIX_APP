@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, usePreventRemove } from '@react-navigation/native';
-import { useMutation, useQuery } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -395,15 +395,64 @@ export default function CampaignDraftEditorScreen() {
   const campaignDraft = useQuery(
     api.campaigns.getManagementCampaignDraft,
     selectedBusinessId && campaignId
-      ? { businessId: selectedBusinessId, campaignId }
+      ? { businessId: selectedBusinessId, campaignId, deferStats: true }
       : 'skip'
   );
 
   const createCampaignDraft = useMutation(api.campaigns.createCampaignDraft);
   const updateCampaignDraft = useMutation(api.campaigns.updateCampaignDraft);
-  const estimateCampaignAudience = useMutation(
-    api.campaigns.estimateCampaignAudience
+  const estimateCampaignAudience = useAction(
+    api.campaigns.estimateCampaignAudiencePaged
   );
+  const loadHistory = useAction(
+    api.campaigns.getManagementCampaignHistoryPaged
+  );
+  const [pagedStats, setPagedStats] = useState<{
+    key: string;
+    eligibleAudienceNow: number;
+    reachedUniqueAllTime: number;
+    reachedMessagesAllTime: number;
+    lastSentAt: number | null;
+    missingBirthdayCount: number;
+  } | null>(null);
+  const statsRevision = campaignDraft?.updatedAt;
+  const statsKey = JSON.stringify([
+    selectedBusinessId,
+    campaignId,
+    statsRevision,
+  ]);
+  useEffect(() => {
+    if (!selectedBusinessId || !campaignId || statsRevision === undefined)
+      return;
+    let current = true;
+    const args = { businessId: selectedBusinessId, campaignId };
+    void Promise.all([
+      estimateCampaignAudience(args),
+      loadHistory({ ...args, revision: statsRevision }),
+    ])
+      .then(([audience, history]) => {
+        if (current)
+          setPagedStats({
+            key: statsKey,
+            ...history,
+            eligibleAudienceNow: audience.total,
+            missingBirthdayCount: audience.missingBirthdayCount,
+          });
+      })
+      .catch(() => {
+        if (current) setPagedStats(null);
+      });
+    return () => {
+      current = false;
+    };
+  }, [
+    campaignId,
+    estimateCampaignAudience,
+    loadHistory,
+    selectedBusinessId,
+    statsKey,
+    statsRevision,
+  ]);
   const sendCampaignNow = useMutation(api.campaigns.sendCampaignNow);
   const setCampaignAutomationEnabled = useMutation(
     api.campaigns.setCampaignAutomationEnabled
@@ -1042,10 +1091,12 @@ export default function CampaignDraftEditorScreen() {
   const canEditContent = canEditCampaigns;
   const canEditRules = canEditContent && !isRulesLocked;
 
-  const stats = campaignDraft.stats ?? {
-    eligibleAudienceNow: 0,
-    reachedUniqueAllTime: 0,
-    reachedMessagesAllTime: 0,
+  const stats = (pagedStats?.key === statsKey
+    ? pagedStats
+    : campaignDraft.stats) ?? {
+    eligibleAudienceNow: null,
+    reachedUniqueAllTime: null,
+    reachedMessagesAllTime: null,
     lastSentAt: null,
     missingBirthdayCount: null,
   };
@@ -1352,11 +1403,20 @@ export default function CampaignDraftEditorScreen() {
         businessId: selectedBusinessId,
         campaignId,
         expectedUpdatedAt: currentUpdatedAt,
+        acceptQueued: true,
       });
       if (typeof result?.updatedAt === 'number') {
         setBaseUpdatedAt(result.updatedAt);
       }
 
+      if (result.queued) {
+        Alert.alert(
+          'השליחה בתור',
+          'ההודעות יישלחו במנות. אפשר לחזור לרשימת הקמפיינים.',
+          [{ text: 'אישור', onPress: goBackToCampaignList }]
+        );
+        return;
+      }
       Alert.alert(
         'נשלח',
         `נשלחו ${result.sentCount} הודעות. דולגו ${result.skippedCount}.`,
@@ -1865,7 +1925,7 @@ export default function CampaignDraftEditorScreen() {
                 <Text
                   className={`text-xs font-semibold text-[#475569] ${tw.textStart}`}
                 >
-                  קהל זכאי עכשיו: {stats.eligibleAudienceNow}
+                  קהל זכאי עכשיו: {stats.eligibleAudienceNow ?? '—'}
                 </Text>
               </View>
             </EditorSection>
@@ -2133,13 +2193,13 @@ export default function CampaignDraftEditorScreen() {
                 </Text>
                 <View className="gap-2 rounded-2xl border border-[#E5EAF2] bg-[#F8FAFF] p-3">
                   <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
-                    קהל זכאי עכשיו: {stats.eligibleAudienceNow}
+                    קהל זכאי עכשיו: {stats.eligibleAudienceNow ?? '—'}
                   </Text>
                   <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
-                    הגיע לייחודיים: {stats.reachedUniqueAllTime}
+                    הגיע לייחודיים: {stats.reachedUniqueAllTime ?? '—'}
                   </Text>
                   <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
-                    סה"כ הודעות: {stats.reachedMessagesAllTime}
+                    סה"כ הודעות: {stats.reachedMessagesAllTime ?? '—'}
                   </Text>
                   <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
                     נשלח לאחרונה:{' '}

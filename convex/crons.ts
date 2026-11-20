@@ -20,6 +20,12 @@ const dataRetentionRef = (name: string) =>
     `dataRetention:${name}`
   );
 
+crons.interval(
+  'recover batched campaign deliveries',
+  { minutes: 1 },
+  internal.campaigns.recoverManagementDeliveries
+);
+
 crons.hourly(
   'campaign automation sweep hourly',
   { minuteUTC: 0 },

@@ -1,6 +1,15 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 
-import { runAutomationSweepInternal, sendCampaignNow } from '../campaigns';
+import {
+  estimateCampaignAudiencePaged,
+  estimateManagementAudienceBatch,
+  getManagementCampaignHistoryPaged,
+  managementHistoryBatch,
+  processManagementDeliveryBatch,
+  recoverManagementDeliveries,
+  runAutomationSweepInternal,
+  sendCampaignNow,
+} from '../campaigns';
 import {
   processReferralAfterJoin,
   qualifyCustomerReferralAfterStamp,
@@ -27,7 +36,8 @@ class FakeQuery {
     this.predicates = [];
   }
 
-  withIndex(_indexName, builder) {
+  withIndex(indexName, builder) {
+    this.indexName = indexName;
     const conditions = [];
     const q = {
       eq: (field, value) => {
@@ -38,6 +48,10 @@ class FakeQuery {
         conditions.push({ field, value, op: 'gte' });
         return q;
       },
+      lte: (field, value) => {
+        conditions.push({ field, value, op: 'lte' });
+        return q;
+      },
       lt: (field, value) => {
         conditions.push({ field, value, op: 'lt' });
         return q;
@@ -45,13 +59,13 @@ class FakeQuery {
     };
     builder(q);
     this.predicates.push((doc) =>
-      conditions.every((condition) =>
-        condition.op === 'gte'
-          ? doc[condition.field] >= condition.value
-          : condition.op === 'lt'
-            ? doc[condition.field] < condition.value
-            : doc[condition.field] === condition.value
-      )
+      conditions.every(({ field, value, op }) => {
+        const actual = field.split('.').reduce((obj, key) => obj?.[key], doc);
+        if (op === 'gte') return actual >= value;
+        if (op === 'lte') return actual <= value;
+        if (op === 'lt') return actual < value;
+        return actual === value;
+      })
     );
     return this;
   }
@@ -105,7 +119,12 @@ class FakeQuery {
   }
 
   async paginate({ cursor, numItems }) {
-    const all = this.db.rows(this.tableName);
+    const all =
+      this.indexName?.endsWith('_userId') && this.tableName === 'memberships'
+        ? [...this.db.rows(this.tableName)].sort((a, b) =>
+            a.userId.localeCompare(b.userId)
+          )
+        : this.db.rows(this.tableName);
     const start = cursor ? all.findIndex((row) => row._id === cursor) + 1 : 0;
     let i = start;
     const page = [];
@@ -858,43 +877,200 @@ test('overlapping one-time sweeps recover a dropped continuation and never dupli
   }
 });
 
-test('a simulated read limit on a single large audience leaves campaign active and emits no partial inbox delivery', async () => {
-  // This is a fake transaction-limit guard, not a Convex server benchmark.
-  // It records the still-open failure path for one campaign with many members.
+test('large scheduled campaign processes 10,001 memberships with bounded pages and recovers without replay', async () => {
   const now = Date.now(),
     tables = baseTables({ campaignChannels: ['in_app'] });
-  const campaign = tables.campaigns[0];
-  Object.assign(campaign, {
+  Object.assign(tables.campaigns[0], {
     status: 'active',
     activationStatus: 'active',
     automationEnabled: false,
-    schedule: { mode: 'one_time', sendAt: now - 1000, nextRunAt: now - 1000 },
+    schedule: { mode: 'one_time', sendAt: now - 1000 },
   });
-  const membership = tables.memberships[0];
-  tables.memberships = Array.from({ length: 10001 }, (_, i) => ({
-    ...membership,
-    _id: 'large_membership_' + i,
-  }));
+  const original = tables.memberships[0];
+  tables.memberships = Array.from({ length: 10001 }, (_, i) => {
+    // The first user spans several pages. The remaining users are distinct.
+    const id = i < 125 ? 'large_00000' : 'large_' + String(i).padStart(5, '0');
+    return { ...original, _id: 'membership_' + i, userId: id };
+  });
+  for (const id of new Set(tables.memberships.map((m) => m.userId))) {
+    tables.users.push({
+      _id: id,
+      isActive: true,
+      marketingOptIn: id !== 'large_00125',
+    });
+  }
   const ctx = buildCtx(tables),
     query = ctx.db.query.bind(ctx.db);
   ctx.db.query = (table) => {
     const q = query(table);
     if (table === 'memberships')
       q.collect = async () => {
-        const rows = q.docs();
-        if (rows.length > 10000)
-          throw new Error('SIMULATED_TRANSACTION_READ_LIMIT');
-        return rows;
+        throw Error('UNBOUNDED_AUDIENCE');
       };
     return q;
   };
-  await expect(
-    runAutomationSweepInternal._handler(ctx, {
-      phase: 'one_time',
-      referenceNow: now,
-    })
-  ).rejects.toThrow('SIMULATED_TRANSACTION_READ_LIMIT');
+  const args = { phase: 'one_time', referenceNow: now };
+  await runAutomationSweepInternal._handler(ctx, args);
+  await runAutomationSweepInternal._handler(ctx, args);
+  const pages = () => ctx.scheduled.filter(({ args }) => 'page' in args);
+  expect(pages()).toHaveLength(1);
+  const initial = pages()[0].args;
+  await processManagementDeliveryBatch._handler(ctx, initial);
+  await processManagementDeliveryBatch._handler(ctx, initial);
+  expect(ctx.db.rows('messageLog')).toHaveLength(1);
+  const campaign = ctx.db.rows('campaigns')[0];
+  await ctx.db.patch(campaign._id, {
+    managementDelivery: {
+      ...campaign.managementDelivery,
+      nextAttemptAt: now - 1,
+    },
+  });
+  const lost = ctx.scheduled.findIndex(({ args }) => args.page === 1);
+  ctx.scheduled.splice(lost, 1);
+  expect(await recoverManagementDeliveries._handler(ctx, {})).toBe(1);
+  let index = 1;
+  while (index < pages().length) {
+    if (index > 201) throw Error('NON_TERMINATING_DELIVERY');
+    await processManagementDeliveryBatch._handler(ctx, pages()[index++].args);
+  }
+  const expected = 10001 - 124 - 1;
+  expect(ctx.db.rows('messageLog')).toHaveLength(expected);
+  expect(
+    new Set(ctx.db.rows('messageLog').map((entry) => entry.toUserId)).size
+  ).toBe(expected);
+  expect(ctx.db.rows('campaignRuns')).toMatchObject([
+    { targetedCount: expected, deliveredCount: expected },
+  ]);
+  expect(ctx.db.rows('campaigns')[0].activationStatus).toBe('completed');
+  expect(ctx.db.rows('campaigns')[0].managementDelivery).toBeUndefined();
+}, 30000);
+
+async function drainCampaignPages(ctx) {
+  let processed = 0;
+  for (const task of ctx.scheduled) {
+    if (!Number.isInteger(task.args.page)) continue;
+    if (++processed > 25) throw Error('NON_TERMINATING_TEST');
+    await processManagementDeliveryBatch._handler(ctx, task.args);
+  }
+}
+
+function mediumAudience() {
+  const tables = baseTables({ campaignChannels: ['in_app'] });
+  const membership = tables.memberships[0];
+  tables.memberships = Array.from({ length: 101 }, (_, i) => ({
+    ...membership,
+    _id: 'm_' + i,
+    userId: 'batch_user_' + String(i).padStart(3, '0'),
+  }));
+  for (const row of tables.memberships)
+    tables.users.push({
+      _id: row.userId,
+      isActive: true,
+      marketingOptIn: true,
+    });
+  return tables;
+}
+
+test('manual batching is opt-in and consent is checked in each batch', async () => {
+  const tables = mediumAudience();
+  const ctx = buildCtx(tables);
+  const args = { businessId: BUSINESS_ID, campaignId: CAMPAIGN_ID };
+  await expect(sendCampaignNow._handler(ctx, args)).rejects.toThrow(
+    'CAMPAIGN_CLIENT_UPDATE_REQUIRED'
+  );
   expect(ctx.db.rows('messageLog')).toHaveLength(0);
-  expect(ctx.db.rows('pushDeliveryOutbox')).toHaveLength(0);
-  expect(ctx.db.rows('campaigns')[0].activationStatus).toBe('active');
+  expect(
+    await sendCampaignNow._handler(ctx, { ...args, acceptQueued: true })
+  ).toMatchObject({ queued: true });
+  expect(
+    await sendCampaignNow._handler(ctx, { ...args, acceptQueued: true })
+  ).toMatchObject({ queued: true });
+  expect(ctx.scheduled).toHaveLength(1);
+  await ctx.db.patch('batch_user_099', { marketingOptIn: false });
+  await drainCampaignPages(ctx);
+  expect(ctx.db.rows('messageLog')).toHaveLength(100);
+  expect(
+    ctx.db.rows('messageLog').some((row) => row.toUserId === 'batch_user_099')
+  ).toBe(false);
+  expect(ctx.db.rows('campaignRuns')).toMatchObject([
+    { targetedCount: 100, deliveredCount: 100 },
+  ]);
+});
+
+test('repeated recurring sweeps do not duplicate a batched campaign', async () => {
+  const tables = mediumAudience();
+  const ctx = buildCtx(tables);
+  const now = Date.UTC(2026, 10, 20, 7);
+  await ctx.db.patch(CAMPAIGN_ID, {
+    status: 'active',
+    activationStatus: 'active',
+    automationEnabled: true,
+    schedule: { mode: 'recurring' },
+    isActive: true,
+  });
+  await runAutomationSweepInternal._handler(ctx, { referenceNow: now });
+  await drainCampaignPages(ctx);
+  expect(ctx.db.rows('messageLog')).toHaveLength(101);
+  ctx.scheduled.length = 0;
+  await runAutomationSweepInternal._handler(ctx, { referenceNow: now });
+  await drainCampaignPages(ctx);
+  expect(ctx.db.rows('messageLog')).toHaveLength(101);
+  expect(ctx.db.rows('campaignRuns')).toHaveLength(1);
+});
+
+test('paged audience and history aggregate unique users across page boundaries', async () => {
+  const tables = mediumAudience();
+  const repeat = tables.memberships[0];
+  tables.memberships.unshift(
+    ...Array.from({ length: 103 }, (_, i) => ({
+      ...repeat,
+      _id: 'duplicate_' + i,
+    }))
+  );
+  tables.messageLog = Array.from({ length: 160 }, (_, i) => ({
+    _id: 'history_' + i,
+    campaignId: CAMPAIGN_ID,
+    businessId: BUSINESS_ID,
+    toUserId: repeat.userId,
+    createdAt: i + 1,
+  }));
+  tables.messageLog.push(
+    {
+      _id: 'other_user_history',
+      campaignId: CAMPAIGN_ID,
+      businessId: BUSINESS_ID,
+      toUserId: tables.memberships.at(-1).userId,
+      createdAt: 999,
+    },
+    {
+      _id: 'foreign_history',
+      campaignId: CAMPAIGN_ID,
+      businessId: 'foreign',
+      toUserId: 'someone_else',
+      createdAt: 1000,
+    }
+  );
+  const ctx = buildCtx(tables);
+  const args = { businessId: BUSINESS_ID, campaignId: CAMPAIGN_ID };
+  expect(
+    await estimateCampaignAudiencePaged._handler(
+      {
+        runQuery: (_ref, input) =>
+          estimateManagementAudienceBatch._handler(ctx, input),
+      },
+      args
+    )
+  ).toMatchObject({ total: 101, missingBirthdayCount: 101 });
+  expect(
+    await getManagementCampaignHistoryPaged._handler(
+      {
+        runQuery: (_ref, input) => managementHistoryBatch._handler(ctx, input),
+      },
+      { ...args, revision: tables.campaigns[0].updatedAt }
+    )
+  ).toEqual({
+    reachedUniqueAllTime: 2,
+    reachedMessagesAllTime: 161,
+    lastSentAt: 999,
+  });
 });

@@ -1215,6 +1215,8 @@ export default defineSchema({
   })
     .index('by_userId', ['userId'])
     .index('by_programId', ['programId'])
+    .index('by_programId_userId', ['programId', 'userId'])
+    .index('by_businessId_userId', ['businessId', 'userId'])
     .index('by_businessId', ['businessId'])
     .index('by_businessId_createdAt', ['businessId', 'createdAt'])
     .index('by_userId_businessId', ['userId', 'businessId'])
@@ -1766,6 +1768,23 @@ export default defineSchema({
         recurrencePolicy: v.optional(v.any()),
       })
     ),
+    managementDelivery: v.optional(
+      v.object({
+        mode: v.union(
+          v.literal('manual'),
+          v.literal('one_time'),
+          v.literal('recurring')
+        ),
+        referenceNow: v.number(),
+        revision: v.number(),
+        cursor: v.union(v.string(), v.null()),
+        page: v.number(),
+        targeted: v.number(),
+        sent: v.number(),
+        nextAttemptAt: v.number(),
+        lastMatchedUserId: v.optional(v.id('users')),
+      })
+    ),
     preparedAudience: v.optional(
       v.object({
         count: v.optional(v.number()),
@@ -1803,7 +1822,10 @@ export default defineSchema({
     .index('by_businessId_createdAt', ['businessId', 'createdAt'])
     .index('by_smartManagerPreparedActionId', ['smartManagerPreparedActionId'])
     .index('by_activationStatus', ['activationStatus'])
-    .index('by_automationEnabled', ['automationEnabled']),
+    .index('by_automationEnabled', ['automationEnabled'])
+    .index('by_managementDelivery_nextAttemptAt', [
+      'managementDelivery.nextAttemptAt',
+    ]),
 
   campaignRuns: defineTable({
     businessId: v.id('businesses'),

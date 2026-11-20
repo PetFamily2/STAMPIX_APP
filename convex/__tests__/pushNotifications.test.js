@@ -441,3 +441,24 @@ test('outbox recovery schedules pending browser work but never retries stale cla
       .webDeliveryStatus
   ).toBe('unknown');
 });
+
+test('a queued marketing push is skipped after the user withdraws consent', async () => {
+  const ctx = createMockCtx({
+    pushTokens: [buildPushToken()],
+    users: [{ _id: USER_ID, isActive: true, marketingOptIn: true }],
+  });
+  await sendPushNotificationToUser(ctx, {
+    businessId: BUSINESS_ID,
+    campaignId: 'campaign_1',
+    toUserId: USER_ID,
+    title: 'Campaign',
+    body: 'Hello',
+  });
+  const outboxId = ctx.rows('pushDeliveryOutbox')[0]._id;
+  await ctx.db.patch(USER_ID, { marketingOptIn: false });
+  expect(await claimQueuedPush._handler(ctx, { outboxId })).toBeNull();
+  expect(ctx.rows('pushDeliveryOutbox')[0]).toMatchObject({
+    status: 'skipped',
+    outcome: 'marketing_consent_unavailable',
+  });
+});
