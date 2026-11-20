@@ -1,6 +1,7 @@
+import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import { useMutation } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -15,6 +16,7 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
 import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
 import { LoyaltyThemePalette } from '@/components/loyalty/LoyaltyThemePalette';
 import { StampIconPicker } from '@/components/loyalty/StampIconPicker';
@@ -40,6 +42,7 @@ import { rtlBaseView, tw } from '@/lib/rtl';
 
 export default function NewLoyaltyCardScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { businessId: businessIdParam } = useLocalSearchParams<{
     businessId?: string;
@@ -56,17 +59,62 @@ export default function NewLoyaltyCardScreen() {
   const [cardThemeId, setCardThemeId] = useState(DEFAULT_CARD_THEME_ID);
   const [stampIcon, setStampIcon] = useState(DEFAULT_STAMP_ICON_ID);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [saved, setSaved] = useState<{
+    businessId: Id<'businesses'>;
+    programId: Id<'loyaltyPrograms'>;
+  } | null>(null);
+  const submitLock = useRef(false);
+  const dirty =
+    !saved &&
+    (title !== '' ||
+      rewardName !== '' ||
+      maxStamps !== 10 ||
+      cardThemeId !== DEFAULT_CARD_THEME_ID ||
+      stampIcon !== DEFAULT_STAMP_ICON_ID);
+  const scope = JSON.stringify([businessId ?? null, activeBusinessId ?? null]);
+  const draftScope = useRef(scope);
+  if (!dirty && !submitLock.current) draftScope.current = scope;
+  const scopeChanged = dirty && draftScope.current !== scope;
+  useBusinessWebUnsavedChanges(Platform.OS === 'web' && dirty);
+  usePreventRemove(dirty, ({ data }) => {
+    if (submitLock.current) return;
+    Alert.alert(
+      'יש שינויים שלא נשמרו',
+      'אפשר להמשיך לערוך או לצאת ללא שמירה.',
+      [
+        { text: 'המשך עריכה', style: 'cancel' },
+        {
+          text: 'יציאה ללא שמירה',
+          style: 'destructive',
+          onPress: () => navigation.dispatch(data.action),
+        },
+      ]
+    );
+  });
+  useEffect(() => {
+    if (!saved) return;
+    router.replace({
+      pathname: businessHref(
+        Platform.OS,
+        '/(authenticated)/(business)/cards/[programId]'
+      ) as any,
+      params: { businessId: saved.businessId, programId: saved.programId },
+    });
+  }, [router, saved]);
   const formReady =
     Boolean(businessId) &&
     title.trim().length > 0 &&
     rewardName.trim().length > 0 &&
-    !isSubmitting;
+    !isSubmitting &&
+    !saved &&
+    !scopeChanged;
   const canCreate = formReady;
 
   const submit = async () => {
-    if (!businessId || !canCreate) {
+    if (!businessId || !canCreate || submitLock.current) {
       return;
     }
+    submitLock.current = true;
     setIsSubmitting(true);
     try {
       const result = await createProgram({
@@ -80,19 +128,11 @@ export default function NewLoyaltyCardScreen() {
         cardTerms: DEFAULT_LOYALTY_CARD_TERMS,
         rewardConditions: DEFAULT_LOYALTY_REWARD_CONDITIONS,
       });
-      router.replace({
-        pathname: businessHref(
-          Platform.OS,
-          '/(authenticated)/(business)/cards/[programId]'
-        ) as any,
-        params: {
-          businessId: String(businessId),
-          programId: String(result.loyaltyProgramId),
-        },
-      });
+      setSaved({ businessId, programId: result.loyaltyProgramId });
     } catch (error) {
       Alert.alert('לא הצלחנו ליצור', loyaltyWriteErrorToHebrewMessage(error));
     } finally {
+      submitLock.current = false;
       setIsSubmitting(false);
     }
   };
@@ -119,6 +159,14 @@ export default function NewLoyaltyCardScreen() {
             fallbackHref="/(authenticated)/(business)/programs"
           />
 
+          {scopeChanged ? (
+            <Text
+              accessibilityRole="alert"
+              className="mt-3 text-right text-red-800"
+            >
+              העסק הפעיל השתנה. חזרו לעסק המקורי כדי לשמור את הטיוטה.
+            </Text>
+          ) : null}
           <View className="mt-3">
             <EditorPreviewSurface title="כך הלקוחות יראו את הכרטיסייה">
               <LoyaltyCard

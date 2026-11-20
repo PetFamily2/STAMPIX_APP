@@ -130,7 +130,10 @@ for (const [path, names] of [
   ['@/components/loyalty/LoyaltyThemePalette', ['LoyaltyThemePalette']],
   ['@/components/loyalty/StampIconPicker', ['StampIconPicker']],
   ['@/components/loyalty/StampShapePicker', ['StampShapePicker']],
-  ['@/components/management', ['EditorStickyFooter', 'ManagementPageHeader']],
+  [
+    '@/components/management',
+    ['EditorStickyFooter', 'ManagementPageHeader', 'EditorPreviewSurface'],
+  ],
 ])
   mock.module(path, () => Object.fromEntries(names.map((n) => [n, component])));
 const { default: Referral } = await import(
@@ -313,6 +316,7 @@ mock.module('convex/react', () => ({
         resolveProfileSave = resolve;
         rejectProfileSave = reject;
       });
+    if (name === 'create') return { loyaltyProgramId: 'program_created' };
     return { updatedAt: 20 };
   },
 }));
@@ -445,6 +449,46 @@ try {
   );
   console.log(
     'PASS rendered business settings: failed save and business switches preserve draft; mocked backend'
+  );
+} finally {
+  if (tree) await act(async () => tree.unmount());
+}
+
+mock.module('@/components/loyalty/LoyaltyCard', () => ({ default: component }));
+const { default: NewLoyaltyCard } = await import(
+  '../app/(authenticated)/(business)/cards/new.tsx'
+);
+try {
+  scope = 'card_business_a';
+  await act(async () => {
+    tree = create(<NewLoyaltyCard />);
+  });
+  const field = (label) =>
+    tree.root
+      .findAllByType('input')
+      .find((node) => node.props.accessibilityLabel === label);
+  const save = () =>
+    tree.root
+      .findAllByType('button')
+      .find((node) => typeof node.props.disabled === 'boolean');
+  await act(async () => {
+    field('שם הכרטיסייה').props.onChangeText('New title');
+    field('הטבה').props.onChangeText('New reward');
+  });
+  assert.equal(save().props.disabled, false);
+  scope = 'card_business_b';
+  await act(async () => tree.update(<NewLoyaltyCard />));
+  assert.equal(save().props.disabled, true);
+  assert.equal(field('שם הכרטיסייה').props.value, 'New title');
+  const before = profileWrites.length;
+  await act(async () => save().props.onPress());
+  assert.equal(profileWrites.length, before);
+  scope = 'card_business_a';
+  await act(async () => tree.update(<NewLoyaltyCard />));
+  await act(async () => save().props.onPress());
+  assert.equal(profileWrites.at(-1).args.businessId, 'card_business_a');
+  console.log(
+    'PASS rendered new card: business switch blocks save and preserves draft; mocked backend'
   );
 } finally {
   if (tree) await act(async () => tree.unmount());

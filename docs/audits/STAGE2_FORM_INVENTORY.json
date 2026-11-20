@@ -101,12 +101,12 @@
     "file": "app/(authenticated)/(business)/cards/new.tsx",
     "input": true,
     "writes": ["api.loyaltyPrograms.createLoyaltyProgram"],
-    "sharedGuard": false,
-    "navigationGuard": false,
+    "sharedGuard": true,
+    "navigationGuard": true,
     "versionArgument": false,
     "serverHydration": false,
     "classification": "persistent-input",
-    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. No direct route removal guard. No direct optimistic version argument; concurrent existing-record edits are not proven safe."
+    "decision": "Creation draft guards navigation and reload, and blocks saving after changing business context. Rendered coverage verifies draft preservation. Optimistic versions are not applicable to creation."
   },
   {
     "file": "app/(authenticated)/(business)/cards/[programId].tsx",

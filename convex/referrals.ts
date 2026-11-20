@@ -2481,20 +2481,28 @@ export const adminGetReferralRecord = query({
   },
   handler: async (ctx, { targetType, targetId }) => {
     await requireAdminUser(ctx);
-    const id = targetId as Id<any>;
-    if (targetType === 'customerReferralLink') {
-      return await ctx.db.get(id as Id<'customerReferralLinks'>);
-    }
-    if (targetType === 'businessReferralLink') {
-      return await ctx.db.get(id as Id<'businessReferralLinks'>);
-    }
-    if (targetType === 'customerReferral') {
-      return await ctx.db.get(id as Id<'customerReferrals'>);
-    }
-    if (targetType === 'referralReward') {
-      return await ctx.db.get(id as Id<'referralRewards'>);
-    }
-    const row = await ctx.db.get(id as Id<'businessReferrals'>);
+    const readRecord = async <
+      Table extends
+        | 'customerReferralLinks'
+        | 'businessReferralLinks'
+        | 'customerReferrals'
+        | 'referralRewards'
+        | 'businessReferrals',
+    >(
+      table: Table
+    ) => {
+      const id = ctx.db.normalizeId(table, targetId);
+      return id ? await ctx.db.get(id) : null;
+    };
+    if (targetType === 'customerReferralLink')
+      return await readRecord('customerReferralLinks');
+    if (targetType === 'businessReferralLink')
+      return await readRecord('businessReferralLinks');
+    if (targetType === 'customerReferral')
+      return await readRecord('customerReferrals');
+    if (targetType === 'referralReward')
+      return await readRecord('referralRewards');
+    const row = await readRecord('businessReferrals');
     if (!row) {
       return null;
     }

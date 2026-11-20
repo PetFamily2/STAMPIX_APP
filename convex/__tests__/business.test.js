@@ -13,6 +13,7 @@ import {
   getBusinessesNearby,
   getBusinessSettings,
   listMyClosedBusinesses,
+  readLatestStaffEvents,
   restoreBusinessAccount,
   saveBusinessOnboardingSnapshot,
   setBusinessLogo,
@@ -1483,4 +1484,60 @@ describe('business profile settings and discovery filters', () => {
       'No Type',
     ]);
   });
+});
+
+test('staff history bounds reads and preserves insertion order when the cutoff has many ties', async () => {
+  const rows = [
+    { _id: 'newest', businessId: 'b1', createdAt: 30, _creationTime: 70 },
+    ...Array.from({ length: 500 }, (_, i) => ({
+      _id: 'tie_' + i,
+      businessId: 'b1',
+      createdAt: 20,
+      _creationTime: i + 1,
+    })),
+    { _id: 'backdated', businessId: 'b1', createdAt: 10, _creationTime: 800 },
+    { _id: 'foreign', businessId: 'b2', createdAt: 210, _creationTime: 800 },
+  ];
+  const limits = [];
+  const ctx = {
+    db: {
+      query: () => ({
+        withIndex(index, build) {
+          expect(index).toBe('by_businessId_createdAt');
+          const filters = [];
+          const indexBuilder = {
+            eq(key, value) {
+              filters.push([key, value]);
+              return indexBuilder;
+            },
+          };
+          build(indexBuilder);
+          return {
+            order(direction) {
+              return {
+                take(limit) {
+                  limits.push(limit);
+                  const matches = rows.filter((row) =>
+                    filters.every(([key, value]) => row[key] === value)
+                  );
+                  return matches
+                    .sort(
+                      (a, b) =>
+                        (direction === 'asc' ? 1 : -1) *
+                        (a.createdAt - b.createdAt ||
+                          a._creationTime - b._creationTime)
+                    )
+                    .slice(0, limit);
+                },
+              };
+            },
+          };
+        },
+      }),
+    },
+  };
+  expect(
+    (await readLatestStaffEvents(ctx, 'b1', 3)).map((row) => row._id)
+  ).toEqual(['newest', 'tie_0', 'tie_1']);
+  expect(limits).toEqual([3, 2]);
 });

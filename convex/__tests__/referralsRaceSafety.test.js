@@ -706,6 +706,14 @@ describe('business referral deleted-business compatibility', () => {
       type: 'businessReferral',
       paginationOpts: { cursor: null, numItems: 10 },
     });
+    ctx.db.normalizeId = (table, id) =>
+      table === 'businessReferrals' && id === 'b2b_admin_deleted' ? id : null;
+    expect(
+      await adminGetReferralRecord._handler(ctx, {
+        targetType: 'customerReferral',
+        targetId: 'b2b_admin_deleted',
+      })
+    ).toBeNull();
     const record = await adminGetReferralRecord._handler(ctx, {
       targetType: 'businessReferral',
       targetId: 'b2b_admin_deleted',

@@ -1,7 +1,12 @@
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
-import { internalMutation, mutation, query } from './_generated/server';
+import {
+  internalMutation,
+  mutation,
+  type QueryCtx,
+  query,
+} from './_generated/server';
 import { ONBOARDING_RESEARCH_RETENTION_MS } from './dataRetention';
 import { assertEntitlement } from './entitlements';
 import {
@@ -3283,6 +3288,33 @@ export const getBusinessTeamSummary = query({
   },
 });
 
+export async function readLatestStaffEvents(
+  ctx: QueryCtx,
+  businessId: Id<'businesses'>,
+  limit: number
+) {
+  const newest = await ctx.db
+    .query('staffEvents')
+    .withIndex('by_businessId_createdAt', (q) => q.eq('businessId', businessId))
+    .order('desc')
+    .take(limit);
+  const boundary = newest.at(-1)?.createdAt;
+  if (boundary === undefined) return newest;
+  // The original stable sort selected the earliest insertion when timestamps tied.
+  // Recover that ordering even if a tie is larger than the entire requested page.
+  const earlier = newest.filter((event) => event.createdAt > boundary);
+  const ties = await ctx.db
+    .query('staffEvents')
+    .withIndex('by_businessId_createdAt', (q) =>
+      q.eq('businessId', businessId).eq('createdAt', boundary)
+    )
+    .order('asc')
+    .take(limit - earlier.length);
+  return [...earlier, ...ties].sort(
+    (a, b) => b.createdAt - a.createdAt || a._creationTime - b._creationTime
+  );
+}
+
 export const listBusinessStaffHistory = query({
   args: {
     businessId: v.optional(v.id('businesses')),
@@ -3301,14 +3333,11 @@ export const listBusinessStaffHistory = query({
 
     const normalizedLimit = Math.max(1, Math.min(100, Math.floor(limit ?? 50)));
 
-    const events = await ctx.db
-      .query('staffEvents')
-      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-      .collect();
-
-    const sortedEvents = [...events].sort((a: any, b: any) => {
-      return b.createdAt - a.createdAt;
-    });
+    const sortedEvents = await readLatestStaffEvents(
+      ctx,
+      businessId,
+      normalizedLimit
+    );
 
     const inviteIds = Array.from(
       new Set(

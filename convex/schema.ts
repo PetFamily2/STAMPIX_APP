@@ -2675,6 +2675,7 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index('by_businessId', ['businessId'])
+    .index('by_businessId_createdAt', ['businessId', 'createdAt'])
     .index('by_targetUserId', ['targetUserId'])
     .index('by_targetInviteId', ['targetInviteId']),
 

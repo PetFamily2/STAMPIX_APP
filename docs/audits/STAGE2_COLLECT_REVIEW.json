@@ -618,7 +618,7 @@
     "expression": "ctx.db\n    .query('memberships')\n    .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))\n    .filter((q: any) => q.eq(q.field('isActive'), true))",
     "review": {
       "classification": "open",
-      "decision": "Program-filtered audiences now use the program index with explicit business isolation and consent regression. A large single-program audience still uses an unbounded read; paged delivery and exact counts remain open.",
+      "decision": "Current delivery uses bounded checkpoints for large audiences. Paged estimate counts unique eligible recipients. Legacy statistics readers retain full reads and need a cutover.",
       "status": "reviewed",
       "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
     }
@@ -630,7 +630,7 @@
     "expression": "ctx.db\n    .query('messageLog')\n    .withIndex('by_campaignId', (q: any) => q.eq('campaignId', campaignId))",
     "review": {
       "classification": "improvement_required",
-      "decision": "Campaign logs helper reads full campaign for exact run/history metrics. Campaign ownership checked at callers. Aggregate or paginated history needed.",
+      "decision": "Current editor reads history in user-ordered pages and counts exact unique recipients and messages across pages. The current list defers large metrics to the editor. Legacy readers retain full reads.",
       "status": "reviewed",
       "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
     }
@@ -666,7 +666,7 @@
     "expression": "ctx.db\n        .query('campaigns')\n        .withIndex('by_automationEnabled', (q: any) =>\n          q.eq('automationEnabled', true)\n        )\n        .filter((q: any) =>\n          q.and(\n            q.eq(q.field('isActive'), true),\n            q.neq(q.field('type'), 'ai_marketing')\n          )\n        )",
     "review": {
       "classification": "open",
-      "decision": "Global recurring sweep now scans 10 campaigns per scheduled page at a fixed evaluation time. Mock tests cover 23 campaigns and repeated sweep. Per-campaign audience/history remains unbounded (findings 52–53), and actual transaction failure and concurrent sweeps need server validation.",
+      "decision": "Recurring delivery uses bounded checkpoints and indexed prior delivery checks. Replay and additional runs are covered locally. Hosted Convex execution, quota read footprint and rollout remain open.",
       "status": "reviewed",
       "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
     }
@@ -678,7 +678,7 @@
     "expression": "ctx.db\n      .query('campaigns')\n      .withIndex('by_activationStatus', (q: any) =>\n        q.eq('activationStatus', 'active')\n      )\n      .filter((q: any) =>\n        q.and(\n          q.eq(q.field('isActive'), true),\n          q.eq(q.field('automationEnabled'), false),\n          q.neq(q.field('type'), 'ai_marketing'),\n          q.neq(q.field('type'), 'ai_retention'),\n          q.neq(q.field('type'), 'retention_action')\n        )\n      )",
     "review": {
       "classification": "open",
-      "decision": "Global one-time sweep now scans 10 campaigns per scheduled page, with completion and deduplication kept transactional. Mock tests cover 23 campaigns and a repeated sweep. Individual campaign audience/history remains unbounded; actual scheduler failure/concurrency remains unverified.",
+      "decision": "Manual and scheduled one-time delivery use bounded checkpoints for large audiences. Local 10,001-membership test covers lost continuation and replay. Hosted integration remains open.",
       "status": "reviewed",
       "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
     }
@@ -809,10 +809,10 @@
     "owner": "events",
     "expression": "ctx.db\n      .query('staffEvents')\n      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
     "review": {
-      "classification": "improvement_required",
-      "decision": "Team history capability checked; business-only index then createdAt sort and limit. Needs date index to safely bound without reordering backdated events.",
-      "status": "reviewed",
-      "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
+      "classification": "fixed_tested",
+      "decision": "Bounded timestamp index and an ascending boundary-tie query preserve the old newest-first/insertion ordering. Regression covers 500 tied events, a backdated row and another business.",
+      "status": "fixed_tested",
+      "regression": "business.test.js: staff history bounds reads and preserves insertion order when the cutoff has many ties"
     }
   },
   {

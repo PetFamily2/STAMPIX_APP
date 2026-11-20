@@ -2,7 +2,7 @@
 
 All 73 original inventory entries have an explicit decision below. Line numbers refer to the original inventory, not the final source. Reviewed does not mean scale-safe: dangerous and improvement-required entries are known code risks, not external acceptance gates. No arbitrary caps or metric changes were introduced. Existing authorization is checked at public entrypoints or helper callers; internal functions remain internal. No backend was deployed.
 
-The five legacy admin searches remain compatible. The updated UI uses an authenticated, bounded page API; each page explicitly advertises continuation and eventual results preserve substring matching. Results are sorted among loaded records, not claimed to be globally complete until all pages are loaded. The old API and audit fallback still require a compatibility retirement decision.
+The legacy admin array endpoint requires a client update. The updated UI uses an authenticated, bounded page API; each page explicitly advertises continuation and eventual results preserve substring matching. Results are sorted among loaded records, not claimed to be globally complete until all pages are loaded. The old API and audit fallback still require a compatibility retirement decision.
 
 | # | Source | Classification | Decision |
 |---|---|---|---|
@@ -57,12 +57,12 @@ The five legacy admin searches remain compatible. The updated UI uses an authent
 | 49 | convex/loyaltyPrograms.ts:541 | improvement_required | Card management last-30-day events already use business/date lower range. Time bounded, volume not bounded; preserve complete 7/30-day metrics. |
 | 50 | convex/loyaltyPrograms.ts:664 | improvement_required | Program details capability and program ownership checked; tenant memberships determine program and business totals. Preserve counts. |
 | 51 | convex/loyaltyPrograms.ts:668 | improvement_required | Program details last-30-day events use correct range. No old events read; high monthly volume still needs aggregate. |
-| 52 | convex/campaigns.ts:434 | open | Program-filtered audiences now use the program index with explicit business isolation and consent regression. A large single-program audience still uses an unbounded read; paged delivery and exact counts remain open. |
-| 53 | convex/campaigns.ts:494 | improvement_required | Campaign logs helper reads full campaign for exact run/history metrics. Campaign ownership checked at callers. Aggregate or paginated history needed. |
+| 52 | convex/campaigns.ts:434 | open | Current delivery uses bounded checkpoints for large audiences. Paged estimate counts unique eligible recipients. Legacy statistics readers retain full reads and need a cutover. |
+| 53 | convex/campaigns.ts:494 | improvement_required | Current editor reads history in user-ordered pages and counts exact unique recipients and messages across pages. The current list defers large metrics to the editor. Legacy readers retain full reads. |
 | 54 | convex/campaigns.ts:785 | improvement_required | AI campaign list capability checked; business prefix and AI type filter correct. Historical drafts can grow; list cursor appropriate, preserve order. |
 | 55 | convex/campaigns.ts:890 | improvement_required | Campaign management capability checked; tenant campaigns all feed list plus per-campaign metrics. N+1 audience/log reads are scale risk; summary model needed. |
-| 56 | convex/campaigns.ts:1648 | open | Global recurring sweep now scans 10 campaigns per scheduled page at a fixed evaluation time. Mock tests cover 23 campaigns and repeated sweep. Per-campaign audience/history remains unbounded (findings 52–53), and actual transaction failure and concurrent sweeps need server validation. |
-| 57 | convex/campaigns.ts:1702 | open | Global one-time sweep now scans 10 campaigns per scheduled page, with completion and deduplication kept transactional. Mock tests cover 23 campaigns and a repeated sweep. Individual campaign audience/history remains unbounded; actual scheduler failure/concurrency remains unverified. |
+| 56 | convex/campaigns.ts:1648 | open | Recurring delivery uses bounded checkpoints and indexed prior delivery checks. Replay and additional runs are covered locally. Hosted Convex execution, quota read footprint and rollout remain open. |
+| 57 | convex/campaigns.ts:1702 | open | Manual and scheduled one-time delivery use bounded checkpoints for large audiences. Local 10,001-membership test covers lost continuation and replay. Hosted integration remains open. |
 | 58 | convex/campaigns.ts:1812 | improvement_required | Customer inbox derives user from auth and queries by recipient. Full read + enrichment scales with messages; pagination must preserve inbox business visibility filters. |
 | 59 | convex/business.ts:664 | retained_correct_scope | Internal owned-business exact count uses owner prefix. All active businesses required to enforce creation allowance; retain exact count. |
 | 60 | convex/business.ts:1145 | improvement_required | Closed-business recovery list authenticated owner prefix. All recoverable rows filtered; correct access, historical growth possible. |
@@ -73,7 +73,7 @@ The five legacy admin searches remain compatible. The updated UI uses an authent
 | 65 | convex/business.ts:3147 | improvement_required | Team management capability checked; tenant pending index plus expiry filter correct. Narrow scope, potential accumulated stale pending rows. |
 | 66 | convex/business.ts:3206 | improvement_required | Team summary management capability checked; full staff set used for exact seats/status counts. Preserve full result. |
 | 67 | convex/business.ts:3210 | improvement_required | Team summary pending-invite business/status index correct. Expired rows excluded after read; counters cannot be truncated. |
-| 68 | convex/business.ts:3268 | improvement_required | Team history capability checked; business-only index then createdAt sort and limit. Needs date index to safely bound without reordering backdated events. |
+| 68 | convex/business.ts:3268 | fixed_tested | Bounded timestamp index and an ascending boundary-tie query preserve the old newest-first/insertion ordering. Regression covers 500 tied events, a backdated row and another business. |
 | 69 | convex/business.ts:3413 | improvement_required | Closed invites management capability checked; resolved status depends on now, then sorted. Needs status/date cursor design including virtual expiry. |
 | 70 | convex/business.ts:3480 | retained_correct_scope | Authenticated actor membership list indexed by user. Filters each business activity; preserve roles and all accessible tenants. |
 | 71 | convex/business.ts:3568 | retained_correct_scope | Invite mutation management/feature/seat authorization checked; business/email/pending prefix exact. All duplicates expired/reused deliberately. |
