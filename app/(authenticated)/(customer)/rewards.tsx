@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { useQuery } from 'convex/react';
+import { usePaginatedQuery, useQuery } from 'convex/react';
 import { type Href, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -63,15 +63,23 @@ export default function RewardsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
-  const inboxQuery = useQuery(api.campaigns.listInboxForCustomer);
+  const {
+    results: inbox,
+    status: inboxStatus,
+    loadMore,
+  } = usePaginatedQuery(
+    api.campaigns.listInboxForCustomerPage,
+    {},
+    { initialNumItems: 20 }
+  );
   const membershipsQuery = useQuery(api.memberships.byCustomer);
-  const inbox = inboxQuery ?? [];
   const memberships = (membershipsQuery ?? []) as CustomerMembershipView[];
   const redeemableRewards = useMemo(
     () => memberships.filter(isReadyLoyaltyMembership),
     [memberships]
   );
-  const isLoading = inboxQuery === undefined || membershipsQuery === undefined;
+  const isLoading =
+    inboxStatus === 'LoadingFirstPage' || membershipsQuery === undefined;
   const isEmpty =
     !isLoading && redeemableRewards.length === 0 && inbox.length === 0;
 
@@ -263,6 +271,15 @@ export default function RewardsScreen() {
                 </Pressable>
               );
             })}
+            {inboxStatus === 'CanLoadMore' || inboxStatus === 'LoadingMore' ? (
+              <ActionButton
+                label={
+                  inboxStatus === 'LoadingMore' ? 'טוען הודעות' : 'עוד הודעות'
+                }
+                disabled={inboxStatus === 'LoadingMore'}
+                onPress={() => loadMore(20)}
+              />
+            ) : null}
           </View>
         )}
       </ScrollView>

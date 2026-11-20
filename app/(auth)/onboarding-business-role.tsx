@@ -1,3 +1,4 @@
+import { usePreventRemove } from '@react-navigation/native';
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -8,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
@@ -154,6 +156,20 @@ export default function OnboardingBusinessRoleScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const didPrefillRef = useRef(false);
+  const originalName = useRef<{
+    userId: string;
+    firstName: string;
+    lastName: string;
+  } | null>(null);
+  const saving = useRef(false);
+  const [dirty, setDirty] = useState(false);
+  const [exitConfirmed, setExitConfirmed] = useState(false);
+  useBusinessWebUnsavedChanges(
+    Platform.OS === 'web' && dirty && !exitConfirmed
+  );
+  useEffect(() => {
+    if (exitConfirmed) safeDismissTo('/(authenticated)/(customer)/settings');
+  }, [exitConfirmed]);
   const didSyncStepRef = useRef(false);
   const lastNameInputRef = useRef<TextInput>(null);
 
@@ -168,13 +184,18 @@ export default function OnboardingBusinessRoleScreen() {
       return;
     }
     didSyncStepRef.current = true;
-    void saveStep({ step: 'role' }).catch(() => {});
+    void saveStep({ step: 'role', progressOnly: true }).catch(() => {});
   }, [saveStep]);
 
   useEffect(() => {
     if (!user || didPrefillRef.current) {
       return;
     }
+    originalName.current = {
+      userId: user._id,
+      firstName: user.firstName?.trim() ?? '',
+      lastName: user.lastName?.trim() ?? '',
+    };
     if (firstName.trim().length > 0 || lastName.trim().length > 0) {
       didPrefillRef.current = true;
       return;
@@ -215,7 +236,7 @@ export default function OnboardingBusinessRoleScreen() {
     try {
       await saveStep({ step: 'role', status: 'paused' });
       await setAppMode('customer');
-      safeDismissTo('/(authenticated)/(customer)/settings');
+      setExitConfirmed(true);
       void setActiveMode({ mode: 'customer' }).catch(async () => {
         await setAppMode('business');
         Alert.alert(SETUP_COPY.saveErrorTitle, SETUP_COPY.exitFailed);
@@ -244,8 +265,10 @@ export default function OnboardingBusinessRoleScreen() {
     ]);
   };
 
+  usePreventRemove(dirty && !exitConfirmed, () => handleExitIntent());
+
   const handleContinue = async () => {
-    if (!canContinue || isSubmitting || isLeaving || !selectedAgeRange) {
+    if (!canContinue || saving.current || isLeaving || !selectedAgeRange) {
       return;
     }
 
@@ -256,13 +279,27 @@ export default function OnboardingBusinessRoleScreen() {
       return;
     }
 
+    const baseline = originalName.current;
+    if (
+      isAuthenticated &&
+      (!user || !baseline || baseline.userId !== user._id)
+    ) {
+      Alert.alert('החשבון השתנה', 'חזרו לחשבון המקורי כדי לשמור את הטיוטה.');
+      return;
+    }
+
+    saving.current = true;
     setIsSubmitting(true);
     trackContinue();
     try {
-      if (isAuthenticated) {
+      if (isAuthenticated && baseline) {
         await setMyName({
           firstName: normalizedFirstName,
           lastName: normalizedLastName,
+          expectedName: {
+            firstName: baseline.firstName,
+            lastName: baseline.lastName,
+          },
         });
       }
       try {
@@ -276,11 +313,40 @@ export default function OnboardingBusinessRoleScreen() {
         first_name_length: normalizedFirstName.length,
         last_name_length: normalizedLastName.length,
       });
+      setDirty(false);
       safePush(BUSINESS_ONBOARDING_ROUTES.businessBasics);
-    } catch {
+    } catch (error) {
+      const data = (
+        error as {
+          data?: {
+            code?: string;
+            current?: { firstName: string; lastName: string };
+          };
+        }
+      )?.data;
+      if (baseline && data?.code === 'ACCOUNT_NAME_CONFLICT' && data.current) {
+        const current = data.current;
+        Alert.alert(
+          'השם השתנה במכשיר אחר',
+          'הטיוטה נשמרה. אפשר להמשיך לערוך או לטעון את השם העדכני.',
+          [
+            { text: 'המשך עריכה', style: 'cancel' },
+            {
+              text: 'טעינת השם העדכני',
+              onPress: () => {
+                originalName.current = { userId: baseline.userId, ...current };
+                setFirstName(current.firstName);
+                setLastName(current.lastName);
+              },
+            },
+          ]
+        );
+        return;
+      }
       trackError('name', 'SAVE_FAILED', { age_range: selectedAgeRange });
       Alert.alert(SETUP_COPY.saveErrorTitle, SETUP_COPY.saveErrorMessage);
     } finally {
+      saving.current = false;
       setIsSubmitting(false);
     }
   };
@@ -328,7 +394,10 @@ export default function OnboardingBusinessRoleScreen() {
             <Text style={styles.inputLabel}>{SETUP_COPY.firstNameLabel}</Text>
             <TextInput
               value={firstName}
-              onChangeText={setFirstName}
+              onChangeText={(value) => {
+                setDirty(true);
+                setFirstName(value);
+              }}
               placeholder={SETUP_COPY.firstNamePlaceholder}
               placeholderTextColor="#B4BBC8"
               autoCapitalize="words"
@@ -346,7 +415,10 @@ export default function OnboardingBusinessRoleScreen() {
             <TextInput
               ref={lastNameInputRef}
               value={lastName}
-              onChangeText={setLastName}
+              onChangeText={(value) => {
+                setDirty(true);
+                setLastName(value);
+              }}
               placeholder={SETUP_COPY.lastNamePlaceholder}
               placeholderTextColor="#B4BBC8"
               autoCapitalize="words"
@@ -367,6 +439,7 @@ export default function OnboardingBusinessRoleScreen() {
                 <Pressable
                   key={range.id}
                   onPress={() => {
+                    setDirty(true);
                     setSelectedAgeRange(range.id);
                     trackChoice('age_range', range.id);
                   }}

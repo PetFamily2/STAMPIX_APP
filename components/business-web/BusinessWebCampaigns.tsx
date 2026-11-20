@@ -41,7 +41,7 @@ export function BusinessWebCampaigns({
   const canView = capabilities?.access_campaigns === true;
   const campaigns = useQuery(
     api.campaigns.listManagementCampaignsByBusiness,
-    canView ? { businessId } : 'skip'
+    canView ? { businessId, deferLargeStats: true } : 'skip'
   );
   const referrals = useQuery(
     api.referrals.getReferralConfig,
@@ -212,7 +212,7 @@ export function BusinessWebCampaigns({
                         : 'טרם נשלח'}
                 </Text>
                 <Text style={styles.body}>
-                  קהל מוערך: {campaign.estimatedAudience}
+                  קהל מוערך: {campaign.estimatedAudience ?? 'בפרטי הקמפיין'}
                 </Text>
                 <Text style={filter === 'active' ? styles.live : styles.body}>
                   {filter === 'active'

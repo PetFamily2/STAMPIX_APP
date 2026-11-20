@@ -184,7 +184,9 @@ export default function CreateBusinessScreen() {
       return;
     }
     didSyncStepRef.current = true;
-    void saveStep({ step: 'createBusiness', flow }).catch(() => {});
+    void saveStep({ step: 'createBusiness', flow, progressOnly: true }).catch(
+      () => {}
+    );
   }, [flow, saveStep]);
 
   useEffect(() => {

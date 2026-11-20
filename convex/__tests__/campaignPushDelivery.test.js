@@ -1,6 +1,20 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 
-import { runAutomationSweepInternal, sendCampaignNow } from '../campaigns';
+import {
+  estimateCampaignAudience,
+  estimateCampaignAudiencePaged,
+  estimateManagementAudienceBatch,
+  getManagementCampaignDraft,
+  getManagementCampaignHistoryPaged,
+  listInboxForCustomer,
+  listInboxForCustomerPage,
+  listManagementCampaignsByBusiness,
+  managementHistoryBatch,
+  processManagementDeliveryBatch,
+  recoverManagementDeliveries,
+  runAutomationSweepInternal,
+  sendCampaignNow,
+} from '../campaigns';
 import {
   processReferralAfterJoin,
   qualifyCustomerReferralAfterStamp,
@@ -27,17 +41,36 @@ class FakeQuery {
     this.predicates = [];
   }
 
-  withIndex(_indexName, builder) {
+  withIndex(indexName, builder) {
+    this.indexName = indexName;
     const conditions = [];
     const q = {
       eq: (field, value) => {
-        conditions.push({ field, value });
+        conditions.push({ field, value, op: 'eq' });
+        return q;
+      },
+      gte: (field, value) => {
+        conditions.push({ field, value, op: 'gte' });
+        return q;
+      },
+      lte: (field, value) => {
+        conditions.push({ field, value, op: 'lte' });
+        return q;
+      },
+      lt: (field, value) => {
+        conditions.push({ field, value, op: 'lt' });
         return q;
       },
     };
     builder(q);
     this.predicates.push((doc) =>
-      conditions.every((condition) => doc[condition.field] === condition.value)
+      conditions.every(({ field, value, op }) => {
+        const actual = field.split('.').reduce((obj, key) => obj?.[key], doc);
+        if (op === 'gte') return actual >= value;
+        if (op === 'lte') return actual <= value;
+        if (op === 'lt') return actual < value;
+        return actual === value;
+      })
     );
     return this;
   }
@@ -88,6 +121,41 @@ class FakeQuery {
 
   async first() {
     return this.docs()[0] ?? null;
+  }
+
+  order(direction) {
+    this.direction = direction;
+    return this;
+  }
+
+  async paginate({ cursor, numItems }) {
+    const all =
+      this.indexName?.endsWith('_userId') && this.tableName === 'memberships'
+        ? [...this.db.rows(this.tableName)].sort((a, b) =>
+            a.userId.localeCompare(b.userId)
+          )
+        : [...this.db.rows(this.tableName)];
+    if (this.indexName === 'by_toUserId_createdAt') {
+      all.sort((a, b) =>
+        this.direction === 'desc'
+          ? b.createdAt - a.createdAt
+          : a.createdAt - b.createdAt
+      );
+    }
+    const start = cursor ? all.findIndex((row) => row._id === cursor) + 1 : 0;
+    let i = start;
+    const page = [];
+    while (i < all.length && page.length < numItems) {
+      const row = all[i++];
+      if (this.predicates.every((p) => p(row))) {
+        page.push(row);
+      }
+    }
+    return {
+      page,
+      continueCursor: i ? all[i - 1]._id : '',
+      isDone: !all.slice(i).some((row) => this.predicates.every((p) => p(row))),
+    };
   }
 
   async collect() {
@@ -363,7 +431,10 @@ describe('campaign push delivery', () => {
         campaignId: CAMPAIGN_ID,
       })
     ).rejects.toThrow('SMART_MANAGER_APPROVED_CAMPAIGN_IMMUTABLE');
-    const sweep = await runAutomationSweepInternal._handler(ctx, {});
+    const sweep = await runAutomationSweepInternal._handler(ctx, {
+      phase: 'one_time',
+      referenceNow: now,
+    });
 
     expect(sweep.processedCampaigns).toBe(0);
     expect(ctx.db.rows('messageLog')).toHaveLength(0);
@@ -398,7 +469,10 @@ describe('campaign push delivery', () => {
       })
     ).rejects.toThrow('BUSINESS_CLOSED');
 
-    const sweep = await runAutomationSweepInternal._handler(ctx, {});
+    const sweep = await runAutomationSweepInternal._handler(ctx, {
+      phase: 'one_time',
+      referenceNow: now,
+    });
     expect(sweep.processedCampaigns).toBe(0);
     expect(ctx.db.rows('messageLog')).toHaveLength(0);
     expect(fetchCalls).toBe(0);
@@ -417,7 +491,10 @@ describe('campaign push delivery', () => {
     };
     const ctx = buildCtx(tables);
 
-    const sweep = await runAutomationSweepInternal._handler(ctx, {});
+    const sweep = await runAutomationSweepInternal._handler(ctx, {
+      phase: 'one_time',
+      referenceNow: now,
+    });
 
     expect(sweep.processedCampaigns).toBe(0);
     expect(ctx.db.rows('messageLog')).toHaveLength(0);
@@ -437,7 +514,10 @@ describe('campaign push delivery', () => {
     };
     const ctx = buildCtx(tables);
 
-    const sweep = await runAutomationSweepInternal._handler(ctx, {});
+    const sweep = await runAutomationSweepInternal._handler(ctx, {
+      phase: 'one_time',
+      referenceNow: now,
+    });
 
     expect(sweep.oneTimeProcessedCampaigns).toBe(1);
     expect(ctx.db.rows('smartManagerEvaluationStates')).toHaveLength(1);
@@ -449,71 +529,45 @@ describe('campaign push delivery', () => {
     expect(ctx.scheduled).toHaveLength(1);
   });
 
-  test('push-channel campaign creates inbox log and attempts push delivery', async () => {
+  test('push-channel campaign queues durable delivery without external HTTP in mutation', async () => {
     const tables = baseTables();
     const ctx = buildCtx(tables);
-    let sentPayload = null;
-    globalThis.fetch = async (_url, init) => {
-      sentPayload = JSON.parse(init.body);
-      return new Response(JSON.stringify({ data: [{ status: 'ok' }] }), {
-        status: 200,
-      });
+    let fetchCalls = 0;
+    globalThis.fetch = async () => {
+      fetchCalls += 1;
+      throw new Error('HTTP forbidden in mutation');
     };
-
     const result = await sendCampaignNow._handler(ctx, {
       businessId: BUSINESS_ID,
       campaignId: CAMPAIGN_ID,
     });
-
     expect(result.sentCount).toBe(1);
-    expect(ctx.db.rows('messageLog')).toContainEqual(
+    expect(ctx.db.rows('messageLog')).toHaveLength(1);
+    expect(ctx.db.rows('pushDeliveryOutbox')).toContainEqual(
       expect.objectContaining({
-        businessId: BUSINESS_ID,
         campaignId: CAMPAIGN_ID,
         toUserId: CUSTOMER_ID,
-        channel: 'in_app',
-        status: 'sent',
+        status: 'pending',
       })
     );
-    expect(sentPayload).toEqual([
-      expect.objectContaining({
-        to: 'ExponentPushToken[customer]',
-        title: 'Campaign title',
-        body: 'Campaign body',
-        channelId: 'default',
-      }),
-    ]);
-    expect(ctx.db.rows('pushDeliveryLog')).toContainEqual(
-      expect.objectContaining({
-        businessId: BUSINESS_ID,
-        campaignId: CAMPAIGN_ID,
-        toUserId: CUSTOMER_ID,
-        token: 'ExponentPushToken[customer]',
-        status: 'sent',
-      })
-    );
+    expect(ctx.scheduled.some((task) => task.args.outboxId)).toBeTrue();
+    expect(fetchCalls).toBe(0);
   });
 
-  test('push failure does not fail campaign send or inbox delivery', async () => {
+  test('in-app delivery is committed independently of external Push outcome', async () => {
     const tables = baseTables();
     const ctx = buildCtx(tables);
     globalThis.fetch = async () => {
-      throw new Error('expo temporarily unavailable');
+      throw new Error('provider unavailable');
     };
-
     const result = await sendCampaignNow._handler(ctx, {
       businessId: BUSINESS_ID,
       campaignId: CAMPAIGN_ID,
     });
-
     expect(result.sentCount).toBe(1);
     expect(ctx.db.rows('messageLog')).toHaveLength(1);
-    expect(ctx.db.rows('pushDeliveryLog')).toContainEqual(
-      expect.objectContaining({
-        status: 'failed',
-        errorMessage: 'expo_push_transport_ambiguous',
-      })
-    );
+    expect(ctx.db.rows('pushDeliveryOutbox')[0].status).toBe('pending');
+    expect(ctx.db.rows('pushDeliveryLog')).toHaveLength(0);
   });
 
   test('in-app-only campaign does not attempt push', async () => {
@@ -586,12 +640,622 @@ describe('referral push delivery coverage', () => {
     expect(qualifyResult.reason).toBe('granted');
     expect(ctx.db.rows('referralRewards')).toHaveLength(1);
     expect(ctx.db.rows('messageLog').length).toBeGreaterThan(0);
-    expect(ctx.db.rows('pushDeliveryLog')).toContainEqual(
+    expect(ctx.db.rows('pushDeliveryOutbox')).toContainEqual(
       expect.objectContaining({
         businessId: BUSINESS_ID,
         toUserId: CUSTOMER_ID,
-        status: 'sent',
+        status: 'pending',
       })
     );
   });
+});
+
+test('one-time sweep continues through batches and repeat scans do not redeliver', async () => {
+  const now = Date.now(),
+    tables = baseTables({ campaignChannels: ['in_app'] });
+  const baseBusiness = tables.businesses[0];
+  const baseMembership = tables.memberships[0];
+  tables.businesses = Array.from({ length: 23 }, (_, i) => ({
+    ...baseBusiness,
+    _id: `biz_batch_${i}`,
+  }));
+  tables.memberships = Array.from({ length: 23 }, (_, i) => ({
+    ...baseMembership,
+    _id: `membership_batch_${i}`,
+    businessId: `biz_batch_${i}`,
+  }));
+  tables.campaigns = Array.from({ length: 23 }, (_, i) => ({
+    ...tables.campaigns[0],
+    _id: `batch_${i}`,
+    businessId: `biz_batch_${i}`,
+    status: 'active',
+    activationStatus: 'active',
+    automationEnabled: false,
+    schedule: { mode: 'one_time', sendAt: now - 1000, nextRunAt: now - 1000 },
+  }));
+  const ctx = buildCtx(tables);
+  let i = 0;
+  const schedule = ctx.scheduler.runAfter;
+  let failOnce = true;
+  ctx.scheduler.runAfter = async (...params) => {
+    if (params[2].phase && failOnce) {
+      failOnce = false;
+      throw new Error('simulated continuation failure');
+    }
+    return schedule(...params);
+  };
+  await expect(
+    runAutomationSweepInternal._handler(ctx, {
+      phase: 'one_time',
+      referenceNow: now,
+    })
+  ).rejects.toThrow('simulated continuation failure');
+  await runAutomationSweepInternal._handler(ctx, {
+    phase: 'one_time',
+    referenceNow: now,
+  });
+  while (i < ctx.scheduled.length) {
+    const task = ctx.scheduled[i++];
+    if (task.args.phase) {
+      await runAutomationSweepInternal._handler(ctx, task.args);
+    }
+  }
+  expect(
+    tables.campaigns.filter((row) => row.status === 'completed')
+  ).toHaveLength(23);
+  expect(ctx.db.rows('messageLog')).toHaveLength(23);
+  await runAutomationSweepInternal._handler(ctx, {
+    phase: 'one_time',
+    referenceNow: now,
+  });
+  expect(ctx.db.rows('messageLog')).toHaveLength(23);
+});
+
+test('recurring sweep scans all batches and repeated sweep does not redeliver', async () => {
+  const now = Date.UTC(2026, 0, 15, 7),
+    tables = baseTables({ campaignChannels: ['in_app'] }),
+    baseBusiness = tables.businesses[0],
+    baseMembership = tables.memberships[0],
+    baseCampaign = tables.campaigns[0];
+  tables.businesses = Array.from({ length: 23 }, (_, i) => ({
+    ...baseBusiness,
+    _id: `rbiz_${i}`,
+  }));
+  tables.memberships = Array.from({ length: 23 }, (_, i) => ({
+    ...baseMembership,
+    _id: `rmembership_${i}`,
+    businessId: `rbiz_${i}`,
+  }));
+  tables.campaigns = Array.from({ length: 23 }, (_, i) => ({
+    ...baseCampaign,
+    _id: `recurring_${i}`,
+    businessId: `rbiz_${i}`,
+    status: 'active',
+    activationStatus: 'active',
+    automationEnabled: true,
+  }));
+  const ctx = buildCtx(tables);
+  let cursor = 0,
+    total = 0;
+  let result = await runAutomationSweepInternal._handler(ctx, {
+    phase: 'recurring',
+    referenceNow: now,
+  });
+  total += result.recurringProcessedCampaigns;
+  while (cursor < ctx.scheduled.length) {
+    const task = ctx.scheduled[cursor++];
+    if (task.args.phase) {
+      result = await runAutomationSweepInternal._handler(ctx, task.args);
+      total += result.recurringProcessedCampaigns;
+    }
+  }
+  expect(total).toBe(23);
+  const initial = ctx.db.rows('messageLog').length;
+  await runAutomationSweepInternal._handler(ctx, {
+    phase: 'recurring',
+    referenceNow: now,
+  });
+  while (cursor < ctx.scheduled.length) {
+    const task = ctx.scheduled[cursor++];
+    if (task.args.phase) {
+      await runAutomationSweepInternal._handler(ctx, task.args);
+    }
+  }
+  expect(ctx.db.rows('messageLog')).toHaveLength(initial);
+});
+
+test('program-scoped campaign audience excludes another business and users without marketing consent', async () => {
+  const tables = baseTables({ campaignChannels: ['in_app'] });
+  tables.campaigns[0].programId = PROGRAM_ID;
+  tables.users.push(
+    { _id: 'other_customer', isActive: true, marketingOptIn: true },
+    { _id: 'no_consent', isActive: true, marketingOptIn: false }
+  );
+  const base = tables.memberships[0];
+  tables.memberships.push(
+    {
+      ...base,
+      _id: 'bad_other_business',
+      businessId: 'other_business',
+      userId: 'other_customer',
+    },
+    { ...base, _id: 'no_consent_membership', userId: 'no_consent' }
+  );
+  const ctx = buildCtx(tables);
+  const result = await sendCampaignNow._handler(ctx, {
+    businessId: BUSINESS_ID,
+    campaignId: CAMPAIGN_ID,
+  });
+  expect(result.sentCount).toBe(1);
+  expect(ctx.db.rows('messageLog').map((row) => row.toUserId)).toEqual([
+    CUSTOMER_ID,
+  ]);
+});
+
+test('annual automation history uses the exact Israel new-year boundary', async () => {
+  const now = Date.UTC(2026, 0, 1, 7);
+  for (const [when, expected] of [
+    [Date.UTC(2025, 11, 31, 21, 59, 59, 999), 1],
+    [Date.UTC(2025, 11, 31, 22), 0],
+  ]) {
+    const tables = baseTables({ campaignChannels: ['in_app'] });
+    tables.users.find((user) => user._id === CUSTOMER_ID).birthdayDay = 1;
+    tables.users.find((user) => user._id === CUSTOMER_ID).birthdayMonth = 1;
+    Object.assign(tables.campaigns[0], {
+      type: 'birthday',
+      rules: { audience: 'birthday_today' },
+      status: 'active',
+      activationStatus: 'active',
+      automationEnabled: true,
+    });
+    tables.messageLog.push({
+      _id: 'old_log',
+      businessId: BUSINESS_ID,
+      campaignId: CAMPAIGN_ID,
+      toUserId: CUSTOMER_ID,
+      createdAt: when,
+      status: 'sent',
+    });
+    const ctx = buildCtx(tables);
+    const result = await runAutomationSweepInternal._handler(ctx, {
+      phase: 'recurring',
+      referenceNow: now,
+    });
+    expect(result.sentCount).toBe(expected);
+  }
+});
+
+test('overlapping one-time sweeps recover a dropped continuation and never duplicate opted-in deliveries across 125 businesses', async () => {
+  const now = Date.now(),
+    tables = baseTables({ campaignChannels: ['in_app'] });
+  const originalBusiness = tables.businesses[0],
+    originalMembership = tables.memberships[0],
+    originalCampaign = tables.campaigns[0];
+  const count = 125;
+  tables.businesses = Array.from({ length: count }, (_, i) => ({
+    ...originalBusiness,
+    _id: 'load_business_' + i,
+  }));
+  tables.users.push(
+    ...Array.from({ length: count }, (_, i) => ({
+      _id: 'load_user_' + i,
+      isActive: true,
+      marketingOptIn: i % 4 !== 0,
+      createdAt: now,
+      updatedAt: now,
+    }))
+  );
+  tables.memberships = Array.from({ length: count }, (_, i) => ({
+    ...originalMembership,
+    _id: 'load_membership_' + i,
+    businessId: 'load_business_' + i,
+    userId: 'load_user_' + i,
+  }));
+  tables.campaigns = Array.from({ length: count }, (_, i) => ({
+    ...originalCampaign,
+    _id: 'load_campaign_' + i,
+    businessId: 'load_business_' + i,
+    status: 'active',
+    activationStatus: 'active',
+    automationEnabled: false,
+    schedule: { mode: 'one_time', sendAt: now - 1000, nextRunAt: now - 1000 },
+  }));
+  const ctx = buildCtx(tables);
+  await runAutomationSweepInternal._handler(ctx, {
+    phase: 'one_time',
+    referenceNow: now,
+  });
+  // Model a continuation being lost before the next sweep. A later sweep must
+  // start at the beginning without repeating already committed deliveries.
+  const lost = ctx.scheduled.findIndex(
+    (task) => task.args.phase === 'one_time'
+  );
+  expect(lost).toBeGreaterThanOrEqual(0);
+  ctx.scheduled.splice(lost, 1);
+  await runAutomationSweepInternal._handler(ctx, {
+    phase: 'one_time',
+    referenceNow: now,
+  });
+  await runAutomationSweepInternal._handler(ctx, {
+    phase: 'one_time',
+    referenceNow: now,
+  });
+  let cursor = 0,
+    continuations = 0;
+  while (cursor < ctx.scheduled.length) {
+    const task = ctx.scheduled[cursor++];
+    if (task.args.phase) {
+      continuations++;
+      if (continuations > 100) throw Error('CONTINUATION_NOT_TERMINATING');
+      await runAutomationSweepInternal._handler(ctx, task.args);
+    }
+  }
+  expect(
+    tables.campaigns.filter((row) => row.status === 'completed')
+  ).toHaveLength(count);
+  const logs = ctx.db.rows('messageLog');
+  expect(logs).toHaveLength(count - Math.ceil(count / 4));
+  expect(new Set(logs.map((row) => String(row.campaignId))).size).toBe(
+    logs.length
+  );
+  for (const row of logs) {
+    const number = Number(String(row.toUserId).replace('load_user_', ''));
+    expect(number % 4).not.toBe(0);
+    expect(row.businessId).toBe('load_business_' + number);
+    expect(row.campaignId).toBe('load_campaign_' + number);
+  }
+});
+
+test('large scheduled campaign processes 10,001 memberships with bounded pages and recovers without replay', async () => {
+  const now = Date.now(),
+    tables = baseTables({ campaignChannels: ['in_app'] });
+  Object.assign(tables.campaigns[0], {
+    status: 'active',
+    activationStatus: 'active',
+    automationEnabled: false,
+    schedule: { mode: 'one_time', sendAt: now - 1000 },
+  });
+  const original = tables.memberships[0];
+  tables.memberships = Array.from({ length: 10001 }, (_, i) => {
+    // The first user spans several pages. The remaining users are distinct.
+    const id = i < 125 ? 'large_00000' : 'large_' + String(i).padStart(5, '0');
+    return { ...original, _id: 'membership_' + i, userId: id };
+  });
+  for (const id of new Set(tables.memberships.map((m) => m.userId))) {
+    tables.users.push({
+      _id: id,
+      isActive: true,
+      marketingOptIn: id !== 'large_00125',
+    });
+  }
+  const ctx = buildCtx(tables),
+    query = ctx.db.query.bind(ctx.db);
+  ctx.db.query = (table) => {
+    const q = query(table);
+    if (table === 'memberships')
+      q.collect = async () => {
+        throw Error('UNBOUNDED_AUDIENCE');
+      };
+    return q;
+  };
+  const args = { phase: 'one_time', referenceNow: now };
+  await runAutomationSweepInternal._handler(ctx, args);
+  await runAutomationSweepInternal._handler(ctx, args);
+  const pages = () => ctx.scheduled.filter(({ args }) => 'page' in args);
+  expect(pages()).toHaveLength(1);
+  const initial = pages()[0].args;
+  await processManagementDeliveryBatch._handler(ctx, initial);
+  await processManagementDeliveryBatch._handler(ctx, initial);
+  expect(ctx.db.rows('messageLog')).toHaveLength(1);
+  const campaign = ctx.db.rows('campaigns')[0];
+  await ctx.db.patch(campaign._id, {
+    managementDelivery: {
+      ...campaign.managementDelivery,
+      nextAttemptAt: now - 1,
+    },
+  });
+  // Simulate a worker abort before page writes. The last committed checkpoint
+  // must still be eligible for the same recovery path as a dropped worker.
+  const workingQuery = ctx.db.query;
+  ctx.db.query = (table) => {
+    const q = workingQuery(table);
+    if (table === 'memberships')
+      q.paginate = async () => {
+        throw Error('SIMULATED_PAGE_ABORT');
+      };
+    return q;
+  };
+  try {
+    await expect(
+      processManagementDeliveryBatch._handler(ctx, pages()[1].args)
+    ).rejects.toThrow('SIMULATED_PAGE_ABORT');
+    expect(ctx.db.rows('campaigns')[0].managementDelivery.page).toBe(1);
+    expect(ctx.db.rows('messageLog')).toHaveLength(1);
+  } finally {
+    ctx.db.query = workingQuery;
+  }
+  const lost = ctx.scheduled.findIndex(({ args }) => args.page === 1);
+  ctx.scheduled.splice(lost, 1);
+  expect(await recoverManagementDeliveries._handler(ctx, {})).toBe(1);
+  let index = 1;
+  while (index < pages().length) {
+    if (index > 201) throw Error('NON_TERMINATING_DELIVERY');
+    await processManagementDeliveryBatch._handler(ctx, pages()[index++].args);
+  }
+  const expected = 10001 - 124 - 1;
+  expect(ctx.db.rows('messageLog')).toHaveLength(expected);
+  expect(
+    new Set(ctx.db.rows('messageLog').map((entry) => entry.toUserId)).size
+  ).toBe(expected);
+  expect(ctx.db.rows('campaignRuns')).toMatchObject([
+    { targetedCount: expected, deliveredCount: expected },
+  ]);
+  expect(ctx.db.rows('campaigns')[0].activationStatus).toBe('completed');
+  expect(ctx.db.rows('campaigns')[0].managementDelivery).toBeUndefined();
+}, 30000);
+
+async function drainCampaignPages(ctx) {
+  let processed = 0;
+  for (const task of ctx.scheduled) {
+    if (!Number.isInteger(task.args.page)) continue;
+    if (++processed > 25) throw Error('NON_TERMINATING_TEST');
+    await processManagementDeliveryBatch._handler(ctx, task.args);
+  }
+}
+
+function mediumAudience() {
+  const tables = baseTables({ campaignChannels: ['in_app'] });
+  const membership = tables.memberships[0];
+  tables.memberships = Array.from({ length: 101 }, (_, i) => ({
+    ...membership,
+    _id: 'm_' + i,
+    userId: 'batch_user_' + String(i).padStart(3, '0'),
+  }));
+  for (const row of tables.memberships)
+    tables.users.push({
+      _id: row.userId,
+      isActive: true,
+      marketingOptIn: true,
+    });
+  return tables;
+}
+
+test('manual batching is opt-in and consent is checked in each batch', async () => {
+  const tables = mediumAudience();
+  const ctx = buildCtx(tables);
+  const args = { businessId: BUSINESS_ID, campaignId: CAMPAIGN_ID };
+  await expect(sendCampaignNow._handler(ctx, args)).rejects.toThrow(
+    'CAMPAIGN_CLIENT_UPDATE_REQUIRED'
+  );
+  expect(ctx.db.rows('messageLog')).toHaveLength(0);
+  expect(
+    await sendCampaignNow._handler(ctx, { ...args, acceptQueued: true })
+  ).toMatchObject({ queued: true });
+  expect(
+    await sendCampaignNow._handler(ctx, { ...args, acceptQueued: true })
+  ).toMatchObject({ queued: true });
+  expect(ctx.scheduled).toHaveLength(1);
+  await ctx.db.patch('batch_user_099', { marketingOptIn: false });
+  await drainCampaignPages(ctx);
+  expect(ctx.db.rows('messageLog')).toHaveLength(100);
+  expect(
+    ctx.db.rows('messageLog').some((row) => row.toUserId === 'batch_user_099')
+  ).toBe(false);
+  expect(ctx.db.rows('campaignRuns')).toMatchObject([
+    { targetedCount: 100, deliveredCount: 100 },
+  ]);
+});
+
+test('repeated recurring sweeps do not duplicate a batched campaign', async () => {
+  const tables = mediumAudience();
+  const ctx = buildCtx(tables);
+  const now = Date.UTC(2026, 10, 20, 7);
+  await ctx.db.patch(CAMPAIGN_ID, {
+    status: 'active',
+    activationStatus: 'active',
+    automationEnabled: true,
+    schedule: { mode: 'recurring' },
+    isActive: true,
+  });
+  await runAutomationSweepInternal._handler(ctx, { referenceNow: now });
+  await drainCampaignPages(ctx);
+  expect(ctx.db.rows('messageLog')).toHaveLength(101);
+  ctx.scheduled.length = 0;
+  await runAutomationSweepInternal._handler(ctx, { referenceNow: now });
+  await drainCampaignPages(ctx);
+  expect(ctx.db.rows('messageLog')).toHaveLength(101);
+  expect(ctx.db.rows('campaignRuns')).toHaveLength(1);
+});
+
+test('paged audience and history aggregate unique users across page boundaries', async () => {
+  const tables = mediumAudience();
+  const repeat = tables.memberships[0];
+  tables.memberships.unshift(
+    ...Array.from({ length: 103 }, (_, i) => ({
+      ...repeat,
+      _id: 'duplicate_' + i,
+    }))
+  );
+  tables.messageLog = Array.from({ length: 160 }, (_, i) => ({
+    _id: 'history_' + i,
+    campaignId: CAMPAIGN_ID,
+    businessId: BUSINESS_ID,
+    toUserId: repeat.userId,
+    createdAt: i + 1,
+  }));
+  tables.messageLog.push(
+    {
+      _id: 'other_user_history',
+      campaignId: CAMPAIGN_ID,
+      businessId: BUSINESS_ID,
+      toUserId: tables.memberships.at(-1).userId,
+      createdAt: 999,
+    },
+    {
+      _id: 'foreign_history',
+      campaignId: CAMPAIGN_ID,
+      businessId: 'foreign',
+      toUserId: 'someone_else',
+      createdAt: 1000,
+    }
+  );
+  const ctx = buildCtx(tables);
+  const args = { businessId: BUSINESS_ID, campaignId: CAMPAIGN_ID };
+  expect(
+    await estimateCampaignAudiencePaged._handler(
+      {
+        runQuery: (_ref, input) =>
+          estimateManagementAudienceBatch._handler(ctx, input),
+      },
+      args
+    )
+  ).toMatchObject({ total: 101, missingBirthdayCount: 101 });
+  expect(
+    await getManagementCampaignHistoryPaged._handler(
+      {
+        runQuery: (_ref, input) => managementHistoryBatch._handler(ctx, input),
+      },
+      { ...args, revision: tables.campaigns[0].updatedAt }
+    )
+  ).toEqual({
+    reachedUniqueAllTime: 2,
+    reachedMessagesAllTime: 161,
+    lastSentAt: 999,
+  });
+});
+
+test('large legacy management readers defer statistics without returning truncated counts', async () => {
+  const tables = mediumAudience();
+  tables.messageLog = Array.from({ length: 101 }, (_, i) => ({
+    _id: 'legacy_message_' + i,
+    campaignId: CAMPAIGN_ID,
+    businessId: BUSINESS_ID,
+    toUserId: tables.memberships[i].userId,
+    createdAt: i,
+  }));
+  const ctx = buildCtx(tables);
+  const original = ctx.db.query.bind(ctx.db);
+  ctx.db.query = (table) => {
+    const q = original(table);
+    if (table === 'memberships' || table === 'messageLog') {
+      q.collect = async () => {
+        throw Error('UNBOUNDED_RELATED_READ');
+      };
+    }
+    return q;
+  };
+  const args = { businessId: BUSINESS_ID, campaignId: CAMPAIGN_ID };
+  const result = await getManagementCampaignDraft._handler(ctx, args);
+  expect(result.stats).toMatchObject({
+    eligibleAudienceNow: null,
+    reachedUniqueAllTime: null,
+    reachedMessagesAllTime: null,
+  });
+  const list = await listManagementCampaignsByBusiness._handler(ctx, {
+    businessId: BUSINESS_ID,
+  });
+  expect(list).toMatchObject([
+    {
+      estimatedAudience: null,
+      reachedUniqueAllTime: null,
+      reachedMessagesAllTime: null,
+    },
+  ]);
+  await expect(estimateCampaignAudience._handler(ctx, args)).rejects.toThrow(
+    'CAMPAIGN_CLIENT_UPDATE_REQUIRED'
+  );
+});
+
+test('paged customer inbox is chronological, bounded and scoped to the session', async () => {
+  const tables = baseTables();
+  tables.messageLog = [
+    {
+      _id: 'older',
+      toUserId: CUSTOMER_ID,
+      businessId: BUSINESS_ID,
+      createdAt: 10,
+      status: 'sent',
+    },
+    {
+      _id: 'foreign',
+      toUserId: OWNER_ID,
+      businessId: BUSINESS_ID,
+      createdAt: 100,
+      status: 'sent',
+    },
+    {
+      _id: 'newer',
+      toUserId: CUSTOMER_ID,
+      businessId: BUSINESS_ID,
+      createdAt: 20,
+      status: 'sent',
+    },
+  ];
+  const ctx = buildCtx(tables, CUSTOMER_ID);
+  const first = await listInboxForCustomerPage._handler(ctx, {
+    paginationOpts: { cursor: null, numItems: 1 },
+  });
+  expect(first.page.map((row) => row.messageId)).toEqual(['newer']);
+  expect(first.isDone).toBe(false);
+  const next = await listInboxForCustomerPage._handler(ctx, {
+    paginationOpts: { cursor: first.continueCursor, numItems: 1 },
+  });
+  expect(next.page.map((row) => row.messageId)).toEqual(['older']);
+  expect(next.isDone).toBe(true);
+});
+
+test('wallet and full inbox handle a history over the old array budget without dropping messages', async () => {
+  const tables = baseTables();
+  tables.messageLog = Array.from({ length: 1205 }, (_, i) => ({
+    _id: 'wallet_history_' + i,
+    toUserId: CUSTOMER_ID,
+    businessId: BUSINESS_ID,
+    createdAt: i,
+    status: 'sent',
+  }));
+  tables.messageLog.push({
+    _id: 'foreign',
+    toUserId: OWNER_ID,
+    businessId: BUSINESS_ID,
+    createdAt: 5000,
+    status: 'sent',
+  });
+  const ctx = buildCtx(tables, CUSTOMER_ID);
+  const original = ctx.db.query.bind(ctx.db);
+  ctx.db.query = (table) => {
+    const q = original(table);
+    if (table === 'messageLog')
+      q.collect = async () => {
+        throw Error('UNBOUNDED_INBOX');
+      };
+    return q;
+  };
+  const preview = await listInboxForCustomerPage._handler(ctx, {
+    paginationOpts: { cursor: null, numItems: 3 },
+  });
+  expect(preview.page.map((row) => row.createdAt)).toEqual([1204, 1203, 1202]);
+  expect(preview.isDone).toBe(false);
+  await expect(listInboxForCustomer._handler(ctx, {})).rejects.toMatchObject({
+    data: { code: 'CUSTOMER_INBOX_PAGINATION_REQUIRED' },
+  });
+  const ids = [];
+  let cursor = null,
+    done = false;
+  while (!done) {
+    const next = await listInboxForCustomerPage._handler(ctx, {
+      paginationOpts: { cursor, numItems: 25 },
+    });
+    ids.push(...next.page.map((row) => row.messageId));
+    cursor = next.continueCursor;
+    done = next.isDone;
+    if (ids.length > 1205) throw Error('DUPLICATE_OR_FOREIGN_INBOX_ROW');
+  }
+  expect(ids).toEqual(
+    Array.from({ length: 1205 }, (_, i) => 'wallet_history_' + (1204 - i))
+  );
+  tables.messageLog = tables.messageLog.slice(0, 500);
+  const legacy = await listInboxForCustomer._handler(ctx, {});
+  expect(legacy.map((row) => row.createdAt)).toEqual(
+    Array.from({ length: 500 }, (_, i) => 499 - i)
+  );
 });

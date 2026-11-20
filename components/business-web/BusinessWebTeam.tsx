@@ -24,6 +24,7 @@ import {
   BusinessWebConfirmDialog,
   BusinessWebDialog,
 } from '@/components/business-web/BusinessWebDialog';
+import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
 import { AppText as Text } from '@/components/ui/AppText';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -316,6 +317,10 @@ export function BusinessWebTeam() {
     kind: 'suspend' | 'remove';
     member: StaffRow;
   } | null>(null);
+
+  useBusinessWebUnsavedChanges(
+    isInviteOpen && (inviteEmail.trim().length > 0 || inviteRole !== 'staff')
+  );
 
   useEffect(() => {
     function closeMenus(event: KeyboardEvent) {

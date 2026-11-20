@@ -2,8 +2,14 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   adminGetReferralRecord,
+  adminListReferralAuditLog,
+  adminListReferralAuditLogPage,
   adminSearchReferralRecords,
+  adminSearchReferralRecordsPage,
+  expireReferralLinksInternal,
+  expireReferralRewardsInternal,
   getBusinessReferralCreditSummary,
+  getBusinessReferralPerformance,
   getOrCreateBusinessReferralLink,
   listBusinessReferralCustomers,
   listMyCustomerReferrals,
@@ -23,13 +29,37 @@ class FakeQuery {
     const conditions = [];
     const q = {
       eq: (field, value) => {
-        conditions.push({ field, value });
+        conditions.push({ field, value, op: 'eq' });
+        return q;
+      },
+      lte: (field, value) => {
+        conditions.push({ field, value, op: 'lte' });
+        return q;
+      },
+      gte: (field, value) => {
+        conditions.push({ field, value, op: 'gte' });
         return q;
       },
     };
-    builder(q);
+    if (builder) {
+      builder(q);
+    }
+    this.indexName = _indexName;
+    this.db.indexCalls.push({
+      table: this.tableName,
+      index: _indexName,
+      conditions: conditions.map(({ op, ...c }) =>
+        op === 'eq' ? c : { ...c, op }
+      ),
+    });
     this.predicates.push((doc) =>
-      conditions.every((condition) => doc[condition.field] === condition.value)
+      conditions.every((condition) =>
+        condition.op === 'lte'
+          ? doc[condition.field] <= condition.value
+          : condition.op === 'gte'
+            ? doc[condition.field] >= condition.value
+            : doc[condition.field] === condition.value
+      )
     );
     return this;
   }
@@ -76,12 +106,52 @@ class FakeQuery {
     return this.docs()[0] ?? null;
   }
 
+  order(direction) {
+    this.desc = direction === 'desc';
+    return this;
+  }
+
+  async paginate({ cursor, numItems }) {
+    const all = this.desc
+      ? [...this.db.rows(this.tableName)].sort((a, b) =>
+          this.indexName === 'by_updatedAt'
+            ? b.updatedAt - a.updatedAt
+            : b.createdAt - a.createdAt
+        )
+      : this.db.rows(this.tableName);
+    const start = cursor ? all.findIndex((row) => row._id === cursor) + 1 : 0;
+    const page = [];
+    let index = start;
+    while (index < all.length && page.length < numItems) {
+      const row = all[index++];
+      if (this.predicates.every((predicate) => predicate(row))) {
+        page.push(row);
+      }
+    }
+    const isDone = !all
+      .slice(index)
+      .some((row) => this.predicates.every((predicate) => predicate(row)));
+    return { page, continueCursor: index ? all[index - 1]._id : '', isDone };
+  }
+
   async collect() {
+    this.db.collectCalls.push(this.tableName);
     return this.docs();
   }
 
   async take(limit) {
-    return this.docs().slice(0, limit);
+    const rows = this.docs();
+    return (
+      this.indexName === 'by_updatedAt'
+        ? [...rows].sort(
+            (a, b) =>
+              (this.desc ? -1 : 1) *
+              (a.updatedAt - b.updatedAt || a._creationTime - b._creationTime)
+          )
+        : this.desc
+          ? [...rows].sort((a, b) => b.createdAt - a.createdAt)
+          : rows
+    ).slice(0, limit);
   }
 }
 
@@ -90,6 +160,8 @@ class FakeDb {
     this.tables = tables;
     this.counter = 0;
     this.getCalls = [];
+    this.indexCalls = [];
+    this.collectCalls = [];
   }
 
   query(tableName) {
@@ -637,17 +709,25 @@ describe('business referral deleted-business compatibility', () => {
     });
     const ctx = buildCtx(tables);
 
-    const searchRows = await adminSearchReferralRecords._handler(ctx, {
+    const searchRows = await adminSearchReferralRecordsPage._handler(ctx, {
       query: '',
       type: 'businessReferral',
-      limit: 10,
+      paginationOpts: { cursor: null, numItems: 10 },
     });
+    ctx.db.normalizeId = (table, id) =>
+      table === 'businessReferrals' && id === 'b2b_admin_deleted' ? id : null;
+    expect(
+      await adminGetReferralRecord._handler(ctx, {
+        targetType: 'customerReferral',
+        targetId: 'b2b_admin_deleted',
+      })
+    ).toBeNull();
     const record = await adminGetReferralRecord._handler(ctx, {
       targetType: 'businessReferral',
       targetId: 'b2b_admin_deleted',
     });
 
-    expect(searchRows[0].payload).toMatchObject({
+    expect(searchRows.page[0].payload).toMatchObject({
       referredBusinessId: null,
       referredBusinessDeleted: true,
     });
@@ -660,6 +740,60 @@ describe('business referral deleted-business compatibility', () => {
 });
 
 describe('referral lists tolerate deleted users', () => {
+  test('legacy admin audit rejects clients after authorization', async () => {
+    const tables = baseTables();
+    tables.referralAdminAuditLog = [
+      {
+        _id: 'one',
+        targetType: 'customerReferral',
+        targetId: 'target',
+        createdAt: 3,
+      },
+      {
+        _id: 'two',
+        targetType: 'customerReferral',
+        targetId: 'other',
+        createdAt: 4,
+      },
+      {
+        _id: 'three',
+        targetType: 'referralReward',
+        targetId: 'target',
+        createdAt: 5,
+      },
+      {
+        _id: 'four',
+        targetType: 'customerReferral',
+        targetId: 'target',
+        createdAt: 9,
+      },
+    ];
+    const regular = buildCtx(tables);
+    await expect(
+      adminListReferralAuditLog._handler(regular, {
+        targetType: 'customerReferral',
+        targetId: 'target',
+      })
+    ).rejects.toThrow('NOT_AUTHORIZED');
+    tables.users = tables.users.map((user) =>
+      user._id === 'u_owner' ? { ...user, isAdmin: true } : user
+    );
+    const admin = buildCtx(tables);
+    const rows = await adminListReferralAuditLog._handler(admin, {
+      targetType: 'customerReferral',
+      targetId: 'target',
+      limit: 1,
+    });
+    expect(rows.map((row) => row._id)).toEqual(['four']);
+    expect(admin.db.indexCalls).toContainEqual({
+      table: 'referralAdminAuditLog',
+      index: 'by_targetType_targetId_createdAt',
+      conditions: [
+        { field: 'targetType', value: 'customerReferral' },
+        { field: 'targetId', value: 'target' },
+      ],
+    });
+  });
   test('customer referral list suppresses a deleted referrer user', async () => {
     const tables = baseTables();
     tables.users = tables.users.map((user) =>
@@ -770,4 +904,476 @@ describe('referral lists tolerate deleted users', () => {
       referredDeleted: true,
     });
   });
+
+  test('status-filtered referral list scopes both business and status in the index', async () => {
+    const tables = baseTables();
+    for (const [id, businessId, status] of [
+      ['match', 'biz_1', 'pending'],
+      ['other-status', 'biz_1', 'completed'],
+      ['other-business', 'biz_2', 'pending'],
+    ]) {
+      tables.customerReferrals.push({
+        _id: id,
+        businessId,
+        referralLinkId: 'link_1',
+        referrerUserId: 'u_referrer',
+        referredUserId: 'u_referred',
+        status,
+        rewardGrantStatus: 'not_applicable',
+        createdAt: Date.now(),
+      });
+    }
+    const ctx = buildCtx(tables, 'u_owner');
+    const rows = await listBusinessReferralCustomers._handler(ctx, {
+      businessId: 'biz_1',
+      status: 'pending',
+    });
+    expect(rows.map((row) => row.referralId)).toEqual(['match']);
+    expect(ctx.db.indexCalls).toContainEqual({
+      table: 'customerReferrals',
+      index: 'by_businessId_status_createdAt',
+      conditions: [
+        { field: 'businessId', value: 'biz_1' },
+        { field: 'status', value: 'pending' },
+      ],
+    });
+  });
+});
+
+test('paged admin search preserves sparse substring matches across all five record types', async () => {
+  const tables = baseTables();
+  tables.users = tables.users.map((u) =>
+    u._id === 'u_owner' ? { ...u, isAdmin: true } : u
+  );
+  const pairs = [
+    ['customerReferralLink', 'customerReferralLinks'],
+    ['businessReferralLink', 'businessReferralLinks'],
+    ['customerReferral', 'customerReferrals'],
+    ['referralReward', 'referralRewards'],
+    ['businessReferral', 'businessReferrals'],
+  ];
+  for (const [type, table] of pairs) {
+    tables[table] = Array.from({ length: 9 }, (_, i) => ({
+      _id: i === 8 ? 'late-match' : `row${i}`,
+      code: 'code',
+      businessId: 'biz_1',
+      referrerBusinessId: 'biz_1',
+      createdAt: 9 - i,
+      updatedAt: 9 - i,
+    }));
+    const ctx = buildCtx(tables);
+    let cursor = null,
+      all = [],
+      done = false,
+      pages = 0;
+    while (!done) {
+      const result = await adminSearchReferralRecordsPage._handler(ctx, {
+        query: 'MATCH',
+        type,
+        paginationOpts: { cursor, numItems: 2 },
+      });
+      expect(result.page.length).toBeLessThanOrEqual(2);
+      all.push(...result.page);
+      cursor = result.continueCursor;
+      done = result.isDone;
+      pages++;
+    }
+    expect(pages).toBe(5);
+    expect(all.map((r) => r.targetId)).toEqual(['late-match']);
+    const legacy = await adminSearchReferralRecords._handler(ctx, {
+      query: 'match',
+      type,
+    });
+    expect(legacy).toEqual(all);
+  }
+  await expect(
+    adminSearchReferralRecordsPage._handler(buildCtx(baseTables()), {
+      query: '',
+      type: 'referralReward',
+      paginationOpts: { cursor: null, numItems: 10 },
+    })
+  ).rejects.toThrow('NOT_AUTHORIZED');
+});
+
+test('legacy admin search returns only proven complete answers', async () => {
+  const tables = baseTables();
+  tables.users = tables.users.map((user) =>
+    user._id === 'u_owner' ? { ...user, isAdmin: true } : user
+  );
+  tables.customerReferralLinks = Array.from({ length: 205 }, (_, i) => ({
+    _id: 'link_' + i,
+    code: i === 0 || i === 204 ? 'needle' : 'other',
+    updatedAt: 1000 - i,
+  }));
+  const ctx = buildCtx(tables);
+  const args = { type: 'customerReferralLink', query: 'needle' };
+  expect(
+    (await adminSearchReferralRecords._handler(ctx, { ...args, limit: 1 })).map(
+      (r) => r.targetId
+    )
+  ).toEqual(['link_0']);
+  await expect(
+    adminSearchReferralRecords._handler(ctx, { ...args, limit: 2 })
+  ).rejects.toThrow('ADMIN_SEARCH_PAGINATION_REQUIRED');
+  expect(
+    (
+      await adminSearchReferralRecords._handler(ctx, {
+        ...args,
+        query: '',
+        limit: 2,
+      })
+    ).map((r) => r.targetId)
+  ).toEqual(['link_0', 'link_1']);
+  await expect(
+    adminSearchReferralRecords._handler(buildCtx(tables, 'u_referred'), args)
+  ).rejects.toThrow('NOT_AUTHORIZED');
+});
+
+test('expiry processes all overdue links in bounded idempotent batches', async () => {
+  const tables = baseTables();
+  const now = Date.now();
+  tables.customerReferralLinks = Array.from({ length: 205 }, (_, i) => ({
+    _id: `customer_${i}`,
+    status: 'active',
+    expiresAt: now - 100,
+  }));
+  tables.customerReferralLinks.push({
+    _id: 'future',
+    status: 'active',
+    expiresAt: now + 1000000,
+  });
+  tables.businessReferralLinks = Array.from({ length: 101 }, (_, i) => ({
+    _id: `business_${i}`,
+    status: 'active',
+    expiresAt: now - 100,
+  }));
+  const ctx = buildCtx(tables);
+  let scheduled = 0;
+  ctx.scheduler = {
+    runAfter: async () => {
+      scheduled++;
+    },
+  };
+  const a = await expireReferralLinksInternal._handler(ctx, {});
+  const b = await expireReferralLinksInternal._handler(ctx, {});
+  const c = await expireReferralLinksInternal._handler(ctx, {});
+  const d = await expireReferralLinksInternal._handler(ctx, {});
+  expect([
+    a.expiredCustomerLinks,
+    b.expiredCustomerLinks,
+    c.expiredCustomerLinks,
+    d.expiredCustomerLinks,
+  ]).toEqual([100, 100, 5, 0]);
+  expect([
+    a.expiredBusinessLinks,
+    b.expiredBusinessLinks,
+    c.expiredBusinessLinks,
+  ]).toEqual([100, 1, 0]);
+  expect(scheduled).toBe(2);
+  expect(
+    tables.customerReferralLinks.find((row) => row._id === 'future').status
+  ).toBe('active');
+});
+
+test('reward expiry continues across nonexpiring and stamp rewards without skipping due benefits', async () => {
+  const tables = baseTables(),
+    now = Date.now();
+  tables.referralRewards = Array.from({ length: 220 }, (_, i) => ({
+    _id: `reward_${i}`,
+    status: 'granted',
+    actualRewardType: i % 2 ? 'STAMP' : 'BENEFIT',
+    expiresAt: i % 3 === 0 ? undefined : now - 100,
+  }));
+  tables.referralRewards.push({
+    _id: 'future_reward',
+    status: 'granted',
+    actualRewardType: 'BENEFIT',
+    expiresAt: now + 100000,
+  });
+  const ctx = buildCtx(tables),
+    tasks = [];
+  ctx.scheduler = { runAfter: async (_delay, _name, args) => tasks.push(args) };
+  await expireReferralRewardsInternal._handler(ctx, {});
+  while (tasks.length) {
+    await expireReferralRewardsInternal._handler(ctx, tasks.shift());
+  }
+  expect(
+    tables.referralRewards.filter((r) => r.status === 'expired')
+  ).toHaveLength(73);
+  expect(
+    tables.referralRewards.find((r) => r._id === 'future_reward').status
+  ).toBe('granted');
+  expect(
+    tables.referralRewards.filter(
+      (r) => r.actualRewardType === 'STAMP' && r.status !== 'granted'
+    )
+  ).toHaveLength(0);
+  await expireReferralRewardsInternal._handler(ctx, {});
+  expect(
+    tables.referralRewards.filter((r) => r.status === 'expired')
+  ).toHaveLength(73);
+});
+
+test('credit sweep continues across batches and does not credit the same referral twice', async () => {
+  const tables = baseTables(),
+    now = Date.now();
+  tables.businesses.push({ ...tables.businesses[0], _id: 'biz_2' });
+  tables.businessReferrals = Array.from({ length: 205 }, (_, i) => ({
+    _id: `deleted_${i}`,
+    status: 'waiting_30_days',
+    referrerBusinessId: 'biz_1',
+    qualificationDueAt: undefined,
+    creditMonths: 1,
+  }));
+  tables.businessReferrals.push({
+    _id: 'due',
+    status: 'waiting_30_days',
+    referrerBusinessId: 'biz_1',
+    referredBusinessId: 'biz_2',
+    qualificationDueAt: now - 1,
+    creditMonths: 1,
+  });
+  tables.businessReferrals.push({
+    _id: 'future',
+    status: 'waiting_30_days',
+    referrerBusinessId: 'biz_1',
+    referredBusinessId: 'biz_2',
+    qualificationDueAt: now + 100000,
+    creditMonths: 1,
+  });
+  const ctx = buildCtx(tables),
+    tasks = [];
+  ctx.scheduler = {
+    runAfter: async (_delay, _name, args) => {
+      if (args.cursor) {
+        tasks.push(args);
+      }
+    },
+  };
+  await processDueBusinessReferralCreditsInternal._handler(ctx, {});
+  while (tasks.length) {
+    await processDueBusinessReferralCreditsInternal._handler(
+      ctx,
+      tasks.shift()
+    );
+  }
+  expect(
+    tables.businessReferrals.filter((r) => r.status === 'skipped')
+  ).toHaveLength(205);
+  expect(tables.businessReferrals.find((r) => r._id === 'due').status).toBe(
+    'credited'
+  );
+  expect(tables.businessReferrals.find((r) => r._id === 'future').status).toBe(
+    'waiting_30_days'
+  );
+  expect(tables.businesses[0].b2bCreditMonthsEarned).toBe(1);
+  await processDueBusinessReferralCreditsInternal._handler(ctx, {});
+  expect(tables.businesses[0].b2bCreditMonthsEarned).toBe(1);
+});
+
+test('paged audit keeps admin authorization, chronological order and sparse matches', async () => {
+  const tables = baseTables();
+  tables.referralAdminAuditLog = Array.from({ length: 205 }, (_, i) => ({
+    _id: `audit_${i}`,
+    createdAt: i,
+    targetId: i % 100 === 0 ? 'wanted' : 'other',
+    targetType: 'referralReward',
+  }));
+  await expect(
+    adminListReferralAuditLogPage._handler(buildCtx(tables), {
+      targetId: 'wanted',
+      paginationOpts: { cursor: null, numItems: 10 },
+    })
+  ).rejects.toThrow('NOT_AUTHORIZED');
+  tables.users = tables.users.map((u) =>
+    u._id === 'u_owner' ? { ...u, isAdmin: true } : u
+  );
+  const ctx = buildCtx(tables);
+  let cursor = null,
+    done = false,
+    rows = [];
+  while (!done) {
+    const page = await adminListReferralAuditLogPage._handler(ctx, {
+      targetId: 'wanted',
+      paginationOpts: { cursor, numItems: 10 },
+    });
+    rows.push(...page.page);
+    cursor = page.continueCursor;
+    done = page.isDone;
+  }
+  expect(rows.map((r) => r.createdAt)).toEqual([200, 100, 0]);
+});
+
+test('referral performance bounds historical link reads to requested date', async () => {
+  const tables = baseTables();
+  const now = Date.now();
+  const day = 24 * 60 * 60 * 1000;
+  tables.customerReferralLinks = Array.from({ length: 1000 }, (_, i) => ({
+    _id: `old_${i}`,
+    businessId: 'biz_1',
+    createdAt: now - 110 * day,
+  }));
+  tables.customerReferralLinks.push(
+    { _id: 'recent_1', businessId: 'biz_1', createdAt: now - 2 * day },
+    { _id: 'recent_2', businessId: 'biz_1', createdAt: now - 1 * day },
+    { _id: 'other_business', businessId: 'biz_2', createdAt: now - day }
+  );
+  const ctx = buildCtx(tables);
+  const result = await getBusinessReferralPerformance._handler(ctx, {
+    businessId: 'biz_1',
+    range: '30d',
+  });
+  expect(result.referralsGenerated).toBe(2);
+  const query = ctx.db.indexCalls.find(
+    (call) =>
+      call.table === 'customerReferralLinks' &&
+      call.index === 'by_businessId_createdAt'
+  );
+  expect(query?.conditions[0]).toEqual({ field: 'businessId', value: 'biz_1' });
+  expect(query?.conditions[1]).toMatchObject({
+    field: 'createdAt',
+    op: 'gte',
+  });
+  expect(query.conditions[1].value).toBeGreaterThan(now - 31 * day);
+});
+
+test('admin audit pages use target and timestamp indexes for scoped search', async () => {
+  const tables = baseTables();
+  const now = Date.now();
+  tables.users = tables.users.map((u) =>
+    u._id === 'u_owner' ? { ...u, isAdmin: true } : u
+  );
+  tables.referralAdminAuditLog = Array.from({ length: 90 }, (_, i) => ({
+    _id: `unrelated_${i}`,
+    targetType: 'customerReferral',
+    targetId: 'unrelated',
+    createdAt: now - 1000 + i,
+  }));
+  for (let i = 0; i < 7; i++) {
+    tables.referralAdminAuditLog.push({
+      _id: `target_${i}`,
+      targetType: 'customerReferralLink',
+      targetId: 'specific',
+      createdAt: now + i,
+    });
+  }
+  const ctx = buildCtx(tables);
+  let cursor = null;
+  const received = [];
+  let done = false;
+  while (!done) {
+    const page = await adminListReferralAuditLogPage._handler(ctx, {
+      targetType: 'customerReferralLink',
+      targetId: 'specific',
+      paginationOpts: { cursor, numItems: 3 },
+    });
+    received.push(...page.page);
+    cursor = page.continueCursor;
+    done = page.isDone;
+  }
+  expect(received.map((row) => row._id)).toEqual(
+    Array.from({ length: 7 }, (_, i) => `target_${6 - i}`)
+  );
+  expect(ctx.db.indexCalls).toContainEqual({
+    table: 'referralAdminAuditLog',
+    index: 'by_targetType_targetId_createdAt',
+    conditions: [
+      { field: 'targetType', value: 'customerReferralLink' },
+      { field: 'targetId', value: 'specific' },
+    ],
+  });
+});
+
+test('legacy admin audit API preserves complete top-N results with bounded index reads', async () => {
+  const tables = baseTables();
+  const now = Date.now();
+  tables.users = tables.users.map((u) =>
+    u._id === 'u_owner' ? { ...u, isAdmin: true } : u
+  );
+  tables.referralAdminAuditLog = Array.from({ length: 210 }, (_, i) => ({
+    _id: `audit_${i}`,
+    targetType: i % 2 ? 'referralReward' : 'customerReferral',
+    targetId: i % 3 ? 'specific' : 'other',
+    createdAt: now + i,
+  }));
+  for (const item of [
+    { args: {}, index: 'by_createdAt' },
+    {
+      args: { targetType: 'referralReward' },
+      index: 'by_targetType_createdAt',
+    },
+    { args: { targetId: 'specific' }, index: 'by_targetId_createdAt' },
+    {
+      args: { targetType: 'customerReferral', targetId: 'other' },
+      index: 'by_targetType_targetId_createdAt',
+    },
+  ]) {
+    const ctx = buildCtx(tables);
+    const rows = await adminListReferralAuditLog._handler(ctx, {
+      ...item.args,
+      limit: 7,
+    });
+    const expected = tables.referralAdminAuditLog
+      .filter(
+        (row) =>
+          !item.args.targetType || row.targetType === item.args.targetType
+      )
+      .filter(
+        (row) => !item.args.targetId || row.targetId === item.args.targetId
+      )
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 7);
+    expect(rows.map((row) => row._id)).toEqual(expected.map((row) => row._id));
+    expect(ctx.db.collectCalls).not.toContain('referralAdminAuditLog');
+    expect(ctx.db.indexCalls).toContainEqual(
+      expect.objectContaining({
+        table: 'referralAdminAuditLog',
+        index: item.index,
+      })
+    );
+  }
+});
+
+test('paged admin searches return matching records newest first across pages', async () => {
+  const tables = baseTables();
+  tables.users = tables.users.map((u) =>
+    u._id === 'u_owner' ? { ...u, isAdmin: true } : u
+  );
+  const pairs = [
+    ['customerReferralLink', 'customerReferralLinks'],
+    ['businessReferralLink', 'businessReferralLinks'],
+    ['customerReferral', 'customerReferrals'],
+    ['referralReward', 'referralRewards'],
+    ['businessReferral', 'businessReferrals'],
+  ];
+  for (const [type, table] of pairs) {
+    tables[table] = [1, 7, 3, 9, 5].map((n) => ({
+      _id: 'match_' + n,
+      code: 'match',
+      businessId: 'biz',
+      referrerBusinessId: 'biz',
+      updatedAt: n,
+      createdAt: 10 - n,
+    }));
+    const ctx = buildCtx(tables);
+    let cursor = null,
+      done = false,
+      rows = [];
+    while (!done) {
+      const result = await adminSearchReferralRecordsPage._handler(ctx, {
+        query: 'match',
+        type,
+        paginationOpts: { cursor, numItems: 2 },
+      });
+      rows.push(...result.page);
+      cursor = result.continueCursor;
+      done = result.isDone;
+    }
+    expect(rows.map((r) => r.updatedAt)).toEqual([9, 7, 5, 3, 1]);
+    expect(
+      ctx.db.indexCalls.some(
+        (call) => call.table === table && call.index === 'by_updatedAt'
+      )
+    ).toBe(true);
+  }
 });

@@ -1,4 +1,9 @@
+import {
+  paginationOptsValidator,
+  paginationResultValidator,
+} from 'convex/server';
 import { v } from 'convex/values';
+import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
 import { internalMutation, mutation, query } from './_generated/server';
 import {
@@ -347,6 +352,7 @@ async function sendReferralNotification(
       toUserId: args.toUserId,
       title: args.title,
       body: args.body,
+      dedupeKey: args.dedupeKey,
     });
   } catch {
     // Notification delivery is best-effort and must not fail referral flow.
@@ -1177,6 +1183,7 @@ export const getReferralConfig = query({
 export const saveReferralConfig = mutation({
   args: {
     businessId: v.id('businesses'),
+    expectedConfigVersion: v.optional(v.number()),
     isEnabled: v.boolean(),
     rewardType: v.union(v.literal('STAMP'), v.literal('BENEFIT')),
     rewardValue: v.number(),
@@ -1210,6 +1217,14 @@ export const saveReferralConfig = mutation({
       args.businessId,
       'edit_loyalty_cards'
     );
+    // Staged rollout: leave off until supported clients send a version and
+    // an update-required experience has been validated on older clients.
+    if (
+      process.env.REFERRAL_REQUIRE_CONFIG_VERSION === 'true' &&
+      args.expectedConfigVersion === undefined
+    ) {
+      throw new Error('REFERRAL_CLIENT_UPDATE_REQUIRED');
+    }
     const now = Date.now();
 
     const existing = await ctx.db
@@ -1218,6 +1233,13 @@ export const saveReferralConfig = mutation({
         q.eq('businessId', args.businessId)
       )
       .first();
+
+    if (
+      args.expectedConfigVersion !== undefined &&
+      args.expectedConfigVersion !== (existing?.configVersion ?? 0)
+    ) {
+      throw new Error('REFERRAL_CONFIG_CONFLICT');
+    }
 
     const wasEnabled = existing?.isEnabled === true;
     const willEnable = args.isEnabled === true;
@@ -1385,7 +1407,7 @@ export const openCustomerReferralLink = mutation({
 
 export const getMyReferralDashboard = query({
   args: {},
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const user = await requireCurrentUser(ctx);
     const refs = await ctx.db
       .query('customerReferrals')
@@ -1667,9 +1689,10 @@ export const listBusinessReferralCustomers = query({
     );
     const rows = await ctx.db
       .query('customerReferrals')
-      .withIndex('by_businessId_status_createdAt', (q: any) =>
-        q.eq('businessId', businessId)
-      )
+      .withIndex('by_businessId_status_createdAt', (q: any) => {
+        const business = q.eq('businessId', businessId);
+        return status ? business.eq('status', status) : business;
+      })
       .collect();
     const safeLimit = Math.max(1, Math.min(limit ?? 120, 400));
     const filtered = rows
@@ -1894,7 +1917,7 @@ export const getBusinessReferralPerformance = query({
       ctx.db
         .query('customerReferralLinks')
         .withIndex('by_businessId_createdAt', (q: any) =>
-          q.eq('businessId', businessId)
+          q.eq('businessId', businessId).gte('createdAt', startAt)
         )
         .collect(),
     ]);
@@ -2271,6 +2294,112 @@ export const redeemReferralBenefit = mutation({
   },
 });
 
+function formatAdminReferralSearch(
+  [
+    customerLinks,
+    businessLinks,
+    customerReferrals,
+    rewards,
+    businessReferrals,
+  ]: any[][],
+  needle: string,
+  safeLimit: number
+) {
+  const rows: Array<{
+    targetType: string;
+    targetId: string;
+    updatedAt: number;
+    payload: Record<string, unknown>;
+  }> = [];
+
+  for (const row of customerLinks as any[]) {
+    const referrerIdValue = row.referrerUserId;
+    const referrerUserId = referrerIdValue ? String(referrerIdValue) : '';
+    const haystack =
+      `${String(row._id)} ${row.code} ${String(row.businessId)} ${referrerUserId}`.toLowerCase();
+    if (needle && !haystack.includes(needle)) continue;
+    rows.push({
+      targetType: 'customerReferralLink',
+      targetId: String(row._id),
+      updatedAt: Number(row.updatedAt ?? row.createdAt),
+      payload: row,
+    });
+  }
+  for (const row of businessLinks as any[]) {
+    const haystack =
+      `${String(row._id)} ${row.code} ${String(row.referrerBusinessId)}`.toLowerCase();
+    if (needle && !haystack.includes(needle)) continue;
+    rows.push({
+      targetType: 'businessReferralLink',
+      targetId: String(row._id),
+      updatedAt: Number(row.updatedAt ?? row.createdAt),
+      payload: row,
+    });
+  }
+  for (const row of customerReferrals as any[]) {
+    const referredIdValue = row.referredUserId;
+    const referrerIdValue = row.referrerUserId;
+    const referredUserId = referredIdValue ? String(referredIdValue) : '';
+    const referrerUserId = referrerIdValue ? String(referrerIdValue) : '';
+    const haystack =
+      `${String(row._id)} ${String(row.businessId)} ${referredUserId} ${referrerUserId}`.toLowerCase();
+    if (needle && !haystack.includes(needle)) continue;
+    rows.push({
+      targetType: 'customerReferral',
+      targetId: String(row._id),
+      updatedAt: Number(row.updatedAt ?? row.createdAt),
+      payload: row,
+    });
+  }
+  for (const row of rewards as any[]) {
+    const haystack =
+      `${String(row._id)} ${String(row.businessId)} ${String(row.customerReferralId)} ${String(row.recipientUserId)}`.toLowerCase();
+    if (needle && !haystack.includes(needle)) continue;
+    rows.push({
+      targetType: 'referralReward',
+      targetId: String(row._id),
+      updatedAt: Number(row.updatedAt ?? row.createdAt),
+      payload: row,
+    });
+  }
+  for (const row of businessReferrals as any[]) {
+    const referredBusinessId = row.referredBusinessId
+      ? String(row.referredBusinessId)
+      : '';
+    const haystack =
+      `${String(row._id)} ${String(row.referrerBusinessId)} ${referredBusinessId}`.toLowerCase();
+    if (needle && !haystack.includes(needle)) continue;
+    rows.push({
+      targetType: 'businessReferral',
+      targetId: String(row._id),
+      updatedAt: Number(row.updatedAt ?? row.createdAt),
+      payload: {
+        ...row,
+        referredBusinessId: row.referredBusinessId ?? null,
+        referredBusinessDeleted: !row.referredBusinessId,
+      },
+    });
+  }
+
+  return rows.sort((a, b) => b.updatedAt - a.updatedAt).slice(0, safeLimit);
+}
+
+const ADMIN_REFERRAL_SEARCH_TYPES = [
+  'customerReferralLink',
+  'businessReferralLink',
+  'customerReferral',
+  'referralReward',
+  'businessReferral',
+] as const;
+const ADMIN_REFERRAL_SEARCH_TABLES = [
+  'customerReferralLinks',
+  'businessReferralLinks',
+  'customerReferrals',
+  'referralRewards',
+  'businessReferrals',
+] as const;
+const LEGACY_REFERRAL_SEARCH_BUDGET = 200;
+
 export const adminSearchReferralRecords = query({
   args: {
     query: v.string(),
@@ -2285,112 +2414,109 @@ export const adminSearchReferralRecords = query({
     ),
     limit: v.optional(v.number()),
   },
-  handler: async (ctx, { query, type, limit }) => {
+
+  handler: async (ctx, args) => {
     await requireAdminUser(ctx);
-    const needle = query.trim().toLowerCase();
-    const safeLimit = Math.max(1, Math.min(limit ?? 100, 400));
+    const needle = args.query.trim().toLowerCase();
+    const requestedLimit = args.limit ?? 100;
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(400, Math.max(1, Math.floor(requestedLimit)))
+      : 100;
+    const budget = Math.max(limit, LEGACY_REFERRAL_SEARCH_BUDGET);
+    // The old array contract has no cursor. Preserve exact answers when a
+    // bounded prefix proves them, and never return a silently partial search.
+    const records = await Promise.all(
+      ADMIN_REFERRAL_SEARCH_TABLES.map(async (table, index) => {
+        if (args.type && ADMIN_REFERRAL_SEARCH_TYPES[index] !== args.type)
+          return [];
+        const prefix = await ctx.db
+          .query(table)
+          .withIndex('by_updatedAt')
+          .order('desc')
+          .take(needle ? budget + 1 : limit);
+        const boundary = prefix.at(-1)?.updatedAt;
+        if (!needle && prefix.length === limit && boundary !== undefined) {
+          const newer = prefix.filter((row) => row.updatedAt > boundary);
+          const ties = await ctx.db
+            .query(table)
+            .withIndex('by_updatedAt', (q) => q.eq('updatedAt', boundary))
+            .order('asc')
+            .take(limit - newer.length);
+          return [...newer, ...ties].sort(
+            (a, b) =>
+              b.updatedAt - a.updatedAt || a._creationTime - b._creationTime
+          );
+        }
+        return prefix.sort(
+          (a, b) =>
+            b.updatedAt - a.updatedAt || a._creationTime - b._creationTime
+        );
+      })
+    );
+    const matches = formatAdminReferralSearch(records, needle, limit);
+    if (needle) {
+      const cutoff =
+        matches.length === limit ? matches.at(-1)?.updatedAt : undefined;
+      for (const prefix of records) {
+        if (prefix.length <= budget) continue;
+        const boundary = prefix.at(-1)?.updatedAt;
+        if (
+          boundary === undefined ||
+          cutoff === undefined ||
+          cutoff <= boundary
+        ) {
+          throw new Error('ADMIN_SEARCH_PAGINATION_REQUIRED');
+        }
+      }
+    }
+    return matches;
+  },
+});
 
-    const [
-      customerLinks,
-      businessLinks,
-      customerReferrals,
-      rewards,
-      businessReferrals,
-    ] = await Promise.all([
-      type && type !== 'customerReferralLink'
-        ? []
-        : ctx.db.query('customerReferralLinks').collect(),
-      type && type !== 'businessReferralLink'
-        ? []
-        : ctx.db.query('businessReferralLinks').collect(),
-      type && type !== 'customerReferral'
-        ? []
-        : ctx.db.query('customerReferrals').collect(),
-      type && type !== 'referralReward'
-        ? []
-        : ctx.db.query('referralRewards').collect(),
-      type && type !== 'businessReferral'
-        ? []
-        : ctx.db.query('businessReferrals').collect(),
-    ]);
-
-    const rows: Array<{
-      targetType: string;
-      targetId: string;
-      updatedAt: number;
-      payload: Record<string, unknown>;
-    }> = [];
-
-    for (const row of customerLinks as any[]) {
-      const referrerIdValue = row.referrerUserId;
-      const referrerUserId = referrerIdValue ? String(referrerIdValue) : '';
-      const haystack =
-        `${String(row._id)} ${row.code} ${String(row.businessId)} ${referrerUserId}`.toLowerCase();
-      if (needle && !haystack.includes(needle)) continue;
-      rows.push({
-        targetType: 'customerReferralLink',
-        targetId: String(row._id),
-        updatedAt: Number(row.updatedAt ?? row.createdAt),
-        payload: row,
+// Filter after pagination so every matching record remains reachable.
+export const adminSearchReferralRecordsPage = query({
+  args: {
+    query: v.string(),
+    type: v.union(
+      v.literal('customerReferralLink'),
+      v.literal('businessReferralLink'),
+      v.literal('customerReferral'),
+      v.literal('referralReward'),
+      v.literal('businessReferral')
+    ),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: paginationResultValidator(
+    v.object({
+      targetType: v.string(),
+      targetId: v.string(),
+      updatedAt: v.number(),
+      payload: v.any(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    await requireAdminUser(ctx);
+    const index = ADMIN_REFERRAL_SEARCH_TYPES.indexOf(args.type);
+    // Page the timestamp index before applying the substring predicate so
+    // the earliest loaded matching page is also the most recently updated.
+    const result = await ctx.db
+      .query(ADMIN_REFERRAL_SEARCH_TABLES[index])
+      .withIndex('by_updatedAt')
+      .order('desc')
+      .paginate({
+        ...args.paginationOpts,
+        numItems: Math.max(1, Math.min(args.paginationOpts.numItems, 100)),
       });
-    }
-    for (const row of businessLinks as any[]) {
-      const haystack =
-        `${String(row._id)} ${row.code} ${String(row.referrerBusinessId)}`.toLowerCase();
-      if (needle && !haystack.includes(needle)) continue;
-      rows.push({
-        targetType: 'businessReferralLink',
-        targetId: String(row._id),
-        updatedAt: Number(row.updatedAt ?? row.createdAt),
-        payload: row,
-      });
-    }
-    for (const row of customerReferrals as any[]) {
-      const referredIdValue = row.referredUserId;
-      const referrerIdValue = row.referrerUserId;
-      const referredUserId = referredIdValue ? String(referredIdValue) : '';
-      const referrerUserId = referrerIdValue ? String(referrerIdValue) : '';
-      const haystack =
-        `${String(row._id)} ${String(row.businessId)} ${referredUserId} ${referrerUserId}`.toLowerCase();
-      if (needle && !haystack.includes(needle)) continue;
-      rows.push({
-        targetType: 'customerReferral',
-        targetId: String(row._id),
-        updatedAt: Number(row.updatedAt ?? row.createdAt),
-        payload: row,
-      });
-    }
-    for (const row of rewards as any[]) {
-      const haystack =
-        `${String(row._id)} ${String(row.businessId)} ${String(row.customerReferralId)} ${String(row.recipientUserId)}`.toLowerCase();
-      if (needle && !haystack.includes(needle)) continue;
-      rows.push({
-        targetType: 'referralReward',
-        targetId: String(row._id),
-        updatedAt: Number(row.updatedAt ?? row.createdAt),
-        payload: row,
-      });
-    }
-    for (const row of businessReferrals as any[]) {
-      const referredBusinessId = row.referredBusinessId
-        ? String(row.referredBusinessId)
-        : '';
-      const haystack =
-        `${String(row._id)} ${String(row.referrerBusinessId)} ${referredBusinessId}`.toLowerCase();
-      if (needle && !haystack.includes(needle)) continue;
-      rows.push({
-        targetType: 'businessReferral',
-        targetId: String(row._id),
-        updatedAt: Number(row.updatedAt ?? row.createdAt),
-        payload: {
-          ...row,
-          referredBusinessId: row.referredBusinessId ?? null,
-          referredBusinessDeleted: !row.referredBusinessId,
-        },
-      });
-    }
-
-    return rows.sort((a, b) => b.updatedAt - a.updatedAt).slice(0, safeLimit);
+    const records: any[][] = [[], [], [], [], []];
+    records[index] = result.page;
+    return {
+      ...result,
+      page: formatAdminReferralSearch(
+        records,
+        args.query.trim().toLowerCase(),
+        result.page.length
+      ),
+    };
   },
 });
 
@@ -2407,20 +2533,28 @@ export const adminGetReferralRecord = query({
   },
   handler: async (ctx, { targetType, targetId }) => {
     await requireAdminUser(ctx);
-    const id = targetId as Id<any>;
-    if (targetType === 'customerReferralLink') {
-      return await ctx.db.get(id as Id<'customerReferralLinks'>);
-    }
-    if (targetType === 'businessReferralLink') {
-      return await ctx.db.get(id as Id<'businessReferralLinks'>);
-    }
-    if (targetType === 'customerReferral') {
-      return await ctx.db.get(id as Id<'customerReferrals'>);
-    }
-    if (targetType === 'referralReward') {
-      return await ctx.db.get(id as Id<'referralRewards'>);
-    }
-    const row = await ctx.db.get(id as Id<'businessReferrals'>);
+    const readRecord = async <
+      Table extends
+        | 'customerReferralLinks'
+        | 'businessReferralLinks'
+        | 'customerReferrals'
+        | 'referralRewards'
+        | 'businessReferrals',
+    >(
+      table: Table
+    ) => {
+      const id = ctx.db.normalizeId(table, targetId);
+      return id ? await ctx.db.get(id) : null;
+    };
+    if (targetType === 'customerReferralLink')
+      return await readRecord('customerReferralLinks');
+    if (targetType === 'businessReferralLink')
+      return await readRecord('businessReferralLinks');
+    if (targetType === 'customerReferral')
+      return await readRecord('customerReferrals');
+    if (targetType === 'referralReward')
+      return await readRecord('referralRewards');
+    const row = await readRecord('businessReferrals');
     if (!row) {
       return null;
     }
@@ -2447,20 +2581,84 @@ export const adminListReferralAuditLog = query({
   },
   handler: async (ctx, args) => {
     await requireAdminUser(ctx);
-    const rows = await ctx.db
-      .query('referralAdminAuditLog')
-      .withIndex('by_createdAt', (q: any) => q)
-      .collect();
+    const safeLimit = Math.max(1, Math.min(args.limit ?? 120, 400));
+    // The legacy array contract can be served exactly with a bounded
+    // index read for every supported target filter combination.
+    const auditQuery =
+      args.targetType && args.targetId
+        ? ctx.db
+            .query('referralAdminAuditLog')
+            .withIndex('by_targetType_targetId_createdAt', (q: any) =>
+              q.eq('targetType', args.targetType).eq('targetId', args.targetId)
+            )
+        : args.targetType
+          ? ctx.db
+              .query('referralAdminAuditLog')
+              .withIndex('by_targetType_createdAt', (q: any) =>
+                q.eq('targetType', args.targetType)
+              )
+          : args.targetId
+            ? ctx.db
+                .query('referralAdminAuditLog')
+                .withIndex('by_targetId_createdAt', (q: any) =>
+                  q.eq('targetId', args.targetId)
+                )
+            : ctx.db.query('referralAdminAuditLog').withIndex('by_createdAt');
+    return await auditQuery.order('desc').take(safeLimit);
+  },
+});
 
-    return rows
-      .filter((row: any) =>
-        args.targetType ? row.targetType === args.targetType : true
+// Older array API remains available for installed clients during migration.
+export const adminListReferralAuditLogPage = query({
+  args: {
+    targetType: v.optional(
+      v.union(
+        v.literal('customerReferralLink'),
+        v.literal('businessReferralLink'),
+        v.literal('referralReward'),
+        v.literal('customerReferral')
       )
-      .filter((row: any) =>
-        args.targetId ? row.targetId === args.targetId : true
-      )
-      .sort((a: any, b: any) => Number(b.createdAt) - Number(a.createdAt))
-      .slice(0, Math.max(1, Math.min(args.limit ?? 120, 400)));
+    ),
+    targetId: v.optional(v.string()),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: paginationResultValidator(v.any()),
+  handler: async (ctx, args) => {
+    await requireAdminUser(ctx);
+    // All supported filter combinations now page exact timestamp indexes.
+    // No result is omitted because it is outside a globally scanned page.
+    const auditQuery =
+      args.targetType && args.targetId
+        ? ctx.db
+            .query('referralAdminAuditLog')
+            .withIndex('by_targetType_targetId_createdAt', (q: any) =>
+              q.eq('targetType', args.targetType).eq('targetId', args.targetId)
+            )
+        : args.targetType
+          ? ctx.db
+              .query('referralAdminAuditLog')
+              .withIndex('by_targetType_createdAt', (q: any) =>
+                q.eq('targetType', args.targetType)
+              )
+          : args.targetId
+            ? ctx.db
+                .query('referralAdminAuditLog')
+                .withIndex('by_targetId_createdAt', (q: any) =>
+                  q.eq('targetId', args.targetId)
+                )
+            : ctx.db.query('referralAdminAuditLog').withIndex('by_createdAt');
+    const result = await auditQuery.order('desc').paginate({
+      ...args.paginationOpts,
+      numItems: Math.max(1, Math.min(args.paginationOpts.numItems, 100)),
+    });
+    return {
+      ...result,
+      page: result.page.filter(
+        (row) =>
+          (!args.targetType || row.targetType === args.targetType) &&
+          (!args.targetId || row.targetId === args.targetId)
+      ),
+    };
   },
 });
 
@@ -2811,15 +3009,19 @@ export const processBusinessReferralSubscriptionSyncInternal = internalMutation(
 );
 
 export const processDueBusinessReferralCreditsInternal = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const now = Date.now();
-    const waiting = await ctx.db
+  args: {
+    cursor: v.optional(v.string()),
+    referenceNow: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const now = args.referenceNow ?? Date.now();
+    const waitingPage = await ctx.db
       .query('businessReferrals')
       .withIndex('by_status_qualificationDueAt', (q: any) =>
         q.eq('status', 'waiting_30_days')
       )
-      .collect();
+      .paginate({ cursor: args.cursor ?? null, numItems: 100 });
+    const waiting = waitingPage.page;
 
     let credited = 0;
     let skipped = 0;
@@ -2913,6 +3115,13 @@ export const processDueBusinessReferralCreditsInternal = internalMutation({
       });
     }
 
+    if (!waitingPage.isDone) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.referrals.processDueBusinessReferralCreditsInternal,
+        { cursor: waitingPage.continueCursor, referenceNow: now }
+      );
+    }
     return {
       processed: waiting.length,
       credited,
@@ -2931,8 +3140,10 @@ export const expireReferralLinksInternal = internalMutation({
 
     const customerActive = await ctx.db
       .query('customerReferralLinks')
-      .withIndex('by_status_expiresAt', (q: any) => q.eq('status', 'active'))
-      .collect();
+      .withIndex('by_status_expiresAt', (q: any) =>
+        q.eq('status', 'active').lte('expiresAt', now)
+      )
+      .take(100);
     for (const row of customerActive) {
       if (Number(row.expiresAt) <= now) {
         await ctx.db.patch(row._id, {
@@ -2945,8 +3156,10 @@ export const expireReferralLinksInternal = internalMutation({
 
     const businessActive = await ctx.db
       .query('businessReferralLinks')
-      .withIndex('by_status_expiresAt', (q: any) => q.eq('status', 'active'))
-      .collect();
+      .withIndex('by_status_expiresAt', (q: any) =>
+        q.eq('status', 'active').lte('expiresAt', now)
+      )
+      .take(100);
     for (const row of businessActive) {
       if (Number(row.expiresAt) <= now) {
         await ctx.db.patch(row._id, {
@@ -2955,6 +3168,14 @@ export const expireReferralLinksInternal = internalMutation({
         });
         expiredBusinessLinks += 1;
       }
+    }
+
+    if (customerActive.length === 100 || businessActive.length === 100) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.referrals.expireReferralLinksInternal,
+        {}
+      );
     }
 
     return {
@@ -2966,15 +3187,18 @@ export const expireReferralLinksInternal = internalMutation({
 });
 
 export const expireReferralRewardsInternal = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const now = Date.now();
+  args: {
+    cursor: v.optional(v.string()),
+    referenceNow: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const now = args.referenceNow ?? Date.now();
     let expiredBenefits = 0;
-    const granted = await ctx.db
+    const grantedPage = await ctx.db
       .query('referralRewards')
       .withIndex('by_status_expiresAt', (q: any) => q.eq('status', 'granted'))
-      .collect();
-    for (const reward of granted) {
+      .paginate({ cursor: args.cursor ?? null, numItems: 100 });
+    for (const reward of grantedPage.page) {
       if (
         reward.actualRewardType === 'BENEFIT' &&
         reward.expiresAt &&
@@ -2986,6 +3210,13 @@ export const expireReferralRewardsInternal = internalMutation({
         });
         expiredBenefits += 1;
       }
+    }
+    if (!grantedPage.isDone) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.referrals.expireReferralRewardsInternal,
+        { cursor: grantedPage.continueCursor, referenceNow: now }
+      );
     }
     return {
       now,

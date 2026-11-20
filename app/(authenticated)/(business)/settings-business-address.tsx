@@ -1,3 +1,4 @@
+import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import { useMutation, useQuery } from 'convex/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -18,6 +19,7 @@ import {
   SettingsPrimaryButton,
   useSettingsContentWidth,
 } from '@/components/business-settings';
+import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
@@ -92,6 +94,7 @@ function toSelectedAddress(
 
 export default function BusinessSettingsAddressScreen() {
   const contentWidth = useSettingsContentWidth();
+  const navigation = useNavigation();
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
   const activeBusinessCapabilities = activeBusiness
     ? resolveBusinessCapabilities(
@@ -162,6 +165,21 @@ export default function BusinessSettingsAddressScreen() {
   }, [applyBusinessAddressSnapshot, baseUpdatedAt, businessSettings]);
 
   const isDirty = !areBusinessAddressesEqual(loadedAddress, selectedAddress);
+  useBusinessWebUnsavedChanges(Platform.OS === 'web' && isDirty);
+  usePreventRemove(isDirty && !isSubmitting, ({ data }) => {
+    Alert.alert(
+      'יש שינויים שלא נשמרו',
+      'אפשר להמשיך לערוך או לצאת ללא שמירה.',
+      [
+        { text: 'המשך עריכה', style: 'cancel' },
+        {
+          text: 'יציאה ללא שמירה',
+          style: 'destructive',
+          onPress: () => navigation.dispatch(data.action),
+        },
+      ]
+    );
+  });
   const canSave =
     canEditBusiness &&
     activeBusinessId !== null &&

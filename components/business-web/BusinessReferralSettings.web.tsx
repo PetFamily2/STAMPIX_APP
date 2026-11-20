@@ -1,0 +1,1244 @@
+import type { Ionicons } from '@expo/vector-icons';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { useMutation, useQuery } from 'convex/react';
+import {
+  type Href,
+  Redirect,
+  useLocalSearchParams,
+  useRouter,
+} from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  BusinessSettingsSubpageHeader,
+  useSettingsContentWidth,
+} from '@/components/business-settings';
+import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
+import { ReferralEmptyState } from '@/components/referrals/ReferralEmptyState';
+import { PlanLimitModal } from '@/components/subscription/PlanLimitModal';
+import {
+  PaintedPressable,
+  PaintedPressable as Pressable,
+} from '@/components/ui/PaintedPressable';
+import { api } from '@/convex/_generated/api';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { useEntitlements } from '@/hooks/useEntitlements';
+import { Alert } from '@/lib/alert';
+import { BUSINESS_WEB_TOKENS as WEB } from '@/lib/design/businessWebTokens';
+import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
+import {
+  entitlementErrorToHebrewMessage,
+  getEntitlementError,
+} from '@/lib/entitlements/errors';
+import { NATIVE_REFERRAL_DESTINATIONS } from '@/lib/navigation/referralSettingsDestinations';
+import {
+  canApplyReferralServerUpdate,
+  type ReferralDraftBaseline,
+  referralDraftState,
+  referralSaveBlocked,
+} from '@/lib/referrals/draftSafety';
+import { flexDirection } from '@/lib/rtl';
+import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
+
+type RewardType = 'STAMP' | 'BENEFIT';
+type RewardRecipients = 'referrer' | 'referred' | 'both';
+type MonthlyLimit = 'unlimited' | 5 | 10 | 20 | 50;
+type BenefitExpiration = 14 | 30 | 60 | 90;
+type ReferralTab = 'settings' | 'customers' | 'rewards' | 'performance';
+
+const MONTHLY_LIMIT_OPTIONS: MonthlyLimit[] = ['unlimited', 5, 10, 20, 50];
+const BENEFIT_EXPIRATION_OPTIONS: BenefitExpiration[] = [14, 30, 60, 90];
+const TAB_LABELS: Record<ReferralTab, string> = {
+  settings: 'הגדרות',
+  customers: 'לקוחות',
+  rewards: 'תגמולים',
+  performance: 'ביצועים',
+};
+
+function normalizeTab(value: string | undefined): ReferralTab {
+  if (
+    value === 'settings' ||
+    value === 'customers' ||
+    value === 'rewards' ||
+    value === 'performance'
+  ) {
+    return value;
+  }
+  return 'settings';
+}
+
+function getRewardTypeLabel(value: RewardType | string | null | undefined) {
+  if (value === 'STAMP') {
+    return 'חותמת';
+  }
+  if (value === 'BENEFIT') {
+    return 'הטבה';
+  }
+  return 'תגמול';
+}
+
+function getReferralStatusLabel(value: string | null | undefined) {
+  if (value === 'pending') {
+    return 'ממתין';
+  }
+  if (value === 'qualified' || value === 'completed') {
+    return 'הושלם';
+  }
+  if (value === 'skipped') {
+    return 'לא הושלם';
+  }
+  if (value === 'invalid') {
+    return 'לא תקף';
+  }
+  return 'סטטוס לא ידוע';
+}
+
+function getRewardStatusLabel(value: string | null | undefined) {
+  if (value === 'granted') {
+    return 'הונפק';
+  }
+  if (value === 'redeemed') {
+    return 'מומש';
+  }
+  if (value === 'expired') {
+    return 'פג תוקף';
+  }
+  if (value === 'revoked') {
+    return 'בוטל';
+  }
+  return 'סטטוס לא ידוע';
+}
+
+function EmptyReferralActionState({
+  icon,
+  title,
+  body,
+  action,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  body: string;
+  action: string;
+  onPress: () => void;
+}) {
+  return (
+    <ReferralEmptyState
+      icon={icon}
+      title={title}
+      body={body}
+      actionLabel={action}
+      onActionPress={onPress}
+    />
+  );
+}
+
+export default function BusinessReferralSettingsScreen({
+  settingsHref = NATIVE_REFERRAL_DESTINATIONS.settings,
+  campaignsHref = NATIVE_REFERRAL_DESTINATIONS.campaigns,
+  webPresentation = false,
+}: {
+  settingsHref?: Href;
+  campaignsHref?: string;
+  webPresentation?: boolean;
+} = {}) {
+  const styles = webPresentation ? webStyles : nativeStyles;
+  const router = useRouter();
+  const contentWidth = useSettingsContentWidth();
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const tabBarHeight = useBottomTabBarHeight();
+  const { activeBusinessId, activeBusiness } = useActiveBusiness();
+  const [activeTab, setActiveTab] = useState<ReferralTab>(
+    normalizeTab(params.tab)
+  );
+
+  const capabilities = activeBusiness
+    ? resolveBusinessCapabilities(
+        activeBusiness.capabilities ?? null,
+        activeBusiness.staffRole
+      )
+    : null;
+
+  const canViewSettings = capabilities?.view_settings === true;
+  const canEditConfig = capabilities?.edit_loyalty_cards === true;
+  const canViewDashboard = capabilities?.access_dashboard === true;
+  const canViewCustomers = capabilities?.access_customers === true;
+  const canViewUsageQuota = capabilities?.view_usage_quota === true;
+  const canManageSubscription = capabilities?.manage_subscription === true;
+  const { entitlements } = useEntitlements(
+    activeBusinessId && canViewUsageQuota ? activeBusinessId : null
+  );
+
+  const configQuery = useQuery(
+    api.referrals.getReferralConfig,
+    activeBusinessId && canViewSettings
+      ? { businessId: activeBusinessId }
+      : 'skip'
+  );
+  const performanceQuery = useQuery(
+    api.referrals.getBusinessReferralPerformance,
+    activeBusinessId &&
+      canViewDashboard &&
+      (!webPresentation || activeTab === 'performance')
+      ? { businessId: activeBusinessId, range: '30d' }
+      : 'skip'
+  );
+  const customersQuery = useQuery(
+    api.referrals.listBusinessReferralCustomers,
+    activeBusinessId &&
+      canViewCustomers &&
+      (!webPresentation || activeTab === 'customers')
+      ? { businessId: activeBusinessId, limit: 80 }
+      : 'skip'
+  );
+  const rewardsQuery = useQuery(
+    api.referrals.listBusinessReferralRewards,
+    activeBusinessId &&
+      canViewCustomers &&
+      (!webPresentation || activeTab === 'rewards')
+      ? { businessId: activeBusinessId, limit: 80 }
+      : 'skip'
+  );
+  const saveReferralConfig = useMutation(api.referrals.saveReferralConfig);
+
+  const [isEnabled, setIsEnabled] = useState(true);
+  const [rewardType, setRewardType] = useState<RewardType>('STAMP');
+  const [rewardValueText, setRewardValueText] = useState('1');
+  const [benefitTitle, setBenefitTitle] = useState('');
+  const [benefitDescription, setBenefitDescription] = useState('');
+  const [benefitExpirationDays, setBenefitExpirationDays] =
+    useState<BenefitExpiration>(30);
+  const [rewardRecipients, setRewardRecipients] =
+    useState<RewardRecipients>('both');
+  const [monthlyLimit, setMonthlyLimit] = useState<MonthlyLimit>(10);
+  const [baseline, setBaseline] = useState<ReferralDraftBaseline | null>(null);
+  const [saveConflict, setSaveConflict] = useState(false);
+  const draftValue = JSON.stringify([
+    isEnabled,
+    rewardType,
+    rewardValueText,
+    benefitTitle,
+    benefitDescription,
+    benefitExpirationDays,
+    rewardRecipients,
+    monthlyLimit,
+  ]);
+  const draftStatus = referralDraftState(
+    baseline,
+    String(activeBusinessId ?? ''),
+    draftValue,
+    configQuery?.configVersion
+  );
+  const discardDraft = useCallback(() => {
+    if (!baseline) return;
+    const [
+      enabled,
+      type,
+      value,
+      title,
+      description,
+      expiration,
+      recipients,
+      limit,
+    ] = JSON.parse(baseline.value);
+    setIsEnabled(enabled);
+    setRewardType(type);
+    setRewardValueText(value);
+    setBenefitTitle(title);
+    setBenefitDescription(description);
+    setBenefitExpirationDays(expiration);
+    setRewardRecipients(recipients);
+    setMonthlyLimit(limit);
+  }, [baseline]);
+  useBusinessWebUnsavedChanges(
+    webPresentation && draftStatus.dirty,
+    discardDraft
+  );
+  const [isSaving, setIsSaving] = useState(false);
+  const saveBlocked = referralSaveBlocked({
+    canEdit: canEditConfig,
+    saving: isSaving,
+    hasBaseline: !!baseline,
+    businessChanged: draftStatus.businessChanged,
+    conflict: draftStatus.conflict,
+    saveConflict,
+  });
+  const canReloadConflict =
+    !!configQuery &&
+    String(configQuery.businessId) === String(activeBusinessId ?? '') &&
+    !!baseline &&
+    (draftStatus.businessChanged ||
+      configQuery.configVersion > baseline.version);
+  const [planLimitNotice, setPlanLimitNotice] = useState<{
+    reason: string;
+    requiredPlan: 'starter' | 'pro' | 'premium' | null;
+  } | null>(null);
+
+  useEffect(() => {
+    setActiveTab(normalizeTab(params.tab));
+  }, [params.tab]);
+
+  useEffect(() => {
+    if (
+      !configQuery ||
+      String(configQuery.businessId) !== String(activeBusinessId ?? '')
+    ) {
+      return;
+    }
+    if (!canApplyReferralServerUpdate(draftStatus.dirty, saveConflict)) return;
+    if (
+      baseline?.businessId === String(activeBusinessId ?? '') &&
+      configQuery.configVersion < baseline.version
+    )
+      return;
+    const nextEnabled = configQuery.isEnabled === true;
+    const nextType = configQuery.rewardType === 'BENEFIT' ? 'BENEFIT' : 'STAMP';
+    const nextValue = String(Math.max(1, Number(configQuery.rewardValue ?? 1)));
+    const nextExpiration = [14, 30, 60, 90].includes(
+      configQuery.benefitExpirationDays ?? 0
+    )
+      ? configQuery.benefitExpirationDays
+      : 30;
+    const nextLimit = ['unlimited', 5, 10, 20, 50].includes(
+      configQuery.monthlyLimit
+    )
+      ? configQuery.monthlyLimit
+      : 10;
+    setBaseline({
+      businessId: String(activeBusinessId ?? ''),
+      version: configQuery.configVersion,
+      value: JSON.stringify([
+        nextEnabled,
+        nextType,
+        nextValue,
+        configQuery.benefitTitle ?? '',
+        configQuery.benefitDescription ?? '',
+        nextExpiration,
+        configQuery.rewardRecipients ?? 'both',
+        nextLimit,
+      ]),
+    });
+    setIsEnabled(configQuery.isEnabled === true);
+    setRewardType(configQuery.rewardType === 'BENEFIT' ? 'BENEFIT' : 'STAMP');
+    setRewardValueText(
+      String(Math.max(1, Number(configQuery.rewardValue ?? 1)))
+    );
+    setBenefitTitle(configQuery.benefitTitle ?? '');
+    setBenefitDescription(configQuery.benefitDescription ?? '');
+    setBenefitExpirationDays(
+      configQuery.benefitExpirationDays === 14 ||
+        configQuery.benefitExpirationDays === 30 ||
+        configQuery.benefitExpirationDays === 60 ||
+        configQuery.benefitExpirationDays === 90
+        ? configQuery.benefitExpirationDays
+        : 30
+    );
+    setRewardRecipients(configQuery.rewardRecipients ?? 'both');
+    setMonthlyLimit(
+      configQuery.monthlyLimit === 'unlimited' ||
+        configQuery.monthlyLimit === 5 ||
+        configQuery.monthlyLimit === 10 ||
+        configQuery.monthlyLimit === 20 ||
+        configQuery.monthlyLimit === 50
+        ? configQuery.monthlyLimit
+        : 10
+    );
+  }, [
+    configQuery,
+    activeBusinessId,
+    draftStatus.dirty,
+    baseline?.businessId,
+    baseline?.version,
+    saveConflict,
+  ]);
+
+  const rewardValue = useMemo(() => {
+    const parsed = Number.parseInt(rewardValueText, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return 1;
+    }
+    return parsed;
+  }, [rewardValueText]);
+
+  const isPerformanceEmpty =
+    performanceQuery != null &&
+    performanceQuery.referralsGenerated === 0 &&
+    performanceQuery.referralsJoined === 0 &&
+    performanceQuery.referralsQualified === 0 &&
+    performanceQuery.referralsCompleted === 0 &&
+    performanceQuery.rewardsIssued === 0 &&
+    performanceQuery.rewardsRedeemed === 0 &&
+    performanceQuery.activeBenefits === 0 &&
+    (performanceQuery.topReferrers?.length ?? 0) === 0 &&
+    (performanceQuery.topOriginPrograms?.length ?? 0) === 0;
+  const requiredPlanForCampaigns =
+    entitlements?.requiredPlanMap?.byLimitFromCurrentPlan?.[entitlements.plan]
+      ?.maxCampaigns ?? 'pro';
+
+  const openCampaignsUpgrade = (
+    requiredPlan:
+      | 'starter'
+      | 'pro'
+      | 'premium'
+      | null = requiredPlanForCampaigns
+  ) => {
+    openSubscriptionComparison(router, {
+      featureKey: 'maxCampaigns',
+      requiredPlan,
+      reason: 'limit_reached',
+    });
+  };
+
+  const handleSaveConfig = async () => {
+    if (!activeBusinessId || saveBlocked || !baseline) {
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const submitted = draftValue;
+      const saved = await saveReferralConfig({
+        businessId: activeBusinessId,
+        expectedConfigVersion: baseline.version,
+        isEnabled,
+        rewardType,
+        rewardValue,
+        benefitTitle: benefitTitle.trim() || undefined,
+        benefitDescription: benefitDescription.trim() || undefined,
+        benefitExpirationDays:
+          rewardType === 'BENEFIT' ? benefitExpirationDays : undefined,
+        rewardRecipients,
+        monthlyLimit,
+      });
+      if (saved)
+        setBaseline({
+          businessId: String(activeBusinessId),
+          version: saved.configVersion,
+          value: submitted,
+        });
+      Alert.alert('', 'הגדרות החבר-מביא-חבר נשמרו');
+    } catch (error) {
+      if (String(error).includes('REFERRAL_CLIENT_UPDATE_REQUIRED')) {
+        Alert.alert(
+          'נדרש עדכון',
+          'כדי לשמור הגדרות יש לעדכן את האפליקציה. הטיוטה נשארה במסך.'
+        );
+        return;
+      }
+      const entitlementError = getEntitlementError(error);
+      if (
+        isEnabled &&
+        entitlementError?.code === 'PLAN_LIMIT_REACHED' &&
+        entitlementError.limitKey === 'maxCampaigns'
+      ) {
+        setPlanLimitNotice({
+          reason: `${entitlementErrorToHebrewMessage(
+            entitlementError
+          )} אפשר לשמור את התבנית כשהיא כבויה או להשבית קמפיין פעיל אחר.`,
+          requiredPlan:
+            entitlementError.requiredPlan ?? requiredPlanForCampaigns,
+        });
+        return;
+      }
+      if (String(error).includes('REFERRAL_CONFIG_CONFLICT')) {
+        setSaveConflict(true);
+      }
+      Alert.alert(
+        'שגיאה',
+        String(error).includes('REFERRAL_CONFIG_CONFLICT')
+          ? 'ההגדרות השתנו במקום אחר. הטיוטה נשמרה; טענו את הגרסה העדכנית לפני שמירה.'
+          : 'שמירת ההגדרות נכשלה'
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (activeBusiness && !canViewSettings) {
+    return <Redirect href={settingsHref} />;
+  }
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={[]}>
+      <ScrollView
+        stickyHeaderIndices={webPresentation ? undefined : [0]}
+        scrollEnabled={!webPresentation}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingBottom: webPresentation ? 16 : tabBarHeight + 24,
+            width: webPresentation ? '100%' : contentWidth,
+          },
+        ]}
+      >
+        {webPresentation ? (
+          <View style={{ gap: 4 }}>
+            <Text
+              accessibilityRole="header"
+              aria-level={1}
+              style={webStyles.pageTitle}
+            >
+              הזמנת חברים
+            </Text>
+            <Text style={webStyles.description}>
+              מגדירים למי ניתנת ההטבה, ומה מקבלים כשהחבר מצטרף.
+            </Text>
+          </View>
+        ) : (
+          <BusinessSettingsSubpageHeader
+            title="קמפיין חבר מביא חבר"
+            subtitle="הגדרת תבנית, הפעלה וביצועים"
+            fallbackHref={campaignsHref}
+          />
+        )}
+
+        <View
+          style={styles.tabRow}
+          accessibilityRole={webPresentation ? 'tablist' : undefined}
+        >
+          {(
+            ['settings', 'customers', 'rewards', 'performance'] as ReferralTab[]
+          ).map((tab) => (
+            <Pressable
+              key={tab}
+              accessibilityRole={webPresentation ? 'tab' : undefined}
+              accessibilityState={
+                webPresentation ? { selected: activeTab === tab } : undefined
+              }
+              onPress={() => setActiveTab(tab)}
+              style={[
+                styles.tabButton,
+                activeTab === tab ? styles.tabButtonActive : null,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.tabButtonText,
+                  activeTab === tab ? styles.tabButtonTextActive : null,
+                ]}
+              >
+                {TAB_LABELS[tab]}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {activeTab === 'settings' ? (
+          configQuery === undefined ? (
+            <View style={styles.card}>
+              <ActivityIndicator color="#2F6BFF" />
+            </View>
+          ) : (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>הגדרות הקמפיין</Text>
+              {draftStatus.conflict ||
+              draftStatus.businessChanged ||
+              saveConflict ? (
+                <View>
+                  <Text accessibilityRole="alert">
+                    ההגדרות השתנו במקום אחר. הטיוטה לא נדרסה; אפשר לטעון את
+                    הגרסה העדכנית ולוותר על הטיוטה.
+                  </Text>
+                  {canReloadConflict ? (
+                    <Pressable
+                      onPress={() => {
+                        setSaveConflict(false);
+                        discardDraft();
+                      }}
+                    >
+                      <Text>ויתור על הטיוטה וטעינת הגרסה העדכנית</Text>
+                    </Pressable>
+                  ) : (
+                    <Text>ממתינים לגרסה העדכנית מהשרת.</Text>
+                  )}
+                </View>
+              ) : null}
+
+              <View style={styles.row}>
+                <Text style={styles.label}>הקמפיין פעיל</Text>
+                <Pressable
+                  onPress={() =>
+                    canEditConfig && setIsEnabled((value) => !value)
+                  }
+                  disabled={!canEditConfig}
+                  style={[
+                    styles.toggle,
+                    isEnabled ? styles.toggleOn : styles.toggleOff,
+                  ]}
+                >
+                  <Text style={styles.toggleText}>
+                    {isEnabled ? 'פעיל' : 'כבוי'}
+                  </Text>
+                </Pressable>
+              </View>
+              <Text style={styles.quotaNote}>
+                רק קמפיין פעיל נספר במכסה. אפשר לערוך ולשמור את התבנית גם
+                כשהמכסה מלאה; המגבלה נבדקת בעת ההפעלה.
+              </Text>
+
+              <Text style={styles.label}>סוג תגמול</Text>
+              <View style={styles.segmentRow}>
+                <Pressable
+                  onPress={() => canEditConfig && setRewardType('STAMP')}
+                  style={[
+                    styles.segmentButton,
+                    rewardType === 'STAMP' ? styles.segmentButtonActive : null,
+                  ]}
+                >
+                  <Text style={styles.segmentText}>חותמת</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => canEditConfig && setRewardType('BENEFIT')}
+                  style={[
+                    styles.segmentButton,
+                    rewardType === 'BENEFIT'
+                      ? styles.segmentButtonActive
+                      : null,
+                  ]}
+                >
+                  <Text style={styles.segmentText}>הטבה</Text>
+                </Pressable>
+              </View>
+
+              <Text style={styles.label}>ערך תגמול</Text>
+              <TextInput
+                value={rewardValueText}
+                onChangeText={setRewardValueText}
+                keyboardType="number-pad"
+                editable={canEditConfig}
+                style={styles.input}
+              />
+
+              {rewardType === 'BENEFIT' ? (
+                <>
+                  <Text style={styles.label}>כותרת הטבה</Text>
+                  <TextInput
+                    value={benefitTitle}
+                    onChangeText={setBenefitTitle}
+                    editable={canEditConfig}
+                    style={styles.input}
+                  />
+
+                  <Text style={styles.label}>תיאור הטבה</Text>
+                  <TextInput
+                    value={benefitDescription}
+                    onChangeText={setBenefitDescription}
+                    editable={canEditConfig}
+                    multiline={true}
+                    style={[styles.input, styles.multilineInput]}
+                  />
+
+                  <Text style={styles.label}>תוקף הטבה (ימים)</Text>
+                  <View style={styles.segmentRow}>
+                    {BENEFIT_EXPIRATION_OPTIONS.map((value) => (
+                      <Pressable
+                        key={String(value)}
+                        onPress={() =>
+                          canEditConfig && setBenefitExpirationDays(value)
+                        }
+                        style={[
+                          styles.segmentButtonCompact,
+                          benefitExpirationDays === value
+                            ? styles.segmentButtonActive
+                            : null,
+                        ]}
+                      >
+                        <Text style={styles.segmentText}>{value}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </>
+              ) : null}
+
+              <Text style={styles.label}>מי מקבל תגמול</Text>
+              <View style={styles.segmentRow}>
+                <Pressable
+                  onPress={() =>
+                    canEditConfig && setRewardRecipients('referrer')
+                  }
+                  style={[
+                    styles.segmentButtonCompact,
+                    rewardRecipients === 'referrer'
+                      ? styles.segmentButtonActive
+                      : null,
+                  ]}
+                >
+                  <Text style={styles.segmentText}>המפנה</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() =>
+                    canEditConfig && setRewardRecipients('referred')
+                  }
+                  style={[
+                    styles.segmentButtonCompact,
+                    rewardRecipients === 'referred'
+                      ? styles.segmentButtonActive
+                      : null,
+                  ]}
+                >
+                  <Text style={styles.segmentText}>המופנה</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => canEditConfig && setRewardRecipients('both')}
+                  style={[
+                    styles.segmentButtonCompact,
+                    rewardRecipients === 'both'
+                      ? styles.segmentButtonActive
+                      : null,
+                  ]}
+                >
+                  <Text style={styles.segmentText}>שניהם</Text>
+                </Pressable>
+              </View>
+
+              <Text style={styles.label}>מגבלת הפניות חודשית</Text>
+              <View style={styles.segmentRow}>
+                {MONTHLY_LIMIT_OPTIONS.map((limit) => (
+                  <Pressable
+                    key={String(limit)}
+                    onPress={() => canEditConfig && setMonthlyLimit(limit)}
+                    style={[
+                      styles.segmentButtonCompact,
+                      monthlyLimit === limit
+                        ? styles.segmentButtonActive
+                        : null,
+                    ]}
+                  >
+                    <Text style={styles.segmentText}>
+                      {limit === 'unlimited' ? '∞' : String(limit)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <PaintedPressable
+                onPress={() => void handleSaveConfig()}
+                disabled={saveBlocked}
+                accessibilityRole="button"
+                accessibilityLabel="שמירת הגדרות"
+                accessibilityState={{
+                  disabled: saveBlocked,
+                  busy: isSaving,
+                }}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  pressed ? styles.pressed : null,
+                  saveBlocked ? styles.buttonDisabled : null,
+                ]}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {isSaving ? 'שומר...' : 'שמירת הגדרות'}
+                </Text>
+              </PaintedPressable>
+            </View>
+          )
+        ) : null}
+
+        {activeTab === 'customers' ? (
+          !canViewCustomers ? (
+            <View style={styles.card}>
+              <Text style={styles.emptyText}>אין הרשאה לצפייה בלקוחות.</Text>
+            </View>
+          ) : customersQuery === undefined ? (
+            <View style={styles.card}>
+              <ActivityIndicator color="#2F6BFF" />
+            </View>
+          ) : (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>לקוחות שהופנו</Text>
+              {customersQuery.length === 0 ? (
+                <EmptyReferralActionState
+                  icon="people-outline"
+                  title="עדיין אין לקוחות שהופנו"
+                  body="אחרי שתשתפו הזמנה ולקוחות יצטרפו דרכה, הם יופיעו כאן."
+                  action="להגדרות ושיתוף"
+                  onPress={() => setActiveTab('settings')}
+                />
+              ) : (
+                customersQuery.map((row) => (
+                  <View key={String(row.referralId)} style={styles.listRow}>
+                    <Text style={styles.listPrimary}>
+                      {row.referredName ?? row.referredUserId}
+                    </Text>
+                    <Text style={styles.listSecondary}>
+                      מפנה: {row.referrerName ?? row.referrerUserId} ·{' '}
+                      {getReferralStatusLabel(row.status)}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </View>
+          )
+        ) : null}
+
+        {activeTab === 'rewards' ? (
+          !canViewCustomers ? (
+            <View style={styles.card}>
+              <Text style={styles.emptyText}>אין הרשאה לצפייה בתגמולים.</Text>
+            </View>
+          ) : rewardsQuery === undefined ? (
+            <View style={styles.card}>
+              <ActivityIndicator color="#2F6BFF" />
+            </View>
+          ) : (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>תגמולי הפניה שהונפקו</Text>
+              {rewardsQuery.length === 0 ? (
+                <EmptyReferralActionState
+                  icon="gift-outline"
+                  title="אין תגמולים להצגה"
+                  body="תגמולים שיונפקו בעקבות הזמנות חברים יוצגו כאן."
+                  action="להגדרות ושיתוף"
+                  onPress={() => setActiveTab('settings')}
+                />
+              ) : (
+                rewardsQuery.map((row) => (
+                  <View key={String(row.rewardId)} style={styles.listRow}>
+                    <Text style={styles.listPrimary}>
+                      {row.recipientName ?? row.recipientUserId}
+                    </Text>
+                    <Text style={styles.listSecondary}>
+                      {getRewardTypeLabel(row.actualRewardType)} ·{' '}
+                      {getRewardStatusLabel(row.status)}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </View>
+          )
+        ) : null}
+
+        {activeTab === 'performance' ? (
+          !canViewDashboard ? (
+            <View style={styles.card}>
+              <Text style={styles.emptyText}>אין הרשאה לצפייה בביצועים.</Text>
+            </View>
+          ) : performanceQuery === undefined ? (
+            <View style={styles.card}>
+              <ActivityIndicator color="#2F6BFF" />
+              <Text style={styles.emptyText}>טוען נתוני ביצועים...</Text>
+            </View>
+          ) : isPerformanceEmpty ? (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>ביצועים</Text>
+              <EmptyReferralActionState
+                icon="stats-chart-outline"
+                title="עדיין אין נתוני ביצועים להפניות"
+                body="אחרי שתשתפו הזמנה ותתחיל פעילות, נתוני הביצועים יתעדכנו כאן."
+                action="להגדרות ושיתוף"
+                onPress={() => setActiveTab('settings')}
+              />
+            </View>
+          ) : (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>ביצועים</Text>
+              <Text style={styles.metricLine}>
+                הפניות שנוצרו: {performanceQuery.referralsGenerated}
+              </Text>
+              <Text style={styles.metricLine}>
+                הפניות שהצטרפו: {performanceQuery.referralsJoined}
+              </Text>
+              <Text style={styles.metricLine}>
+                הפניות שעמדו בתנאים: {performanceQuery.referralsQualified}
+              </Text>
+              <Text style={styles.metricLine}>
+                הפניות שהושלמו: {performanceQuery.referralsCompleted}
+              </Text>
+              <Text style={styles.metricLine}>
+                תגמולים שהונפקו: {performanceQuery.rewardsIssued}
+              </Text>
+              <Text style={styles.metricLine}>
+                תגמולים שמומשו: {performanceQuery.rewardsRedeemed}
+              </Text>
+              <Text style={styles.metricLine}>
+                הטבות פעילות: {performanceQuery.activeBenefits}
+              </Text>
+
+              <View style={styles.subSection}>
+                <Text style={styles.subSectionTitle}>מפנים מובילים</Text>
+                {(performanceQuery.topReferrers ?? []).length === 0 ? (
+                  <Text style={styles.emptyText}>אין נתוני דירוג מפנים.</Text>
+                ) : (
+                  (performanceQuery.topReferrers ?? []).map((row, index) => (
+                    <View
+                      key={
+                        row.referrerUserId
+                          ? `referrer-${row.referrerUserId}`
+                          : `deleted-referrer-${index}`
+                      }
+                      style={styles.listRow}
+                    >
+                      <Text style={styles.listPrimary}>
+                        {row.referrerName ?? 'משתמש שנמחק'}
+                      </Text>
+                      <Text style={styles.listSecondary}>
+                        כמות: {row.count}
+                      </Text>
+                    </View>
+                  ))
+                )}
+              </View>
+
+              <View style={styles.subSection}>
+                <Text style={styles.subSectionTitle}>תוכניות מקור</Text>
+                {(performanceQuery.topOriginPrograms ?? []).length === 0 ? (
+                  <Text style={styles.emptyText}>
+                    אין נתונים על תוכניות מקור.
+                  </Text>
+                ) : (
+                  (performanceQuery.topOriginPrograms ?? []).map((row) => (
+                    <View
+                      key={String(row.originProgramId)}
+                      style={styles.listRow}
+                    >
+                      <Text style={styles.listPrimary}>
+                        {row.programTitle ?? row.originProgramId}
+                      </Text>
+                      <Text style={styles.listSecondary}>
+                        כמות: {row.count}
+                      </Text>
+                    </View>
+                  ))
+                )}
+              </View>
+            </View>
+          )
+        ) : null}
+      </ScrollView>
+      <PlanLimitModal
+        visible={planLimitNotice !== null}
+        blockedAction="הפעלת הפניית לקוחות נחסמה"
+        reason={planLimitNotice?.reason ?? ''}
+        currentPlan={entitlements?.plan ?? null}
+        canManageSubscription={canManageSubscription}
+        onManageSubscription={
+          planLimitNotice
+            ? () => {
+                const requiredPlan = planLimitNotice.requiredPlan;
+                setPlanLimitNotice(null);
+                openCampaignsUpgrade(requiredPlan);
+              }
+            : undefined
+        }
+        onDismiss={() => setPlanLimitNotice(null)}
+      />
+    </SafeAreaView>
+  );
+}
+
+const nativeStyles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#E9F0FF',
+  },
+  content: {
+    gap: 10,
+    alignSelf: 'center',
+  },
+  tabRow: {
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tabButton: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D6E3FF',
+    backgroundColor: '#F6F9FF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  tabButtonActive: {
+    borderColor: '#AFC9FF',
+    backgroundColor: '#EAF2FF',
+  },
+  tabButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#334155',
+  },
+  tabButtonTextActive: {
+    color: '#1D4ED8',
+  },
+  card: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#DDE8FF',
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    gap: 8,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#0F172A',
+    textAlign: 'right',
+  },
+  row: {
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+    textAlign: 'right',
+  },
+  quotaNote: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    backgroundColor: '#EFF6FF',
+    padding: 10,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E40AF',
+    lineHeight: 18,
+    textAlign: 'right',
+  },
+  toggle: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+  },
+  toggleOn: {
+    borderColor: '#9EDDB9',
+    backgroundColor: '#EAFBF1',
+  },
+  toggleOff: {
+    borderColor: '#F9CACA',
+    backgroundColor: '#FFF1F1',
+  },
+  toggleText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1E293B',
+    textAlign: 'center',
+  },
+  segmentRow: {
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  segmentButton: {
+    minWidth: 100,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D6E3FF',
+    backgroundColor: '#F6F9FF',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentButtonCompact: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D6E3FF',
+    backgroundColor: '#F6F9FF',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentButtonActive: {
+    borderColor: '#AFC9FF',
+    backgroundColor: '#EAF2FF',
+  },
+  segmentText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1E293B',
+    textAlign: 'center',
+  },
+  input: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D6E3FF',
+    backgroundColor: '#F8FAFF',
+    minHeight: 42,
+    paddingHorizontal: 12,
+    textAlign: 'right',
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  multilineInput: {
+    minHeight: 80,
+    paddingTop: 10,
+    textAlignVertical: 'top',
+  },
+  primaryButton: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BFD3FF',
+    backgroundColor: '#2F6BFF',
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryButtonText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  metricLine: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+    textAlign: 'right',
+  },
+  emptyText: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'right',
+  },
+  listRow: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    padding: 10,
+    gap: 4,
+  },
+  listPrimary: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'right',
+  },
+  listSecondary: {
+    fontSize: 12,
+    color: '#475569',
+    textAlign: 'right',
+  },
+  subSection: {
+    marginTop: 8,
+    gap: 6,
+  },
+  subSectionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1E293B',
+    textAlign: 'right',
+  },
+  pressed: {
+    opacity: 0.86,
+  },
+  buttonDisabled: {
+    opacity: 0.65,
+  },
+});
+
+const webStyles = StyleSheet.create({
+  ...nativeStyles,
+  safeArea: { flex: 1, backgroundColor: WEB.colors.pageBackground },
+  content: { gap: 16, alignSelf: 'center', maxWidth: 980 },
+  pageTitle: {
+    ...WEB.typography.pageTitle,
+    color: WEB.colors.textPrimary,
+    textAlign: 'right',
+  },
+  description: {
+    ...WEB.typography.body,
+    color: WEB.colors.textSecondary,
+    textAlign: 'right',
+  },
+  tabRow: {
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    gap: 4,
+    padding: 4,
+    backgroundColor: WEB.colors.elevatedSurface,
+    borderRadius: 12,
+  },
+  tabButton: {
+    flexGrow: 1,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  tabButtonActive: { backgroundColor: WEB.colors.primarySubtle },
+  tabButtonText: { ...WEB.typography.label, color: WEB.colors.textSecondary },
+  tabButtonTextActive: { color: WEB.colors.primary },
+  card: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: WEB.colors.border,
+    backgroundColor: WEB.colors.elevatedSurface,
+    padding: 16,
+    gap: 12,
+  },
+  sectionTitle: {
+    ...WEB.typography.sectionTitle,
+    color: WEB.colors.textPrimary,
+    textAlign: 'right',
+  },
+  label: {
+    ...WEB.typography.body,
+    color: WEB.colors.textPrimary,
+    textAlign: 'right',
+  },
+  quotaNote: {
+    ...WEB.typography.secondaryBody,
+    color: WEB.colors.textSecondary,
+    backgroundColor: WEB.colors.subtleSurface,
+    padding: 12,
+    borderRadius: 8,
+    textAlign: 'right',
+  },
+  segmentButton: {
+    ...nativeStyles.segmentButton,
+    minHeight: 44,
+    borderColor: WEB.colors.borderStrong,
+    backgroundColor: WEB.colors.elevatedSurface,
+  },
+  segmentButtonCompact: {
+    ...nativeStyles.segmentButtonCompact,
+    minHeight: 44,
+    minWidth: 44,
+    borderColor: WEB.colors.borderStrong,
+    backgroundColor: WEB.colors.elevatedSurface,
+  },
+  segmentButtonActive: {
+    borderColor: WEB.colors.primary,
+    backgroundColor: WEB.colors.primarySubtle,
+  },
+  segmentText: {
+    ...WEB.typography.label,
+    color: WEB.colors.textPrimary,
+    textAlign: 'center',
+  },
+  input: {
+    ...nativeStyles.input,
+    minHeight: 48,
+    borderColor: WEB.colors.borderStrong,
+    backgroundColor: WEB.colors.elevatedSurface,
+    fontSize: 14,
+  },
+  primaryButton: {
+    ...nativeStyles.primaryButton,
+    minHeight: 48,
+    borderColor: WEB.colors.primary,
+    backgroundColor: WEB.colors.primary,
+  },
+  primaryButtonText: {
+    ...WEB.typography.body,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+});

@@ -113,7 +113,9 @@ export default function StaffPromotionsScreen() {
 
   const campaignsQuery = useQuery(
     api.campaigns.listManagementCampaignsByBusiness,
-    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
+    activeBusinessId
+      ? { businessId: activeBusinessId, deferLargeStats: true }
+      : 'skip'
   );
   const programs =
     useQuery(

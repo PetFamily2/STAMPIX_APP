@@ -1,0 +1,73 @@
+name: Stage 2 offline verification
+
+concurrency:
+  group: stage2-safe-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - performance/stage2-stability
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.5
+      - run: bun install --frozen-lockfile
+      - name: TypeScript
+        run: bun run type-check
+      - name: Focused Push and automation regression
+        run: bun test convex/__tests__/pushNotifications.test.js convex/__tests__/campaignPushDelivery.test.js convex/__tests__/referralsRaceSafety.test.js convex/__tests__/recentActivityIndexed.test.js convex/__tests__/businessClosureNotifications.test.js lib/__tests__/cursorUiIntegration.test.js
+      - name: Show exact formatter patch (diagnostic only)
+        run: |
+          bunx biome format --write convex/schema.ts convex/referrals.ts convex/__tests__/referralsRaceSafety.test.js >/dev/null
+          git diff -- convex/schema.ts convex/referrals.ts convex/__tests__/referralsRaceSafety.test.js
+          git restore -- convex/schema.ts convex/referrals.ts convex/__tests__/referralsRaceSafety.test.js
+      - name: Lint modified backend files
+        run: bunx biome check convex/schema.ts convex/pushNotifications.ts convex/crons.ts convex/referrals.ts convex/__tests__/pushNotifications.test.js convex/__tests__/campaignPushDelivery.test.js convex/__tests__/referralsRaceSafety.test.js convex/__tests__/recentActivityIndexed.test.js convex/events.ts convex/campaigns.ts convex/business.ts convex/__tests__/businessClosureNotifications.test.js --max-diagnostics=300
+      - name: Full regression (individual Bun test files)
+        if: always()
+        run: |
+          set -euo pipefail
+          count=0
+          while IFS= read -r test_file; do
+            if ! bun test "$test_file" >/tmp/stage2-test-output.txt 2>&1; then
+              echo "Regression failed: $test_file"
+              cat /tmp/stage2-test-output.txt
+              exit 1
+            fi
+            count=$((count + 1))
+          done < <(find . -type f -name '*.test.js' -not -path './node_modules/*' -not -path './.git/*' -not -path './.tmp/*' | sort)
+          echo "All $count test files passed independently."
+      - name: Rendered editor scenarios
+        if: always()
+        run: bun scripts/verify-stage2-rendered.jsx
+      - name: Web Android iOS JavaScript export
+        if: always()
+        env:
+          EXPO_PUBLIC_APP_ENV: preview
+          EXPO_PUBLIC_WEB_ROLE_ROUTING: 'true'
+          EXPO_PUBLIC_PWA_ENABLED: 'true'
+        run: bunx expo export --platform all --output-dir ${{ runner.temp }}/stage2-js-export --max-workers 2
+      - name: Full repository lint (report legacy findings)
+        if: always()
+        continue-on-error: true
+        run: bunx biome check . --max-diagnostics=2500
+      - name: No whitespace errors
+        if: always()
+        run: git diff --check HEAD~1 HEAD

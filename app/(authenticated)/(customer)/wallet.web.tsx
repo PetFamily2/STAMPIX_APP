@@ -1,4 +1,4 @@
-import { useConvexAuth, useQuery } from 'convex/react';
+import { useConvexAuth, usePaginatedQuery, useQuery } from 'convex/react';
 import { type Href, router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import {
@@ -85,9 +85,10 @@ export default function WalletWebScreen() {
     api.memberships.byCustomerBusinesses,
     isAuthenticated ? {} : 'skip'
   );
-  const inbox = useQuery(
-    api.campaigns.listInboxForCustomer,
-    isAuthenticated ? {} : 'skip'
+  const { results: inbox, status: inboxStatus } = usePaginatedQuery(
+    api.campaigns.listInboxForCustomerPage,
+    isAuthenticated ? {} : 'skip',
+    { initialNumItems: 3 }
   );
   const businesses = (businessesQuery ?? []) as WalletBusiness[];
   const readyIds = new Set(
@@ -185,7 +186,7 @@ export default function WalletWebScreen() {
         </View>
       ) : null}
 
-      {inbox && inbox.length > 0 ? (
+      {inbox.length > 0 ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>הודעות</Text>
           {inbox.slice(0, 3).map((item) => (
@@ -194,6 +195,13 @@ export default function WalletWebScreen() {
               <Text style={styles.messageBody}>{item.title}</Text>
             </View>
           ))}
+          {inboxStatus === 'CanLoadMore' || inbox.length > 3 ? (
+            <PwaButton
+              label="לכל ההודעות"
+              variant="quiet"
+              onPress={() => router.push(CUSTOMER_ROUTES.rewards)}
+            />
+          ) : null}
         </View>
       ) : null}
 

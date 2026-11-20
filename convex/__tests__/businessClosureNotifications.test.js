@@ -168,6 +168,7 @@ function buildTables(overrides = {}) {
     messageLog: [],
     pushTokens: [],
     pushDeliveryLog: [],
+    pushDeliveryOutbox: [],
     ...overrides,
   };
 }
@@ -424,7 +425,7 @@ describe('business closure notification fan-out', () => {
     expect(tables.businessStaff).toEqual(staffBefore);
   });
 
-  test('same-closure retries skip Inbox and Push while a later closure creates a fresh occurrence', async () => {
+  test('same closure queues only one Push; later closure gets a new delivery identity', async () => {
     const tables = buildTables({
       pushTokens: [
         {
@@ -460,13 +461,13 @@ describe('business closure notification fan-out', () => {
     );
 
     expect(tables.messageLog).toHaveLength(1);
-    expect(tables.pushDeliveryLog).toHaveLength(1);
-    expect(fetchCalls).toBe(1);
+    expect(tables.pushDeliveryOutbox).toHaveLength(1);
+    expect(fetchCalls).toBe(0);
     await sendBusinessClosurePushInternal._handler(ctx, {
       messageId: tables.messageLog[0]._id,
     });
-    expect(tables.pushDeliveryLog).toHaveLength(1);
-    expect(fetchCalls).toBe(1);
+    expect(tables.pushDeliveryOutbox).toHaveLength(1);
+    expect(fetchCalls).toBe(0);
 
     const secondClosedAt = CLOSED_AT + 50_000;
     tables.businesses[0].closedAt = secondClosedAt;
@@ -481,11 +482,14 @@ describe('business closure notification fan-out', () => {
     expect(tables.messageLog[0].dedupeKey).not.toBe(
       tables.messageLog[1].dedupeKey
     );
-    expect(tables.pushDeliveryLog).toHaveLength(2);
-    expect(fetchCalls).toBe(2);
+    expect(tables.pushDeliveryOutbox).toHaveLength(2);
+    expect(tables.pushDeliveryOutbox[0].deliveryKey).not.toBe(
+      tables.pushDeliveryOutbox[1].deliveryKey
+    );
+    expect(fetchCalls).toBe(0);
   });
 
-  test('Push failure leaves the authoritative Inbox notification intact', async () => {
+  test('Push provider failure cannot compromise the Inbox before Action transport', async () => {
     const tables = buildTables({
       pushTokens: [
         {
@@ -511,12 +515,12 @@ describe('business closure notification fan-out', () => {
 
     expect(tables.messageLog).toHaveLength(1);
     expect(tables.messageLog[0].deliveryStatus).toBe('inbox_push_attempted');
-    expect(tables.pushDeliveryLog).toContainEqual(
+    expect(tables.pushDeliveryOutbox).toContainEqual(
       expect.objectContaining({
         toUserId: CUSTOMER_ID,
-        status: 'failed',
-        errorMessage: 'expo_push_transport_ambiguous',
+        status: 'pending',
       })
     );
+    expect(tables.pushDeliveryLog).toHaveLength(0);
   });
 });

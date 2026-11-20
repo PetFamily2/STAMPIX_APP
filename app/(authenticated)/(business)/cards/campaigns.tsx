@@ -58,8 +58,8 @@ type ManagementCampaign = {
   scheduledForAt: number | null;
   lifecycle: 'active' | 'inactive' | 'archived';
   canArchive: boolean;
-  estimatedAudience: number;
-  reachedMessagesAllTime: number;
+  estimatedAudience: number | null;
+  reachedMessagesAllTime: number | null;
   lastSentAt: number | null;
   archivedAt: number | null;
   updatedAt: number;
@@ -118,7 +118,9 @@ export function CampaignsHubContent() {
 
   const campaignsQuery = useQuery(
     api.campaigns.listManagementCampaignsByBusiness,
-    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
+    activeBusinessId
+      ? { businessId: activeBusinessId, deferLargeStats: true }
+      : 'skip'
   );
   const referralConfig = useQuery(
     api.referrals.getReferralConfig,

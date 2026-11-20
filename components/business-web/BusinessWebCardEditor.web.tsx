@@ -19,6 +19,7 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
 import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
@@ -282,6 +283,7 @@ export default function ProgramDetailsScreen() {
     imageStorageId: imageStorageId ? String(imageStorageId) : null,
   });
   const isDirty = savedSignature !== null && formSignature !== savedSignature;
+  useBusinessWebUnsavedChanges(isDirty);
   const usedThemeIds = themeReservations
     .filter(
       (reservation) => String(reservation.programId) !== String(programId)

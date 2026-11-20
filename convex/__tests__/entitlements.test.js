@@ -5,7 +5,7 @@ import {
   getRequiredPlanForLimit,
   REQUIRED_PLAN_BY_FEATURE,
 } from '../entitlements';
-import { saveReferralConfig } from '../referrals';
+import { getReferralConfig, saveReferralConfig } from '../referrals';
 
 function buildBusiness(overrides = {}) {
   const now = Date.now();
@@ -528,6 +528,122 @@ describe('business entitlements', () => {
     expect(campaignError?.currentValue).toBe(1);
     expect(campaignError?.requiredPlan).toBe('pro');
     expect(state.referralConfigs[0].isEnabled).toBe(false);
+  });
+
+  test('stale referral config version rejects before any configuration write', async () => {
+    const business = buildBusiness({ _id: 'business_conflict' });
+    const { ctx, state } = buildCtxWithBusiness(business);
+    state.referralConfigs = [
+      buildReferralConfig({
+        businessId: business._id,
+        configVersion: 4,
+        isEnabled: false,
+      }),
+    ];
+    const original = { ...state.referralConfigs[0] };
+    await expect(
+      saveReferralConfig._handler(ctx, {
+        businessId: business._id,
+        expectedConfigVersion: 3,
+        isEnabled: true,
+        rewardType: 'STAMP',
+        rewardValue: 1,
+        rewardRecipients: 'both',
+        monthlyLimit: 10,
+      })
+    ).rejects.toThrow('REFERRAL_CONFIG_CONFLICT');
+    expect(state.referralConfigs[0]).toEqual(original);
+  });
+
+  test('two editing sessions cannot overwrite a newer referral configuration', async () => {
+    const business = buildBusiness({ _id: 'business_two_sessions' });
+    const { ctx, state } = buildCtxWithBusiness(business);
+    state.referralConfigs = [
+      buildReferralConfig({
+        businessId: business._id,
+        configVersion: 4,
+        isEnabled: false,
+      }),
+    ];
+    const input = {
+      businessId: business._id,
+      isEnabled: false,
+      rewardType: 'STAMP',
+      rewardValue: 2,
+      rewardRecipients: 'both',
+      monthlyLimit: 10,
+    };
+    const saved = await saveReferralConfig._handler(ctx, {
+      ...input,
+      expectedConfigVersion: 4,
+    });
+    expect(saved.configVersion).toBe(5);
+    expect(saved.rewardValue).toBe(2);
+    await expect(
+      saveReferralConfig._handler(ctx, {
+        ...input,
+        rewardValue: 9,
+        expectedConfigVersion: 4,
+      })
+    ).rejects.toThrow('REFERRAL_CONFIG_CONFLICT');
+    expect(state.referralConfigs[0].rewardValue).toBe(2);
+    // Older clients can still save; their writes advance the version and are detected by updated clients.
+    const legacy = await saveReferralConfig._handler(ctx, {
+      ...input,
+      rewardValue: 3,
+    });
+    expect(legacy.configVersion).toBe(6);
+    await expect(
+      saveReferralConfig._handler(ctx, { ...input, expectedConfigVersion: 5 })
+    ).rejects.toThrow('REFERRAL_CONFIG_CONFLICT');
+    expect(state.referralConfigs[0].rewardValue).toBe(3);
+  });
+
+  test('staged version enforcement blocks only unversioned writes and retains reads', async () => {
+    const business = buildBusiness({ _id: 'business_version_rollout' });
+    const { ctx, state } = buildCtxWithBusiness(business);
+    state.referralConfigs = [
+      buildReferralConfig({
+        businessId: business._id,
+        configVersion: 4,
+        isEnabled: false,
+      }),
+    ];
+    const input = {
+      businessId: business._id,
+      isEnabled: false,
+      rewardType: 'STAMP',
+      rewardValue: 2,
+      rewardRecipients: 'both',
+      monthlyLimit: 10,
+    };
+    const previous = process.env.REFERRAL_REQUIRE_CONFIG_VERSION;
+    try {
+      delete process.env.REFERRAL_REQUIRE_CONFIG_VERSION;
+      expect(
+        (await saveReferralConfig._handler(ctx, input)).configVersion
+      ).toBe(5);
+      process.env.REFERRAL_REQUIRE_CONFIG_VERSION = 'true';
+      await expect(saveReferralConfig._handler(ctx, input)).rejects.toThrow(
+        'REFERRAL_CLIENT_UPDATE_REQUIRED'
+      );
+      expect(
+        (await getReferralConfig._handler(ctx, { businessId: business._id }))
+          .configVersion
+      ).toBe(5);
+      expect(
+        (
+          await saveReferralConfig._handler(ctx, {
+            ...input,
+            expectedConfigVersion: 5,
+          })
+        ).configVersion
+      ).toBe(6);
+    } finally {
+      if (previous === undefined)
+        delete process.env.REFERRAL_REQUIRE_CONFIG_VERSION;
+      else process.env.REFERRAL_REQUIRE_CONFIG_VERSION = previous;
+    }
   });
 
   test('required plan mapping is correct for all feature keys', () => {

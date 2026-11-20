@@ -1,11 +1,17 @@
 import { afterEach, describe, expect, test } from 'bun:test';
+import webpush from 'web-push';
 import {
   allowedPushEndpoint,
+  claimWebDelivery,
   configuration,
   deliveryTargets,
+  expireWebClaim,
+  finishWebDelivery,
+  scheduleWebPush,
   subscribe,
   unsubscribe,
 } from '../webPush';
+import { send as deliverWebPush } from '../webPushDelivery';
 import { baseTables, buildCtx } from './helpers/scannerFixtures';
 
 const saved = { ...process.env };
@@ -145,4 +151,210 @@ describe('Web Push server ownership and safe provider targets', () => {
       await deliveryTargets._handler(buildCtx(tables), { userId: 'staff_1' })
     ).toHaveLength(0);
   });
+});
+
+test('web delivery claim rejects wrong owner and stale claimed work becomes unknown', async () => {
+  const tables = baseTables({
+    pushDeliveryOutbox: [
+      { _id: 'outbox_1', toUserId: 'staff_1', webDeliveryStatus: 'pending' },
+    ],
+  });
+  const ctx = buildCtx(tables);
+  let scheduled = 0;
+  ctx.scheduler = { runAfter: async () => scheduled++ };
+  expect(
+    await claimWebDelivery._handler(ctx, {
+      outboxId: 'outbox_1',
+      userId: 'customer_1',
+    })
+  ).toBe(false);
+  expect(
+    await claimWebDelivery._handler(ctx, {
+      outboxId: 'outbox_1',
+      userId: 'staff_1',
+    })
+  ).toBe(true);
+  expect(
+    await claimWebDelivery._handler(ctx, {
+      outboxId: 'outbox_1',
+      userId: 'staff_1',
+    })
+  ).toBe(false);
+  await ctx.db.patch('outbox_1', { webClaimedAt: Date.now() - 16 * 60 * 1000 });
+  expect(await expireWebClaim._handler(ctx, { outboxId: 'outbox_1' })).toBe(
+    true
+  );
+  expect(tables.pushDeliveryOutbox[0].webDeliveryStatus).toBe('unknown');
+  expect(
+    await finishWebDelivery._handler(ctx, {
+      outboxId: 'outbox_1',
+      status: 'sent',
+    })
+  ).toBe(false);
+  expect(scheduled).toBe(1);
+});
+
+test('new web push intent is persisted and scheduled with its outbox ID', async () => {
+  enable();
+  const tables = baseTables({
+    pushDeliveryOutbox: [{ _id: 'outbox_2', toUserId: 'staff_1' }],
+  });
+  const ctx = buildCtx(tables),
+    scheduled = [];
+  ctx.scheduler = {
+    runAfter: async (delay, fn, args) => scheduled.push({ delay, fn, args }),
+  };
+  await scheduleWebPush(ctx, 'staff_1', 'outbox_2');
+  expect(tables.pushDeliveryOutbox[0].webDeliveryStatus).toBe('pending');
+  expect(scheduled[0].args).toEqual({
+    userId: 'staff_1',
+    outboxId: 'outbox_2',
+  });
+});
+
+test('ambiguous browser push attempt is never resent by replay', async () => {
+  enable();
+  process.env.WEB_PUSH_VAPID_PUBLIC_KEY = 'fake';
+  process.env.WEB_PUSH_VAPID_PRIVATE_KEY = 'fake';
+  process.env.WEB_PUSH_VAPID_SUBJECT = 'mailto:fake@example.com';
+  const tables = baseTables({
+    pushDeliveryOutbox: [
+      { _id: 'outbox_3', toUserId: 'staff_1', webDeliveryStatus: 'pending' },
+    ],
+  });
+  const ctx = buildCtx(tables);
+  ctx.scheduler = { runAfter: async () => {} };
+  ctx.runMutation = async (_ref, args) =>
+    args.userId
+      ? claimWebDelivery._handler(ctx, args)
+      : finishWebDelivery._handler(ctx, args);
+  ctx.runQuery = async () => [
+    {
+      id: 'subscription',
+      endpoint: 'https://fcm.googleapis.com/fake',
+      p256dh: 'fake',
+      auth: 'fake',
+    },
+  ];
+  const previous = webpush.sendNotification;
+  let calls = 0;
+  webpush.sendNotification = async () => {
+    calls++;
+    throw Error('timeout after provider may have accepted');
+  };
+  try {
+    expect(
+      await deliverWebPush._handler(ctx, {
+        userId: 'staff_1',
+        outboxId: 'outbox_3',
+      })
+    ).toEqual({ sent: 0, failed: 1 });
+    expect(tables.pushDeliveryOutbox[0].webDeliveryStatus).toBe('unknown');
+    expect(
+      await deliverWebPush._handler(ctx, {
+        userId: 'staff_1',
+        outboxId: 'outbox_3',
+      })
+    ).toEqual({ sent: 0, failed: 0 });
+    expect(calls).toBe(1);
+  } finally {
+    webpush.sendNotification = previous;
+  }
+});
+
+test('partial browser delivery with a timeout remains unknown and is not replayed', async () => {
+  enable();
+  process.env.WEB_PUSH_VAPID_PUBLIC_KEY = 'fake';
+  process.env.WEB_PUSH_VAPID_PRIVATE_KEY = 'fake';
+  process.env.WEB_PUSH_VAPID_SUBJECT = 'mailto:fake@example.com';
+  const tables = baseTables({
+    pushDeliveryOutbox: [
+      {
+        _id: 'outbox_partial',
+        toUserId: 'staff_1',
+        webDeliveryStatus: 'pending',
+      },
+    ],
+  });
+  const ctx = buildCtx(tables);
+  ctx.scheduler = { runAfter: async () => {} };
+  ctx.runMutation = async (_ref, args) =>
+    args.userId
+      ? claimWebDelivery._handler(ctx, args)
+      : finishWebDelivery._handler(ctx, args);
+  ctx.runQuery = async () => [
+    {
+      id: 'a',
+      endpoint: 'https://fcm.googleapis.com/a',
+      p256dh: 'a',
+      auth: 'a',
+    },
+    {
+      id: 'b',
+      endpoint: 'https://fcm.googleapis.com/b',
+      p256dh: 'b',
+      auth: 'b',
+    },
+  ];
+  const prior = webpush.sendNotification;
+  let calls = 0;
+  webpush.sendNotification = async () => {
+    calls++;
+    if (calls === 2) throw Error('ambiguous');
+  };
+  try {
+    expect(
+      await deliverWebPush._handler(ctx, {
+        userId: 'staff_1',
+        outboxId: 'outbox_partial',
+      })
+    ).toEqual({ sent: 1, failed: 1 });
+    expect(tables.pushDeliveryOutbox[0].webDeliveryStatus).toBe('unknown');
+    await deliverWebPush._handler(ctx, {
+      userId: 'staff_1',
+      outboxId: 'outbox_partial',
+    });
+    expect(calls).toBe(2);
+  } finally {
+    webpush.sendNotification = prior;
+  }
+});
+
+test('temporarily unavailable browser push configuration does not claim or lose pending work', async () => {
+  enable();
+  delete process.env.WEB_PUSH_VAPID_PRIVATE_KEY;
+  let claimed = false;
+  const result = await deliverWebPush._handler(
+    {
+      runMutation: async () => {
+        claimed = true;
+      },
+      runQuery: async () => {
+        throw Error('unexpected delivery');
+      },
+    },
+    { userId: 'staff_1', outboxId: 'outbox_pending' }
+  );
+  expect(result).toEqual({ sent: 0, failed: 0 });
+  expect(claimed).toBe(false);
+});
+
+test('deferred browser marketing delivery skips withdrawn consent before requesting the provider', async () => {
+  const userId = 'staff_1';
+  const tables = baseTables({
+    pushDeliveryOutbox: [
+      {
+        _id: 'outbox_consent',
+        toUserId: userId,
+        campaignId: 'campaign_1',
+        webDeliveryStatus: 'pending',
+      },
+    ],
+  });
+  const ctx = context(tables);
+  await ctx.db.patch(userId, { marketingOptIn: false });
+  expect(
+    await claimWebDelivery._handler(ctx, { outboxId: 'outbox_consent', userId })
+  ).toBeFalse();
+  expect(tables.pushDeliveryOutbox[0].webDeliveryStatus).toBe('skipped');
 });

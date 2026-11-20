@@ -13,6 +13,7 @@ import {
   getBusinessesNearby,
   getBusinessSettings,
   listMyClosedBusinesses,
+  readLatestStaffEvents,
   restoreBusinessAccount,
   saveBusinessOnboardingSnapshot,
   setBusinessLogo,
@@ -24,6 +25,7 @@ import {
   getActivationTermsAcceptance,
 } from '../businessBilling';
 import { assertEntitlement } from '../entitlements';
+import { getDiscoveryH3Cell } from '../lib/discoveryGeo';
 import { completeBusinessOnboarding } from '../users';
 
 function buildUser(overrides = {}) {
@@ -173,7 +175,11 @@ function createMockCtx({
           const filters = [];
           const q = {
             eq(field, value) {
-              filters.push([field, value]);
+              filters.push([field, value, 'eq']);
+              return q;
+            },
+            gte(field, value) {
+              filters.push([field, value, 'gte']);
               return q;
             },
           };
@@ -184,7 +190,12 @@ function createMockCtx({
           const rows = table ? Array.from(table.values()) : [];
 
           const filteredRows = rows.filter((row) =>
-            filters.every(([field, value]) => row[field] === value)
+            filters.every(([field, value, operator]) => {
+              const actual = field
+                .split('.')
+                .reduce((item, key) => item?.[key], row);
+              return operator === 'gte' ? actual >= value : actual === value;
+            })
           );
 
           return {
@@ -1297,6 +1308,7 @@ describe('business profile settings and discovery filters', () => {
           serviceTypes: ['beauty'],
           serviceTags: ['איפור'],
           location: { lat: 0, lng: 0.001 },
+          discoveryH3R5: getDiscoveryH3Cell({ lat: 0, lng: 0.001 }),
         }),
         buildBusiness({
           _id: 'business_2',
@@ -1304,6 +1316,7 @@ describe('business profile settings and discovery filters', () => {
           serviceTypes: ['food_drink'],
           serviceTags: ['קפה'],
           location: { lat: 0, lng: 0.002 },
+          discoveryH3R5: getDiscoveryH3Cell({ lat: 0, lng: 0.002 }),
         }),
       ],
       businessStaff: [],
@@ -1323,6 +1336,112 @@ describe('business profile settings and discovery filters', () => {
     expect(result[0].serviceTags).toEqual(['איפור']);
   });
 
+  test('nearby discovery retains pre-backfill businesses without duplicates', async () => {
+    const { ctx } = createMockCtx({
+      users: [buildUser()],
+      businesses: [
+        buildBusiness({
+          _id: 'legacy',
+          name: 'Legacy',
+          location: { lat: 0, lng: 0.001 },
+          discoveryH3R5: undefined,
+        }),
+        buildBusiness({
+          _id: 'indexed',
+          name: 'Indexed',
+          location: { lat: 0, lng: 0.002 },
+          discoveryH3R5: getDiscoveryH3Cell({ lat: 0, lng: 0.002 }),
+        }),
+        buildBusiness({
+          _id: 'far',
+          name: 'Far',
+          location: { lat: 20, lng: 20 },
+          discoveryH3R5: undefined,
+        }),
+        buildBusiness({
+          _id: 'inactive',
+          name: 'Closed',
+          isActive: false,
+          discoveryH3R5: undefined,
+        }),
+      ],
+      businessStaff: [],
+    });
+    const result = await getBusinessesNearby._handler(ctx, {
+      userLat: 0,
+      userLng: 0,
+      radiusKm: 10,
+      sortBy: 'distance',
+    });
+    expect(result.map((row) => row.businessId)).toEqual(['legacy', 'indexed']);
+  });
+
+  test.each([
+    'checking',
+    'failed',
+    'ready',
+  ])('legacy fallback remains active even after a verification scan: %s', async (status) => {
+    const loc = { lat: 0, lng: 0.001 };
+    const { ctx, state } = createMockCtx({
+      users: [buildUser()],
+      businesses: [
+        buildBusiness({
+          _id: 'indexed',
+          location: loc,
+          discoveryH3R5: getDiscoveryH3Cell(loc),
+        }),
+      ],
+      businessStaff: [],
+    });
+    state.discoveryH3Readiness = new Map([
+      ['gate', { _id: 'gate', key: 'business_discovery_h3_r5_v1', status }],
+    ]);
+    state.businesses.set(
+      'late_legacy',
+      buildBusiness({
+        _id: 'late_legacy',
+        location: { lat: 0, lng: 0.0005 },
+      })
+    );
+    state.businesses.set(
+      'unlocated',
+      buildBusiness({
+        _id: 'unlocated',
+        location: undefined,
+      })
+    );
+    const query = ctx.db.query;
+    let compatibilityRows;
+    ctx.db.query = (table) => {
+      const result = query(table);
+      if (table !== 'businesses') return result;
+      const original = result.withIndex;
+      result.withIndex = (index, builder) => {
+        const indexed = original(index, builder);
+        if (index === 'by_discovery_missing_cell_location') {
+          const collect = indexed.collect;
+          indexed.collect = async () => {
+            const rows = await collect();
+            compatibilityRows = rows.map((row) => row._id);
+            return rows;
+          };
+        }
+        return indexed;
+      };
+      return result;
+    };
+    const result = await getBusinessesNearby._handler(ctx, {
+      userLat: 0,
+      userLng: 0,
+      radiusKm: 10,
+    });
+    expect(result.map((row) => row.businessId)).toEqual([
+      'late_legacy',
+      'indexed',
+    ]);
+    expect(compatibilityRows).toEqual(['late_legacy']);
+  });
+
   test('getBusinessesNearby sorts by service type when requested', async () => {
     const { ctx } = createMockCtx({
       users: [buildUser()],
@@ -1332,18 +1451,21 @@ describe('business profile settings and discovery filters', () => {
           name: 'Food Alpha',
           serviceTypes: ['food_drink'],
           location: { lat: 0, lng: 0.005 },
+          discoveryH3R5: getDiscoveryH3Cell({ lat: 0, lng: 0.005 }),
         }),
         buildBusiness({
           _id: 'business_beauty',
           name: 'Beauty Beta',
           serviceTypes: ['beauty'],
           location: { lat: 0, lng: 0.001 },
+          discoveryH3R5: getDiscoveryH3Cell({ lat: 0, lng: 0.001 }),
         }),
         buildBusiness({
           _id: 'business_unclassified',
           name: 'No Type',
           serviceTypes: [],
           location: { lat: 0, lng: 0.0005 },
+          discoveryH3R5: getDiscoveryH3Cell({ lat: 0, lng: 0.0005 }),
         }),
       ],
       businessStaff: [],
@@ -1362,4 +1484,60 @@ describe('business profile settings and discovery filters', () => {
       'No Type',
     ]);
   });
+});
+
+test('staff history bounds reads and preserves insertion order when the cutoff has many ties', async () => {
+  const rows = [
+    { _id: 'newest', businessId: 'b1', createdAt: 30, _creationTime: 70 },
+    ...Array.from({ length: 500 }, (_, i) => ({
+      _id: 'tie_' + i,
+      businessId: 'b1',
+      createdAt: 20,
+      _creationTime: i + 1,
+    })),
+    { _id: 'backdated', businessId: 'b1', createdAt: 10, _creationTime: 800 },
+    { _id: 'foreign', businessId: 'b2', createdAt: 210, _creationTime: 800 },
+  ];
+  const limits = [];
+  const ctx = {
+    db: {
+      query: () => ({
+        withIndex(index, build) {
+          expect(index).toBe('by_businessId_createdAt');
+          const filters = [];
+          const indexBuilder = {
+            eq(key, value) {
+              filters.push([key, value]);
+              return indexBuilder;
+            },
+          };
+          build(indexBuilder);
+          return {
+            order(direction) {
+              return {
+                take(limit) {
+                  limits.push(limit);
+                  const matches = rows.filter((row) =>
+                    filters.every(([key, value]) => row[key] === value)
+                  );
+                  return matches
+                    .sort(
+                      (a, b) =>
+                        (direction === 'asc' ? 1 : -1) *
+                        (a.createdAt - b.createdAt ||
+                          a._creationTime - b._creationTime)
+                    )
+                    .slice(0, limit);
+                },
+              };
+            },
+          };
+        },
+      }),
+    },
+  };
+  expect(
+    (await readLatestStaffEvents(ctx, 'b1', 3)).map((row) => row._id)
+  ).toEqual(['newest', 'tie_0', 'tie_1']);
+  expect(limits).toEqual([3, 2]);
 });

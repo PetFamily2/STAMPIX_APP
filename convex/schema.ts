@@ -587,6 +587,7 @@ export default defineSchema({
         lng: v.number(),
       })
     ),
+    discoveryH3R5: v.optional(v.string()),
     placeId: v.optional(v.string()),
     formattedAddress: v.optional(v.string()),
     city: v.optional(v.string()),
@@ -617,6 +618,12 @@ export default defineSchema({
     .index('by_businessPublicId', ['businessPublicId'])
     .index('by_joinCode', ['joinCode'])
     .index('by_isActive', ['isActive'])
+    .index('by_isActive_discoveryH3R5', ['isActive', 'discoveryH3R5'])
+    .index('by_discovery_missing_cell_location', [
+      'isActive',
+      'discoveryH3R5',
+      'location.lat',
+    ])
     .index('by_onboardingResearchPurgeAfter', ['onboardingResearchPurgeAfter'])
     .index('by_placeId', ['placeId'])
     .searchIndex('search_public_name', {
@@ -689,6 +696,7 @@ export default defineSchema({
       v.literal('pending'),
       v.literal('scheduled'),
       v.literal('attempted'),
+      v.literal('unknown'),
       v.literal('sent'),
       v.literal('failed'),
       v.literal('skipped')
@@ -1207,6 +1215,8 @@ export default defineSchema({
   })
     .index('by_userId', ['userId'])
     .index('by_programId', ['programId'])
+    .index('by_programId_userId', ['programId', 'userId'])
+    .index('by_businessId_userId', ['businessId', 'userId'])
     .index('by_businessId', ['businessId'])
     .index('by_businessId_createdAt', ['businessId', 'createdAt'])
     .index('by_userId_businessId', ['userId', 'businessId'])
@@ -1261,6 +1271,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
+    .index('by_updatedAt', ['updatedAt'])
     .index('by_code', ['code'])
     .index('by_referrer_business_origin_status', [
       'referrerUserId',
@@ -1326,6 +1337,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
+    .index('by_updatedAt', ['updatedAt'])
     .index('by_businessId_referredUserId', ['businessId', 'referredUserId'])
     .index('by_referredUserId', ['referredUserId'])
     .index('by_referrerUserId_businessId_createdAt', [
@@ -1372,6 +1384,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
+    .index('by_updatedAt', ['updatedAt'])
     .index('by_customerReferralId_recipientUserId', [
       'customerReferralId',
       'recipientUserId',
@@ -1414,6 +1427,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
+    .index('by_updatedAt', ['updatedAt'])
     .index('by_code', ['code'])
     .index('by_referrerBusinessId', ['referrerBusinessId'])
     .index('by_referrerBusinessId_status', ['referrerBusinessId', 'status'])
@@ -1446,6 +1460,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
+    .index('by_updatedAt', ['updatedAt'])
     .index('by_referredBusinessId', ['referredBusinessId'])
     .index('by_referrerBusinessId_status_createdAt', [
       'referrerBusinessId',
@@ -1484,6 +1499,13 @@ export default defineSchema({
   })
     .index('by_actorAdminUserId_createdAt', ['actorAdminUserId', 'createdAt'])
     .index('by_targetType_targetId', ['targetType', 'targetId'])
+    .index('by_targetType_targetId_createdAt', [
+      'targetType',
+      'targetId',
+      'createdAt',
+    ])
+    .index('by_targetType_createdAt', ['targetType', 'createdAt'])
+    .index('by_targetId_createdAt', ['targetId', 'createdAt'])
     .index('by_businessId_createdAt', ['businessId', 'createdAt'])
     .index('by_customerReferralId', ['customerReferralId'])
     .index('by_referralRewardId', ['referralRewardId'])
@@ -1531,6 +1553,7 @@ export default defineSchema({
   })
     .index('by_businessId', ['businessId'])
     .index('by_businessId_createdAt', ['businessId', 'createdAt'])
+    .index('by_businessId_type_createdAt', ['businessId', 'type', 'createdAt'])
     .index('by_businessId_customerUserId_createdAt', [
       'businessId',
       'customerUserId',
@@ -1745,6 +1768,23 @@ export default defineSchema({
         recurrencePolicy: v.optional(v.any()),
       })
     ),
+    managementDelivery: v.optional(
+      v.object({
+        mode: v.union(
+          v.literal('manual'),
+          v.literal('one_time'),
+          v.literal('recurring')
+        ),
+        referenceNow: v.number(),
+        revision: v.number(),
+        cursor: v.union(v.string(), v.null()),
+        page: v.number(),
+        targeted: v.number(),
+        sent: v.number(),
+        nextAttemptAt: v.number(),
+        lastMatchedUserId: v.optional(v.id('users')),
+      })
+    ),
     preparedAudience: v.optional(
       v.object({
         count: v.optional(v.number()),
@@ -1782,7 +1822,10 @@ export default defineSchema({
     .index('by_businessId_createdAt', ['businessId', 'createdAt'])
     .index('by_smartManagerPreparedActionId', ['smartManagerPreparedActionId'])
     .index('by_activationStatus', ['activationStatus'])
-    .index('by_automationEnabled', ['automationEnabled']),
+    .index('by_automationEnabled', ['automationEnabled'])
+    .index('by_managementDelivery_nextAttemptAt', [
+      'managementDelivery.nextAttemptAt',
+    ]),
 
   campaignRuns: defineTable({
     businessId: v.id('businesses'),
@@ -2253,6 +2296,11 @@ export default defineSchema({
       'dedupeKey',
     ])
     .index('by_campaignId_toUserId', ['campaignId', 'toUserId'])
+    .index('by_campaignId_toUserId_createdAt', [
+      'campaignId',
+      'toUserId',
+      'createdAt',
+    ])
     .index('by_toUserId', ['toUserId'])
     .index('by_toUserId_createdAt', ['toUserId', 'createdAt'])
     .index('by_toUserId_dedupeKey', ['toUserId', 'dedupeKey'])
@@ -2455,6 +2503,46 @@ export default defineSchema({
     .index('by_userId', ['userId'])
     .index('by_token', ['token']),
 
+  pushDeliveryOutbox: defineTable({
+    businessId: v.id('businesses'),
+    campaignId: v.optional(v.id('campaigns')),
+    toUserId: v.id('users'),
+    deliveryKey: v.optional(v.string()),
+    title: v.string(),
+    body: v.string(),
+    status: v.union(
+      v.literal('pending'),
+      v.literal('sending'),
+      v.literal('sent'),
+      v.literal('failed'),
+      v.literal('unknown'),
+      v.literal('skipped')
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    claimedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    outcome: v.optional(v.string()),
+    webDeliveryStatus: v.optional(
+      v.union(
+        v.literal('pending'),
+        v.literal('sending'),
+        v.literal('sent'),
+        v.literal('failed'),
+        v.literal('unknown'),
+        v.literal('skipped')
+      )
+    ),
+    webClaimedAt: v.optional(v.number()),
+  })
+    .index('by_businessId', ['businessId'])
+    .index('by_deliveryKey', ['deliveryKey'])
+    .index('by_status_createdAt', ['status', 'createdAt'])
+    .index('by_status_claimedAt', ['status', 'claimedAt'])
+    .index('by_web_status_createdAt', ['webDeliveryStatus', 'createdAt'])
+    .index('by_web_status_claimedAt', ['webDeliveryStatus', 'webClaimedAt'])
+    .index('by_toUserId', ['toUserId']),
+
   pushDeliveryLog: defineTable({
     businessId: v.id('businesses'),
     campaignId: v.optional(v.id('campaigns')),
@@ -2587,6 +2675,7 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index('by_businessId', ['businessId'])
+    .index('by_businessId_createdAt', ['businessId', 'createdAt'])
     .index('by_targetUserId', ['targetUserId'])
     .index('by_targetInviteId', ['targetInviteId']),
 
@@ -2965,4 +3054,19 @@ export default defineSchema({
     notes: v.optional(v.string()),
     createdAt: v.number(),
   }).index('by_businessId', ['businessId']),
+
+  discoveryH3Readiness: defineTable({
+    key: v.literal('business_discovery_h3_r5_v1'),
+    generation: v.number(),
+    status: v.union(
+      v.literal('checking'),
+      v.literal('failed'),
+      v.literal('ready')
+    ),
+    cursor: v.optional(v.string()),
+    scanned: v.number(),
+    mismatched: v.number(),
+    startedAt: v.number(),
+    verifiedAt: v.optional(v.number()),
+  }).index('by_key', ['key']),
 });

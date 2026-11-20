@@ -1,3 +1,4 @@
+import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import { useMutation } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -11,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
 import { LoyaltyCardClassic } from '@/components/loyalty/LoyaltyCardClassic';
 import { LoyaltyThemePalette } from '@/components/loyalty/LoyaltyThemePalette';
 import { StampIconPicker } from '@/components/loyalty/StampIconPicker';
@@ -57,6 +59,7 @@ const STEPS = [
 
 export function ClassicCardWizard() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { businessId: businessIdParam } = useLocalSearchParams<{
     businessId?: string;
   }>();
@@ -79,6 +82,36 @@ export function ClassicCardWizard() {
   const [stampShape, setStampShape] = useState<StampShape>(DEFAULT_STAMP_SHAPE);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitLock = useRef(false);
+  const isDirty =
+    title !== '' ||
+    rewardName !== '' ||
+    maxStamps !== 10 ||
+    cardThemeId !== DEFAULT_CARD_THEME_ID ||
+    stampIcon !== DEFAULT_STAMP_ICON_ID ||
+    stampShape !== DEFAULT_STAMP_SHAPE;
+  const draftBusinessRef = useRef({ businessId, activeBusinessId });
+  if (!isDirty) draftBusinessRef.current = { businessId, activeBusinessId };
+  const businessChanged =
+    isDirty &&
+    (String(draftBusinessRef.current.businessId ?? '') !==
+      String(businessId ?? '') ||
+      String(draftBusinessRef.current.activeBusinessId ?? '') !==
+        String(activeBusinessId ?? ''));
+  useBusinessWebUnsavedChanges(Platform.OS === 'web' && isDirty);
+  usePreventRemove(isDirty && !isSubmitting, ({ data }) => {
+    Alert.alert(
+      'יש שינויים שלא נשמרו',
+      'אפשר להמשיך לערוך או לצאת ללא שמירה.',
+      [
+        { text: 'המשך עריכה', style: 'cancel' },
+        {
+          text: 'יציאה ללא שמירה',
+          style: 'destructive',
+          onPress: () => navigation.dispatch(data.action),
+        },
+      ]
+    );
+  });
 
   const draft = {
     title,
@@ -113,7 +146,12 @@ export function ClassicCardWizard() {
   };
 
   const submit = async () => {
-    if (!businessId || submitLock.current || !classicWizardCanSave(draft)) {
+    if (
+      !businessId ||
+      businessChanged ||
+      submitLock.current ||
+      !classicWizardCanSave(draft)
+    ) {
       setShowIssues(true);
       return;
     }
@@ -168,6 +206,13 @@ export function ClassicCardWizard() {
           title="כרטיסייה חדשה"
           fallbackHref="/(authenticated)/(business)/programs"
         />
+        {businessChanged ? (
+          <View accessibilityRole="alert" accessibilityLiveRegion="polite">
+            <Text>
+              העסק הפעיל השתנה. הטיוטה נשמרה; חזרו לעסק המקורי כדי לשמור אותה.
+            </Text>
+          </View>
+        ) : null}
         <View
           accessibilityRole="tablist"
           className={`${tw.flexRow} mt-3 gap-2`}
@@ -406,15 +451,17 @@ export function ClassicCardWizard() {
             <TouchableOpacity
               accessibilityRole="button"
               accessibilityState={{
-                disabled: isSubmitting || !businessId,
+                disabled: isSubmitting || !businessId || businessChanged,
                 busy: isSubmitting,
               }}
-              disabled={isSubmitting || !businessId}
+              disabled={isSubmitting || !businessId || businessChanged}
               onPress={() => {
                 void submit();
               }}
               className={`min-h-[54px] flex-1 items-center justify-center rounded-2xl px-4 ${
-                isSubmitting || !businessId ? 'bg-[#A8A29E]' : 'bg-[#1C1917]'
+                isSubmitting || !businessId || businessChanged
+                  ? 'bg-[#A8A29E]'
+                  : 'bg-[#1C1917]'
               }`}
             >
               {isSubmitting ? (

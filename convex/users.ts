@@ -1,6 +1,6 @@
 import { getAuthUserId } from '@convex-dev/auth/server';
 import type { PaginationResult } from 'convex/server';
-import { v } from 'convex/values';
+import { ConvexError, v } from 'convex/values';
 import type { SubscriptionPlan } from '../lib/domain/subscriptions';
 import {
   BUSINESS_TERMS_VERSION,
@@ -277,6 +277,7 @@ const WIPE_ALL_TABLE_ORDER = [
   'customerReferralLinks',
   'referralConfigs',
   'pushDeliveryLog',
+  'pushDeliveryOutbox',
   'pushTokens',
   'messageLog',
   'redemptionCelebrationReceipts',
@@ -356,6 +357,7 @@ type DeleteStats = {
   campaignRunRecipients: number;
   pushTokens: number;
   pushDeliveryLog: number;
+  pushDeliveryOutbox: number;
   supportRequests: number;
   marketingConsentEvents: number;
   legalAcceptances: number;
@@ -429,6 +431,7 @@ function emptyDeleteStats(): DeleteStats {
     campaignRunRecipients: 0,
     pushTokens: 0,
     pushDeliveryLog: 0,
+    pushDeliveryOutbox: 0,
     supportRequests: 0,
     marketingConsentEvents: 0,
     legalAcceptances: 0,
@@ -469,6 +472,7 @@ function emptyWipeAllDataHardCounts(): WipeAllDataHardCounts {
     customerReferralLinks: 0,
     referralConfigs: 0,
     pushDeliveryLog: 0,
+    pushDeliveryOutbox: 0,
     pushTokens: 0,
     messageLog: 0,
     redemptionCelebrationReceipts: 0,
@@ -978,6 +982,13 @@ async function deleteUserScopedBusinessData(
   );
   deleted.campaignRunRecipients +=
     await deleteSmartManagerExecutionRecipientsForAccount(ctx, userId);
+  deleted.pushDeliveryOutbox += await deleteByIndexInBatches(
+    ctx,
+    'pushDeliveryOutbox',
+    'by_toUserId',
+    'toUserId',
+    userId
+  );
   deleted.pushDeliveryLog += await deleteByIndexInBatches(
     ctx,
     'pushDeliveryLog',
@@ -1537,10 +1548,26 @@ export const setMyName = mutation({
   args: {
     firstName: v.string(),
     lastName: v.string(),
+    expectedName: v.optional(
+      v.object({ firstName: v.string(), lastName: v.string() })
+    ),
   },
-  handler: async (ctx, { firstName, lastName }) => {
+  handler: async (ctx, { firstName, lastName, expectedName }) => {
     const user = await requireCurrentUser(ctx);
 
+    const currentName = {
+      firstName: user.firstName?.trim() ?? '',
+      lastName: user.lastName?.trim() ?? '',
+    };
+    if (
+      expectedName &&
+      (expectedName.firstName !== currentName.firstName ||
+        expectedName.lastName !== currentName.lastName)
+    )
+      throw new ConvexError({
+        code: 'ACCOUNT_NAME_CONFLICT',
+        current: currentName,
+      });
     const normalizedFirstName = normalizeNamePart(firstName, 'FIRST_NAME');
     const normalizedLastName = normalizeNamePart(lastName, 'LAST_NAME');
     const now = Date.now();
@@ -1563,9 +1590,13 @@ export const setMyName = mutation({
 export const setMyPhone = mutation({
   args: {
     phone: v.string(),
+    expectedPhone: v.optional(v.string()),
   },
-  handler: async (ctx, { phone }) => {
+  handler: async (ctx, { phone, expectedPhone }) => {
     const user = await requireCurrentUser(ctx);
+    const currentPhone = user.phone?.trim() ?? '';
+    if (expectedPhone !== undefined && expectedPhone !== currentPhone)
+      throw new ConvexError({ code: 'ACCOUNT_PHONE_CONFLICT', currentPhone });
     const normalizedPhone = normalizePhone(phone);
     const now = Date.now();
 
@@ -1585,6 +1616,17 @@ export const setMyPhone = mutation({
 export const setMyMarketingProfile = mutation({
   args: {
     marketingOptIn: v.boolean(),
+    preserveDates: v.optional(v.boolean()),
+    expectedMarketingOptIn: v.optional(v.boolean()),
+    expectedMarketingSnapshot: v.optional(
+      v.object({
+        marketingOptIn: v.boolean(),
+        birthdayMonth: v.union(v.number(), v.null()),
+        birthdayDay: v.union(v.number(), v.null()),
+        anniversaryMonth: v.union(v.number(), v.null()),
+        anniversaryDay: v.union(v.number(), v.null()),
+      })
+    ),
     source: MARKETING_CONSENT_SOURCE_UNION,
     birthdayMonth: v.optional(v.number()),
     birthdayDay: v.optional(v.number()),
@@ -1596,6 +1638,9 @@ export const setMyMarketingProfile = mutation({
     {
       marketingOptIn,
       source,
+      preserveDates,
+      expectedMarketingOptIn,
+      expectedMarketingSnapshot,
       birthdayMonth,
       birthdayDay,
       anniversaryMonth,
@@ -1603,6 +1648,35 @@ export const setMyMarketingProfile = mutation({
     }
   ) => {
     const user = await requireCurrentUser(ctx);
+    const current = {
+      marketingOptIn: user.marketingOptIn === true,
+      birthdayMonth: user.birthdayMonth ?? null,
+      birthdayDay: user.birthdayDay ?? null,
+      anniversaryMonth: user.anniversaryMonth ?? null,
+      anniversaryDay: user.anniversaryDay ?? null,
+    };
+    if (
+      expectedMarketingOptIn !== undefined &&
+      current.marketingOptIn !== expectedMarketingOptIn
+    ) {
+      throw new ConvexError({ code: 'MARKETING_PROFILE_CONFLICT', current });
+    }
+    if (
+      expectedMarketingSnapshot &&
+      Object.keys(current).some(
+        (key) =>
+          current[key as keyof typeof current] !==
+          expectedMarketingSnapshot[key as keyof typeof current]
+      )
+    ) {
+      throw new ConvexError({ code: 'MARKETING_PROFILE_CONFLICT', current });
+    }
+    if (preserveDates) {
+      birthdayMonth = user.birthdayMonth;
+      birthdayDay = user.birthdayDay;
+      anniversaryMonth = user.anniversaryMonth;
+      anniversaryDay = user.anniversaryDay;
+    }
 
     const normalizedBirthdayMonth = normalizeMonth(
       birthdayMonth,

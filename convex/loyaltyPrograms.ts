@@ -1,8 +1,9 @@
-import { v } from 'convex/values';
+import { ConvexError, v } from 'convex/values';
 import {
   DEFAULT_CARD_THEME_ID,
   resolveReservableCardThemeId,
 } from '../constants/cardThemes';
+import { normalizeStampShape as normalizeCardStampShape } from '../constants/stampOptions';
 import type { Doc, Id } from './_generated/dataModel';
 import { type MutationCtx, mutation, query } from './_generated/server';
 import { assertEntitlement } from './entitlements';
@@ -532,30 +533,22 @@ export const listManagementByBusiness = query({
     const sevenDaysAgo = now - 7 * DAY_MS;
     const thirtyDaysAgo = now - 30 * DAY_MS;
 
-    const [programs, activeMemberships, allMemberships, events] =
-      await Promise.all([
-        listBusinessPrograms(ctx, businessId),
-        ctx.db
-          .query('memberships')
-          .withIndex('by_businessId', (q: any) =>
-            q.eq('businessId', businessId)
-          )
-          .filter((q: any) => q.eq(q.field('isActive'), true))
-          .collect(),
-        ctx.db
-          .query('memberships')
-          .withIndex('by_businessId', (q: any) =>
-            q.eq('businessId', businessId)
-          )
-          .collect(),
-        ctx.db
-          .query('events')
-          .withIndex('by_businessId', (q: any) =>
-            q.eq('businessId', businessId)
-          )
-          .filter((q: any) => q.gte(q.field('createdAt'), thirtyDaysAgo))
-          .collect(),
-      ]);
+    const [programs, allMemberships, events] = await Promise.all([
+      listBusinessPrograms(ctx, businessId),
+      ctx.db
+        .query('memberships')
+        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+        .collect(),
+      ctx.db
+        .query('events')
+        .withIndex('by_businessId_createdAt', (q: any) =>
+          q.eq('businessId', businessId).gte('createdAt', thirtyDaysAgo)
+        )
+        .collect(),
+    ]);
+    const activeMemberships = allMemberships.filter(
+      (membership) => membership.isActive === true
+    );
 
     const mapped = await Promise.all(
       programs.map(async (program: any) => {
@@ -668,22 +661,21 @@ export const getProgramDetailsForManagement = query({
     const sevenDaysAgo = now - 7 * DAY_MS;
     const thirtyDaysAgo = now - 30 * DAY_MS;
 
-    const [activeMemberships, allMemberships, events] = await Promise.all([
-      ctx.db
-        .query('memberships')
-        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-        .filter((q: any) => q.eq(q.field('isActive'), true))
-        .collect(),
+    const [allMemberships, events] = await Promise.all([
       ctx.db
         .query('memberships')
         .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
         .collect(),
       ctx.db
         .query('events')
-        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-        .filter((q: any) => q.gte(q.field('createdAt'), thirtyDaysAgo))
+        .withIndex('by_businessId_createdAt', (q: any) =>
+          q.eq('businessId', businessId).gte('createdAt', thirtyDaysAgo)
+        )
         .collect(),
     ]);
+    const activeMemberships = allMemberships.filter(
+      (membership) => membership.isActive === true
+    );
 
     const programIdString = String(program._id);
     const programEvents = events.filter(
@@ -861,11 +853,83 @@ export const createLoyaltyProgram = mutation({
   },
 });
 
+export const getOnboardingProgramForEdit = query({
+  args: {
+    businessId: v.id('businesses'),
+    flow: BUSINESS_ONBOARDING_FLOW_UNION,
+    programId: v.optional(v.id('loyaltyPrograms')),
+  },
+  returns: v.union(
+    v.null(),
+    v.object({
+      programId: v.id('loyaltyPrograms'),
+      updatedAt: v.number(),
+      title: v.string(),
+      rewardName: v.string(),
+      maxStamps: v.string(),
+      cardTerms: v.string(),
+      rewardConditions: v.string(),
+      stampIcon: v.string(),
+      stampShape: v.union(
+        v.literal('circle'),
+        v.literal('roundedSquare'),
+        v.literal('square'),
+        v.literal('hexagon'),
+        v.literal('icon')
+      ),
+      cardThemeId: v.string(),
+      imageStorageId: v.union(v.id('_storage'), v.null()),
+      imagePreviewUri: v.union(v.string(), v.null()),
+    })
+  ),
+  handler: async (ctx, { businessId, flow, programId }) => {
+    const actor = await requireActorIsBusinessOwner(ctx, businessId);
+    const onboarding = await getBusinessOnboardingDraftForUserAndFlow(
+      ctx,
+      actor._id,
+      flow
+    );
+    const target = programId ?? onboarding?.programId;
+    if (!target) return null;
+    const program = await ctx.db.get(target);
+    if (
+      !program ||
+      program.businessId !== businessId ||
+      !program.isActive ||
+      resolveProgramLifecycle(program) === 'archived'
+    )
+      return null;
+    return {
+      programId: program._id,
+      updatedAt: program.updatedAt,
+      title: program.title,
+      rewardName: program.rewardName,
+      maxStamps: String(program.maxStamps),
+      cardTerms: program.cardTerms ?? '',
+      rewardConditions: program.rewardConditions ?? '',
+      stampIcon: program.stampIcon,
+      stampShape: normalizeCardStampShape(program.stampShape?.trim()),
+      cardThemeId: program.cardThemeId ?? DEFAULT_THEME_ID,
+      imageStorageId: program.imageStorageId ?? null,
+      imagePreviewUri: await resolveProgramImageUrl(ctx, program),
+    };
+  },
+});
+
 export const createOrResumeBusinessOnboardingProgram = mutation({
   args: {
     flow: BUSINESS_ONBOARDING_FLOW_UNION,
     businessId: v.id('businesses'),
     programId: v.optional(v.id('loyaltyPrograms')),
+    expectedProgram: v.optional(
+      v.union(
+        v.null(),
+        v.object({
+          programId: v.id('loyaltyPrograms'),
+          updatedAt: v.number(),
+        })
+      )
+    ),
     title: v.string(),
     description: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
@@ -966,7 +1030,22 @@ export const createOrResumeBusinessOnboardingProgram = mutation({
       }
     }
 
-    const now = Date.now();
+    if (args.expectedProgram !== undefined) {
+      if (
+        (program?._id ?? null) !== (args.expectedProgram?.programId ?? null)
+      ) {
+        throw new ConvexError({ code: 'ONBOARDING_PROGRAM_CONFLICT' });
+      }
+      if (program && args.expectedProgram) {
+        assertExpectedUpdatedAt({
+          entity: 'program',
+          entityId: program._id,
+          expectedUpdatedAt: args.expectedProgram.updatedAt,
+          actualUpdatedAt: program.updatedAt,
+        });
+      }
+    }
+    const now = Math.max(Date.now(), (program?.updatedAt ?? 0) + 1);
     let reused = true;
     const programKeepsCurrentTheme =
       program &&
