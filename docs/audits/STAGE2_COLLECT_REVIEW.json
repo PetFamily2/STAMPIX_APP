@@ -234,9 +234,9 @@
     "expression": "adminSearchReferralRecords rejects its legacy array contract after authorization",
     "review": {
       "classification": "fixed_and_tested",
-      "decision": "The admin UI uses the bounded cursor API. The legacy entrypoint now returns ADMIN_SEARCH_PAGINATION_REQUIRED rather than collecting global tables.",
+      "decision": "Current search pages globally by updatedAt and preserves reachable substring matches. The legacy array endpoint preserves the original limit and returns only proven complete results from a bounded prefix. An inconclusive search still requires a compatible client update.",
       "status": "fixed_and_tested",
-      "regression": "Regression covers authorization, sparse matches across every record type, and rejection of the retired array contract."
+      "regression": "referralsRaceSafety.test.js covers every record type, late matches, complete bounded top results and rejection when remaining rows may change the answer."
     }
   },
   {
@@ -246,9 +246,9 @@
     "expression": "adminSearchReferralRecords rejects its legacy array contract after authorization",
     "review": {
       "classification": "fixed_and_tested",
-      "decision": "The bounded admin page API is the sole supported search contract; the old array function cannot read the global business-link table.",
+      "decision": "Current search pages globally by updatedAt and preserves reachable substring matches. The legacy array endpoint preserves the original limit and returns only proven complete results from a bounded prefix. An inconclusive search still requires a compatible client update.",
       "status": "fixed_and_tested",
-      "regression": "Regression covers every record type and authorization."
+      "regression": "referralsRaceSafety.test.js covers every record type, late matches, complete bounded top results and rejection when remaining rows may change the answer."
     }
   },
   {
@@ -258,9 +258,9 @@
     "expression": "adminSearchReferralRecords rejects its legacy array contract after authorization",
     "review": {
       "classification": "fixed_and_tested",
-      "decision": "The cursor API preserves eventual substring matches without a global collect; unsafe legacy access is rejected.",
+      "decision": "Current search pages globally by updatedAt and preserves reachable substring matches. The legacy array endpoint preserves the original limit and returns only proven complete results from a bounded prefix. An inconclusive search still requires a compatible client update.",
       "status": "fixed_and_tested",
-      "regression": "Regression covers sparse matches and authorization."
+      "regression": "referralsRaceSafety.test.js covers every record type, late matches, complete bounded top results and rejection when remaining rows may change the answer."
     }
   },
   {
@@ -270,9 +270,9 @@
     "expression": "adminSearchReferralRecords rejects its legacy array contract after authorization",
     "review": {
       "classification": "fixed_and_tested",
-      "decision": "The bounded cursor API is required for reward search; no global legacy read remains.",
+      "decision": "Current search pages globally by updatedAt and preserves reachable substring matches. The legacy array endpoint preserves the original limit and returns only proven complete results from a bounded prefix. An inconclusive search still requires a compatible client update.",
       "status": "fixed_and_tested",
-      "regression": "Regression covers sparse matches and retirement."
+      "regression": "referralsRaceSafety.test.js covers every record type, late matches, complete bounded top results and rejection when remaining rows may change the answer."
     }
   },
   {
@@ -282,9 +282,9 @@
     "expression": "adminSearchReferralRecords rejects its legacy array contract after authorization",
     "review": {
       "classification": "fixed_and_tested",
-      "decision": "The bounded cursor API preserves deleted-business markers; the old global array path is rejected.",
+      "decision": "Current search pages globally by updatedAt and preserves reachable substring matches. The legacy array endpoint preserves the original limit and returns only proven complete results from a bounded prefix. An inconclusive search still requires a compatible client update.",
       "status": "fixed_and_tested",
-      "regression": "Regression covers sparse matches and retirement."
+      "regression": "referralsRaceSafety.test.js covers every record type, late matches, complete bounded top results and rejection when remaining rows may change the answer."
     }
   },
   {
@@ -618,7 +618,7 @@
     "expression": "ctx.db\n    .query('memberships')\n    .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))\n    .filter((q: any) => q.eq(q.field('isActive'), true))",
     "review": {
       "classification": "open",
-      "decision": "Current delivery uses bounded checkpoints for large audiences. Paged estimate counts unique eligible recipients. Legacy statistics readers retain full reads and need a cutover.",
+      "decision": "Large delivery and current audience estimates are paged. Legacy management metadata returns bounded exact counts or explicit unavailable values. Hosted scale and client cutover remain.",
       "status": "reviewed",
       "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
     }
@@ -630,7 +630,7 @@
     "expression": "ctx.db\n    .query('messageLog')\n    .withIndex('by_campaignId', (q: any) => q.eq('campaignId', campaignId))",
     "review": {
       "classification": "improvement_required",
-      "decision": "Current editor reads history in user-ordered pages and counts exact unique recipients and messages across pages. The current list defers large metrics to the editor. Legacy readers retain full reads.",
+      "decision": "Current editor reads exact stationary history in ordered pages. Legacy management statistics defer large results. Customer rewards now use a paged inbox; the installed inbox/Wallet array endpoint remains for compatibility.",
       "status": "reviewed",
       "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
     }

@@ -142,7 +142,15 @@ class FakeQuery {
   async take(limit) {
     const rows = this.docs();
     return (
-      this.desc ? [...rows].sort((a, b) => b.createdAt - a.createdAt) : rows
+      this.indexName === 'by_updatedAt'
+        ? [...rows].sort(
+            (a, b) =>
+              (this.desc ? -1 : 1) *
+              (a.updatedAt - b.updatedAt || a._creationTime - b._creationTime)
+          )
+        : this.desc
+          ? [...rows].sort((a, b) => b.createdAt - a.createdAt)
+          : rows
     ).slice(0, limit);
   }
 }
@@ -972,9 +980,11 @@ test('paged admin search preserves sparse substring matches across all five reco
     }
     expect(pages).toBe(5);
     expect(all.map((r) => r.targetId)).toEqual(['late-match']);
-    await expect(
-      adminSearchReferralRecords._handler(ctx, { query: 'match', type })
-    ).rejects.toThrow('ADMIN_SEARCH_PAGINATION_REQUIRED');
+    const legacy = await adminSearchReferralRecords._handler(ctx, {
+      query: 'match',
+      type,
+    });
+    expect(legacy).toEqual(all);
   }
   await expect(
     adminSearchReferralRecordsPage._handler(buildCtx(baseTables()), {
@@ -982,6 +992,40 @@ test('paged admin search preserves sparse substring matches across all five reco
       type: 'referralReward',
       paginationOpts: { cursor: null, numItems: 10 },
     })
+  ).rejects.toThrow('NOT_AUTHORIZED');
+});
+
+test('legacy admin search returns only proven complete answers', async () => {
+  const tables = baseTables();
+  tables.users = tables.users.map((user) =>
+    user._id === 'u_owner' ? { ...user, isAdmin: true } : user
+  );
+  tables.customerReferralLinks = Array.from({ length: 205 }, (_, i) => ({
+    _id: 'link_' + i,
+    code: i === 0 || i === 204 ? 'needle' : 'other',
+    updatedAt: 1000 - i,
+  }));
+  const ctx = buildCtx(tables);
+  const args = { type: 'customerReferralLink', query: 'needle' };
+  expect(
+    (await adminSearchReferralRecords._handler(ctx, { ...args, limit: 1 })).map(
+      (r) => r.targetId
+    )
+  ).toEqual(['link_0']);
+  await expect(
+    adminSearchReferralRecords._handler(ctx, { ...args, limit: 2 })
+  ).rejects.toThrow('ADMIN_SEARCH_PAGINATION_REQUIRED');
+  expect(
+    (
+      await adminSearchReferralRecords._handler(ctx, {
+        ...args,
+        query: '',
+        limit: 2,
+      })
+    ).map((r) => r.targetId)
+  ).toEqual(['link_0', 'link_1']);
+  await expect(
+    adminSearchReferralRecords._handler(buildCtx(tables, 'u_referred'), args)
   ).rejects.toThrow('NOT_AUTHORIZED');
 });
 

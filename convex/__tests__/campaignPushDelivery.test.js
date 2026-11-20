@@ -1,9 +1,13 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 
 import {
+  estimateCampaignAudience,
   estimateCampaignAudiencePaged,
   estimateManagementAudienceBatch,
+  getManagementCampaignDraft,
   getManagementCampaignHistoryPaged,
+  listInboxForCustomerPage,
+  listManagementCampaignsByBusiness,
   managementHistoryBatch,
   processManagementDeliveryBatch,
   recoverManagementDeliveries,
@@ -118,13 +122,25 @@ class FakeQuery {
     return this.docs()[0] ?? null;
   }
 
+  order(direction) {
+    this.direction = direction;
+    return this;
+  }
+
   async paginate({ cursor, numItems }) {
     const all =
       this.indexName?.endsWith('_userId') && this.tableName === 'memberships'
         ? [...this.db.rows(this.tableName)].sort((a, b) =>
             a.userId.localeCompare(b.userId)
           )
-        : this.db.rows(this.tableName);
+        : [...this.db.rows(this.tableName)];
+    if (this.indexName === 'by_toUserId_createdAt') {
+      all.sort((a, b) =>
+        this.direction === 'desc'
+          ? b.createdAt - a.createdAt
+          : a.createdAt - b.createdAt
+      );
+    }
     const start = cursor ? all.findIndex((row) => row._id === cursor) + 1 : 0;
     let i = start;
     const page = [];
@@ -1105,4 +1121,84 @@ test('paged audience and history aggregate unique users across page boundaries',
     reachedMessagesAllTime: 161,
     lastSentAt: 999,
   });
+});
+
+test('large legacy management readers defer statistics without returning truncated counts', async () => {
+  const tables = mediumAudience();
+  tables.messageLog = Array.from({ length: 101 }, (_, i) => ({
+    _id: 'legacy_message_' + i,
+    campaignId: CAMPAIGN_ID,
+    businessId: BUSINESS_ID,
+    toUserId: tables.memberships[i].userId,
+    createdAt: i,
+  }));
+  const ctx = buildCtx(tables);
+  const original = ctx.db.query.bind(ctx.db);
+  ctx.db.query = (table) => {
+    const q = original(table);
+    if (table === 'memberships' || table === 'messageLog') {
+      q.collect = async () => {
+        throw Error('UNBOUNDED_RELATED_READ');
+      };
+    }
+    return q;
+  };
+  const args = { businessId: BUSINESS_ID, campaignId: CAMPAIGN_ID };
+  const result = await getManagementCampaignDraft._handler(ctx, args);
+  expect(result.stats).toMatchObject({
+    eligibleAudienceNow: null,
+    reachedUniqueAllTime: null,
+    reachedMessagesAllTime: null,
+  });
+  const list = await listManagementCampaignsByBusiness._handler(ctx, {
+    businessId: BUSINESS_ID,
+  });
+  expect(list).toMatchObject([
+    {
+      estimatedAudience: null,
+      reachedUniqueAllTime: null,
+      reachedMessagesAllTime: null,
+    },
+  ]);
+  await expect(estimateCampaignAudience._handler(ctx, args)).rejects.toThrow(
+    'CAMPAIGN_CLIENT_UPDATE_REQUIRED'
+  );
+});
+
+test('paged customer inbox is chronological, bounded and scoped to the session', async () => {
+  const tables = baseTables();
+  tables.messageLog = [
+    {
+      _id: 'older',
+      toUserId: CUSTOMER_ID,
+      businessId: BUSINESS_ID,
+      createdAt: 10,
+      status: 'sent',
+    },
+    {
+      _id: 'foreign',
+      toUserId: OWNER_ID,
+      businessId: BUSINESS_ID,
+      createdAt: 100,
+      status: 'sent',
+    },
+    {
+      _id: 'newer',
+      toUserId: CUSTOMER_ID,
+      businessId: BUSINESS_ID,
+      createdAt: 20,
+      status: 'sent',
+    },
+  ];
+  const ctx = buildCtx(tables, CUSTOMER_ID);
+  const first = await listInboxForCustomerPage._handler(ctx, {
+    paginationOpts: { cursor: null, numItems: 1 },
+  });
+  expect(first.page.map((row) => row.messageId)).toEqual(['newer']);
+  expect(first.isDone).toBe(false);
+  const next = await listInboxForCustomerPage._handler(ctx, {
+    paginationOpts: { cursor: first.continueCursor, numItems: 1 },
+  });
+  expect(next.page.map((row) => row.messageId)).toEqual(['older']);
+  expect(next.isDone).toBe(true);
 });

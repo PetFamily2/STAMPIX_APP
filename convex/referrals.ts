@@ -2384,6 +2384,22 @@ function formatAdminReferralSearch(
   return rows.sort((a, b) => b.updatedAt - a.updatedAt).slice(0, safeLimit);
 }
 
+const ADMIN_REFERRAL_SEARCH_TYPES = [
+  'customerReferralLink',
+  'businessReferralLink',
+  'customerReferral',
+  'referralReward',
+  'businessReferral',
+] as const;
+const ADMIN_REFERRAL_SEARCH_TABLES = [
+  'customerReferralLinks',
+  'businessReferralLinks',
+  'customerReferrals',
+  'referralRewards',
+  'businessReferrals',
+] as const;
+const LEGACY_REFERRAL_SEARCH_BUDGET = 200;
+
 export const adminSearchReferralRecords = query({
   args: {
     query: v.string(),
@@ -2398,12 +2414,62 @@ export const adminSearchReferralRecords = query({
     ),
     limit: v.optional(v.number()),
   },
-  handler: async (ctx) => {
+
+  handler: async (ctx, args) => {
     await requireAdminUser(ctx);
-    // Installed clients must migrate to the cursor contract. Returning a
-    // truncated array would hide matches; collecting the five global tables
-    // would keep an unbounded admin-read path alive.
-    throw new Error('ADMIN_SEARCH_PAGINATION_REQUIRED');
+    const needle = args.query.trim().toLowerCase();
+    const requestedLimit = args.limit ?? 100;
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(400, Math.max(1, Math.floor(requestedLimit)))
+      : 100;
+    const budget = Math.max(limit, LEGACY_REFERRAL_SEARCH_BUDGET);
+    // The old array contract has no cursor. Preserve exact answers when a
+    // bounded prefix proves them, and never return a silently partial search.
+    const records = await Promise.all(
+      ADMIN_REFERRAL_SEARCH_TABLES.map(async (table, index) => {
+        if (args.type && ADMIN_REFERRAL_SEARCH_TYPES[index] !== args.type)
+          return [];
+        const prefix = await ctx.db
+          .query(table)
+          .withIndex('by_updatedAt')
+          .order('desc')
+          .take(needle ? budget + 1 : limit);
+        const boundary = prefix.at(-1)?.updatedAt;
+        if (!needle && prefix.length === limit && boundary !== undefined) {
+          const newer = prefix.filter((row) => row.updatedAt > boundary);
+          const ties = await ctx.db
+            .query(table)
+            .withIndex('by_updatedAt', (q) => q.eq('updatedAt', boundary))
+            .order('asc')
+            .take(limit - newer.length);
+          return [...newer, ...ties].sort(
+            (a, b) =>
+              b.updatedAt - a.updatedAt || a._creationTime - b._creationTime
+          );
+        }
+        return prefix.sort(
+          (a, b) =>
+            b.updatedAt - a.updatedAt || a._creationTime - b._creationTime
+        );
+      })
+    );
+    const matches = formatAdminReferralSearch(records, needle, limit);
+    if (needle) {
+      const cutoff =
+        matches.length === limit ? matches.at(-1)?.updatedAt : undefined;
+      for (const prefix of records) {
+        if (prefix.length <= budget) continue;
+        const boundary = prefix.at(-1)?.updatedAt;
+        if (
+          boundary === undefined ||
+          cutoff === undefined ||
+          cutoff <= boundary
+        ) {
+          throw new Error('ADMIN_SEARCH_PAGINATION_REQUIRED');
+        }
+      }
+    }
+    return matches;
   },
 });
 
@@ -2430,25 +2496,11 @@ export const adminSearchReferralRecordsPage = query({
   ),
   handler: async (ctx, args) => {
     await requireAdminUser(ctx);
-    const types = [
-      'customerReferralLink',
-      'businessReferralLink',
-      'customerReferral',
-      'referralReward',
-      'businessReferral',
-    ];
-    const tables = [
-      'customerReferralLinks',
-      'businessReferralLinks',
-      'customerReferrals',
-      'referralRewards',
-      'businessReferrals',
-    ] as const;
-    const index = types.indexOf(args.type);
+    const index = ADMIN_REFERRAL_SEARCH_TYPES.indexOf(args.type);
     // Page the timestamp index before applying the substring predicate so
     // the earliest loaded matching page is also the most recently updated.
     const result = await ctx.db
-      .query(tables[index])
+      .query(ADMIN_REFERRAL_SEARCH_TABLES[index])
       .withIndex('by_updatedAt')
       .order('desc')
       .paginate({

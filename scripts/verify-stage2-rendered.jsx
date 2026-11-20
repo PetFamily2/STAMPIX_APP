@@ -61,6 +61,7 @@ const saves = [];
 let marketingConflict = false;
 let lastAlert = null;
 mock.module('convex/react', () => ({
+  useConvexAuth: () => ({ isAuthenticated: true, isLoading: false }),
   useQuery: (_, args) => (args === 'skip' ? undefined : config),
   useMutation: (name) => async (args) => {
     saves.push({ name, args });
@@ -489,6 +490,75 @@ try {
   assert.equal(profileWrites.at(-1).args.businessId, 'card_business_a');
   console.log(
     'PASS rendered new card: business switch blocks save and preserves draft; mocked backend'
+  );
+} finally {
+  if (tree) await act(async () => tree.unmount());
+}
+
+mock.module('@convex-dev/auth/react', () => ({
+  useAuthActions: () => ({ signOut: async () => undefined }),
+}));
+mock.module('@/components/ContinueButton', () => ({
+  ContinueButton: host('continue'),
+}));
+mock.module('@/components/OnboardingProgress', () => ({
+  OnboardingProgress: component,
+}));
+mock.module('@/components/StandaloneBackTitleHeader', () => ({
+  StandaloneBackTitleHeader: component,
+}));
+mock.module('@/lib/navigation', () => ({ safeBack() {} }));
+api.users.getCurrentUser = 'currentUser';
+api.users.setMyName = 'setName';
+api.auth = { createOrUpdateUser: 'bootstrap' };
+let nameUser = {
+  _id: 'test_user',
+  externalId: 'google:fixture',
+  firstName: 'Original',
+  lastName: 'Name',
+};
+const nameWrites = [];
+mock.module('convex/react', () => ({
+  useConvexAuth: () => ({ isAuthenticated: true, isLoading: false }),
+  useQuery: () => nameUser,
+  useMutation: () => async (args) => {
+    nameWrites.push(args);
+    if (nameWrites.length === 1)
+      throw {
+        data: {
+          code: 'ACCOUNT_NAME_CONFLICT',
+          current: { firstName: 'Other', lastName: 'Session' },
+        },
+      };
+  },
+}));
+const { default: NameCapture } = await import('../app/(auth)/name-capture.tsx');
+try {
+  await act(async () => {
+    tree = create(<NameCapture />);
+  });
+  const field = () => tree.root.findAllByType('input')[0];
+  assert.equal(field().props.value, 'Original');
+  await act(async () => field().props.onChangeText('My draft'));
+  nameUser = { ...nameUser, firstName: 'Other', lastName: 'Session' };
+  await act(async () => tree.update(<NameCapture />));
+  const submit = () => tree.root.findByType('continue').props.onPress();
+  await act(async () => submit());
+  assert.deepEqual(nameWrites[0].expectedName, {
+    firstName: 'Original',
+    lastName: 'Name',
+  });
+  assert.equal(field().props.value, 'My draft');
+  assert(lastAlert[0].includes('השם השתנה'));
+  await act(async () => lastAlert[2][1].onPress());
+  assert.equal(field().props.value, 'Other');
+  await act(async () => submit());
+  assert.deepEqual(nameWrites[1].expectedName, {
+    firstName: 'Other',
+    lastName: 'Session',
+  });
+  console.log(
+    'PASS rendered name capture: server conflict preserves draft, explicit reload adopts latest version; mocked backend'
   );
 } finally {
   if (tree) await act(async () => tree.unmount());

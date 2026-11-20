@@ -3,12 +3,12 @@
     "file": "app/(auth)/name-capture.tsx",
     "input": true,
     "writes": ["api.auth.createOrUpdateUser", "api.users.setMyName"],
-    "sharedGuard": false,
-    "navigationGuard": false,
-    "versionArgument": false,
+    "sharedGuard": true,
+    "navigationGuard": true,
+    "versionArgument": true,
     "serverHydration": true,
     "classification": "persistent-input",
-    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. No direct route removal guard. No direct optimistic version argument; concurrent existing-record edits are not proven safe."
+    "decision": "Uses the existing expected-name check, an account-bound baseline and the navigation/PWA draft guard. Rendered conflict regression confirms explicit reload."
   },
   {
     "file": "app/(auth)/oauth-callback.tsx",

@@ -2,7 +2,7 @@
 
 All 73 original inventory entries have an explicit decision below. Line numbers refer to the original inventory, not the final source. Reviewed does not mean scale-safe: dangerous and improvement-required entries are known code risks, not external acceptance gates. No arbitrary caps or metric changes were introduced. Existing authorization is checked at public entrypoints or helper callers; internal functions remain internal. No backend was deployed.
 
-The legacy admin array endpoint requires a client update. The updated UI uses an authenticated, bounded page API; each page explicitly advertises continuation and eventual results preserve substring matching. Results are sorted among loaded records, not claimed to be globally complete until all pages are loaded. The old API and audit fallback still require a compatibility retirement decision.
+The legacy admin array endpoint returns exact results when its indexed prefix proves completeness. An inconclusive substring search requires the current paged interface. The updated UI uses an authenticated, bounded page API; each page explicitly advertises continuation and eventual results preserve substring matching. Results are sorted among loaded records, not claimed to be globally complete until all pages are loaded. The old API and audit fallback still require a compatibility retirement decision.
 
 | # | Source | Classification | Decision |
 |---|---|---|---|
@@ -57,8 +57,8 @@ The legacy admin array endpoint requires a client update. The updated UI uses an
 | 49 | convex/loyaltyPrograms.ts:541 | improvement_required | Card management last-30-day events already use business/date lower range. Time bounded, volume not bounded; preserve complete 7/30-day metrics. |
 | 50 | convex/loyaltyPrograms.ts:664 | improvement_required | Program details capability and program ownership checked; tenant memberships determine program and business totals. Preserve counts. |
 | 51 | convex/loyaltyPrograms.ts:668 | improvement_required | Program details last-30-day events use correct range. No old events read; high monthly volume still needs aggregate. |
-| 52 | convex/campaigns.ts:434 | open | Current delivery uses bounded checkpoints for large audiences. Paged estimate counts unique eligible recipients. Legacy statistics readers retain full reads and need a cutover. |
-| 53 | convex/campaigns.ts:494 | improvement_required | Current editor reads history in user-ordered pages and counts exact unique recipients and messages across pages. The current list defers large metrics to the editor. Legacy readers retain full reads. |
+| 52 | convex/campaigns.ts:434 | open | Current delivery uses bounded checkpoints for large audiences. Paged estimate counts unique eligible recipients. Management statistics readers return exact bounded counts or explicitly defer. Hosted validation and the old send contract remain rollout gates. |
+| 53 | convex/campaigns.ts:494 | improvement_required | Current editor reads history in user-ordered pages and counts exact unique recipients and messages across pages. The current list defers large metrics to the editor. Management list and draft readers defer large counts. The installed inbox array contract remains a separate legacy compatibility gate. |
 | 54 | convex/campaigns.ts:785 | improvement_required | AI campaign list capability checked; business prefix and AI type filter correct. Historical drafts can grow; list cursor appropriate, preserve order. |
 | 55 | convex/campaigns.ts:890 | improvement_required | Campaign management capability checked; tenant campaigns all feed list plus per-campaign metrics. N+1 audience/log reads are scale risk; summary model needed. |
 | 56 | convex/campaigns.ts:1648 | open | Recurring delivery uses bounded checkpoints and indexed prior delivery checks. Replay and additional runs are covered locally. Hosted Convex execution, quota read footprint and rollout remain open. |

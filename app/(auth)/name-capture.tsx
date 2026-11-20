@@ -1,4 +1,5 @@
 import { useAuthActions } from '@convex-dev/auth/react';
+import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -11,12 +12,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import { AppText as Text } from '@/components/ui/AppText';
 import { PaintedPressable } from '@/components/ui/PaintedPressable';
 import { api } from '@/convex/_generated/api';
+import { Alert } from '@/lib/alert';
 import {
   productAccent,
   webAccentFill,
@@ -107,6 +110,7 @@ function shouldAutofillFromOAuthProvider(externalId?: string | null) {
 
 export default function NameCaptureScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { signOut } = useAuthActions();
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
   const user = useQuery(api.users.getCurrentUser);
@@ -122,6 +126,30 @@ export default function NameCaptureScreen() {
   const [saveError, setSaveError] = useState('');
   const [isSigningOut, setIsSigningOut] = useState(false);
   const didPrefillRef = useRef(false);
+  const baseline = useRef<{
+    userId: string;
+    firstName: string;
+    lastName: string;
+  } | null>(null);
+  const submitting = useRef(false);
+  const [edited, setEdited] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const dirty = edited && !saved;
+  useBusinessWebUnsavedChanges(Platform.OS === 'web' && dirty);
+  usePreventRemove(dirty, ({ data }) => {
+    if (submitting.current) return;
+    Alert.alert('יש שינויים שלא נשמרו', 'לצאת בלי לשמור את השם?', [
+      { text: 'המשך עריכה', style: 'cancel' },
+      {
+        text: 'יציאה',
+        style: 'destructive',
+        onPress: () => navigation.dispatch(data.action),
+      },
+    ]);
+  });
+  useEffect(() => {
+    if (saved) router.replace('/(auth)/onboarding-client-interests');
+  }, [router, saved]);
   const canAutofillFromOAuth = useMemo(
     () => shouldAutofillFromOAuthProvider(user?.externalId),
     [user?.externalId]
@@ -172,6 +200,11 @@ export default function NameCaptureScreen() {
       return;
     }
 
+    baseline.current = {
+      userId: user._id,
+      firstName: user.firstName?.trim() ?? '',
+      lastName: user.lastName?.trim() ?? '',
+    };
     if (!canAutofillFromOAuth) {
       didPrefillRef.current = true;
       return;
@@ -201,21 +234,60 @@ export default function NameCaptureScreen() {
   );
 
   const handleContinue = async () => {
-    if (!canContinue || isSubmitting) {
+    const expected = baseline.current;
+    if (!canContinue || submitting.current || saved || !user || !expected)
+      return;
+    if (expected.userId !== user._id) {
+      setSaveError('החשבון השתנה. יש לחזור לחשבון המקורי כדי לשמור את הטיוטה.');
       return;
     }
 
+    submitting.current = true;
     setIsSubmitting(true);
     setSaveError('');
     try {
       await setMyName({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
+        expectedName: {
+          firstName: expected.firstName,
+          lastName: expected.lastName,
+        },
       });
-      router.replace('/(auth)/onboarding-client-interests');
-    } catch {
-      setSaveError(RECOVERY_TEXT.saveFailed);
+      setSaved(true);
+    } catch (error) {
+      const data = (
+        error as {
+          data?: {
+            code?: string;
+            current?: { firstName: string; lastName: string };
+          };
+        }
+      )?.data;
+      if (data?.code === 'ACCOUNT_NAME_CONFLICT' && data.current) {
+        const current = data.current;
+        Alert.alert(
+          'השם השתנה במכשיר אחר',
+          'הטיוטה נשמרה. אפשר לחזור לעריכה או לטעון את השם העדכני.',
+          [
+            { text: 'המשך עריכה', style: 'cancel' },
+            {
+              text: 'טעינת השם העדכני',
+              onPress: () => {
+                baseline.current = { userId: expected.userId, ...current };
+                setFirstName(current.firstName);
+                setLastName(current.lastName);
+                setEdited(false);
+                setSaveError('');
+              },
+            },
+          ]
+        );
+      } else {
+        setSaveError(RECOVERY_TEXT.saveFailed);
+      }
     } finally {
+      submitting.current = false;
       setIsSubmitting(false);
     }
   };
@@ -311,6 +383,7 @@ export default function NameCaptureScreen() {
             <TextInput
               value={firstName}
               onChangeText={(value) => {
+                setEdited(true);
                 setFirstName(value);
                 setSaveError('');
               }}
@@ -329,6 +402,7 @@ export default function NameCaptureScreen() {
             <TextInput
               value={lastName}
               onChangeText={(value) => {
+                setEdited(true);
                 setLastName(value);
                 setSaveError('');
               }}
@@ -350,7 +424,7 @@ export default function NameCaptureScreen() {
             onPress={() => {
               void handleContinue();
             }}
-            disabled={!canContinue || isSubmitting}
+            disabled={!canContinue || isSubmitting || saved}
             label={isSubmitting ? TEXT.saving : TEXT.continue}
           />
         </View>

@@ -1,3 +1,7 @@
+import {
+  paginationOptsValidator,
+  paginationResultValidator,
+} from 'convex/server';
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
@@ -447,17 +451,17 @@ async function loadAudienceRows(
     .withIndex(programId ? 'by_programId' : 'by_businessId', (q: any) =>
       programId ? q.eq('programId', programId) : q.eq('businessId', businessId)
     )
-    .filter((q: any) => q.eq(q.field('isActive'), true))
-    .collect();
+    .take(DELIVERY_PAGE_SIZE + 1);
+  if (memberships.length > DELIVERY_PAGE_SIZE) return null;
 
   // A program ID must never broaden the business scope, even if a legacy
   // membership contains inconsistent references.
   const filteredMemberships = programId
     ? memberships.filter(
         (membership: any) =>
-          String(membership.businessId) === String(businessId)
+          membership.isActive === true && membership.businessId === businessId
       )
-    : memberships;
+    : memberships.filter((membership: any) => membership.isActive === true);
 
   const uniqueUserIds = [
     ...new Set(filteredMemberships.map((m: any) => String(m.userId))),
@@ -510,7 +514,7 @@ async function getCampaignLogs(ctx: any, campaignId: Id<'campaigns'>) {
   return await ctx.db
     .query('messageLog')
     .withIndex('by_campaignId', (q: any) => q.eq('campaignId', campaignId))
-    .collect();
+    .take(DELIVERY_PAGE_SIZE + 1);
 }
 
 async function hasPersistedCampaignRun(ctx: any, campaignId: Id<'campaigns'>) {
@@ -539,15 +543,6 @@ function buildCampaignDeliveryStats(
     reachedMessagesAllTime: logs.length,
     lastSentAt,
   };
-}
-
-async function countMissingBirthdayForCampaign(ctx: any, campaign: any) {
-  const rows = await loadAudienceRows(
-    ctx,
-    campaign.businessId,
-    campaign.programId
-  );
-  return countMissingBirthdayFromRows(rows);
 }
 
 // Exact year boundaries in the same time zone used to classify historical sends.
@@ -631,7 +626,12 @@ async function estimateAudienceForCampaign(
   ctx: any,
   campaign: any,
   referenceNow = Date.now()
-): Promise<{ userIds: Id<'users'>[]; total: number; sample: string[] }> {
+): Promise<{
+  userIds: Id<'users'>[];
+  total: number;
+  sample: string[];
+  missingBirthdayCount: number;
+} | null> {
   const normalizedType = normalizeManagementType(campaign.type);
   const rules = normalizeCampaignRules(normalizedType, campaign.rules);
   const rows = await loadAudienceRows(
@@ -639,6 +639,7 @@ async function estimateAudienceForCampaign(
     campaign.businessId,
     campaign.programId
   );
+  if (!rows) return null;
   const now = referenceNow;
 
   const userIdSet = new Set<string>();
@@ -662,6 +663,8 @@ async function estimateAudienceForCampaign(
   return {
     userIds: [...userIdSet].map((id) => id as Id<'users'>),
     total: userIdSet.size,
+    missingBirthdayCount:
+      normalizedType === 'birthday' ? countMissingBirthdayFromRows(rows) : 0,
     sample,
   };
 }
@@ -672,6 +675,7 @@ async function sendAutomationForCampaign(
   now: number
 ): Promise<{ sentCount: number; skippedCount: number }> {
   const estimate = await estimateAudienceForCampaign(ctx, campaign, now);
+  if (!estimate) throw new Error('CAMPAIGN_CLIENT_UPDATE_REQUIRED');
   const campaignType = normalizeManagementType(campaign.type);
 
   let sentCount = 0;
@@ -734,6 +738,7 @@ async function sendCampaignDeliveryOnce(
   estimatedAudience: number;
 }> {
   const estimate = await estimateAudienceForCampaign(ctx, campaign, now);
+  if (!estimate) throw new Error('CAMPAIGN_CLIENT_UPDATE_REQUIRED');
   let sentCount = 0;
   let skippedCount = 0;
 
@@ -916,7 +921,7 @@ export const listManagementCampaignsByBusiness = query({
     businessId: v.optional(v.id('businesses')),
     deferLargeStats: v.optional(v.boolean()),
   },
-  handler: async (ctx, { businessId, deferLargeStats }) => {
+  handler: async (ctx, { businessId }) => {
     if (!businessId) {
       return [];
     }
@@ -932,6 +937,9 @@ export const listManagementCampaignsByBusiness = query({
       .collect();
     const now = Date.now();
 
+    // Bound total related reads on the legacy array endpoint. Current clients
+    // load deferred details through the paged campaign actions.
+    const includeStats = campaigns.length <= 20;
     const result = await Promise.all(
       campaigns.map(async (campaign) => {
         const automationEnabled = isAutomationEnabled(
@@ -950,30 +958,17 @@ export const listManagementCampaignsByBusiness = query({
               ? 'ai'
               : 'management';
         const calculateAudience =
-          isManagementType(campaign.type) &&
-          (!deferLargeStats || !(await needsDeliveryJob(ctx, campaign)));
-        const [
-          logs,
-          hasPersistedCompletionEvidence,
-          managementEstimate,
-          missingBirthdayCount,
-        ] = await Promise.all([
-          deferLargeStats
-            ? ctx.db
-                .query('messageLog')
-                .withIndex('by_campaignId', (q) =>
-                  q.eq('campaignId', campaign._id)
-                )
-                .take(51)
-            : getCampaignLogs(ctx, campaign._id),
-          hasPersistedCampaignRun(ctx, campaign._id),
-          calculateAudience
-            ? estimateAudienceForCampaign(ctx, campaign)
-            : Promise.resolve(null),
-          campaign.type === 'birthday' && calculateAudience
-            ? countMissingBirthdayForCampaign(ctx, campaign)
-            : Promise.resolve(null),
-        ]);
+          includeStats && isManagementType(campaign.type);
+        const [logs, hasPersistedCompletionEvidence, managementEstimate] =
+          await Promise.all([
+            includeStats
+              ? getCampaignLogs(ctx, campaign._id)
+              : Promise.resolve(null),
+            hasPersistedCampaignRun(ctx, campaign._id),
+            calculateAudience
+              ? estimateAudienceForCampaign(ctx, campaign)
+              : Promise.resolve(null),
+          ]);
         const productState = classifyCampaignState(campaign, {
           now,
           hasPersistedCompletionEvidence,
@@ -985,9 +980,9 @@ export const listManagementCampaignsByBusiness = query({
               ? 'active'
               : 'inactive';
         const deliveryStats =
-          deferLargeStats && logs.length > 50
-            ? null
-            : buildCampaignDeliveryStats(logs);
+          logs && logs.length <= DELIVERY_PAGE_SIZE
+            ? buildCampaignDeliveryStats(logs)
+            : null;
         const estimatedAudience = isManagementType(campaign.type)
           ? (managementEstimate?.total ?? null)
           : typeof campaign.rules?.audienceCount === 'number'
@@ -1027,7 +1022,9 @@ export const listManagementCampaignsByBusiness = query({
           reachedMessagesAllTime: deliveryStats?.reachedMessagesAllTime ?? null,
           lastSentAt: deliveryStats?.lastSentAt ?? null,
           missingBirthdayCount:
-            campaign.type === 'birthday' ? missingBirthdayCount : null,
+            campaign.type === 'birthday'
+              ? (managementEstimate?.missingBirthdayCount ?? null)
+              : null,
           isActive: campaign.isActive,
           archivedAt: campaign.archivedAt ?? null,
           createdAt: campaign.createdAt,
@@ -1064,16 +1061,16 @@ export const getManagementCampaignDraft = query({
     }
 
     const defaults = buildDefaultDraftByType(campaign.type);
-    const [estimate, logs, missingBirthdayCount] = deferStats
-      ? [null, [], null]
+    const [estimate, logs] = deferStats
+      ? [null, []]
       : await Promise.all([
           estimateAudienceForCampaign(ctx, campaign),
           getCampaignLogs(ctx, campaign._id),
-          campaign.type === 'birthday'
-            ? countMissingBirthdayForCampaign(ctx, campaign)
-            : Promise.resolve(null),
         ]);
-    const deliveryStats = buildCampaignDeliveryStats(logs);
+    const deliveryStats =
+      logs.length <= DELIVERY_PAGE_SIZE
+        ? buildCampaignDeliveryStats(logs)
+        : null;
     const automationEnabled = isAutomationEnabled(campaign.automationEnabled);
     const scheduleMode = getScheduleModeFromCampaign(campaign);
 
@@ -1102,12 +1099,15 @@ export const getManagementCampaignDraft = query({
       stats: deferStats
         ? null
         : {
-            eligibleAudienceNow: estimate?.total ?? 0,
-            reachedUniqueAllTime: deliveryStats.reachedUniqueAllTime,
-            reachedMessagesAllTime: deliveryStats.reachedMessagesAllTime,
-            lastSentAt: deliveryStats.lastSentAt,
+            eligibleAudienceNow: estimate?.total ?? null,
+            reachedUniqueAllTime: deliveryStats?.reachedUniqueAllTime ?? null,
+            reachedMessagesAllTime:
+              deliveryStats?.reachedMessagesAllTime ?? null,
+            lastSentAt: deliveryStats?.lastSentAt ?? null,
             missingBirthdayCount:
-              campaign.type === 'birthday' ? (missingBirthdayCount ?? 0) : null,
+              campaign.type === 'birthday'
+                ? (estimate?.missingBirthdayCount ?? null)
+                : null,
           },
       createdAt: campaign.createdAt,
       updatedAt: campaign.updatedAt,
@@ -1618,6 +1618,7 @@ export const estimateCampaignAudience = mutation({
       throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
     }
     const estimate = await estimateAudienceForCampaign(ctx, campaign);
+    if (!estimate) throw new Error('CAMPAIGN_CLIENT_UPDATE_REQUIRED');
     return {
       total: estimate.total,
       sample: estimate.sample,
@@ -2409,6 +2410,55 @@ export const runAutomationSweepInternal = internalMutation({
   },
 });
 
+async function inboxItems(ctx: QueryCtx, logs: Doc<'messageLog'>[]) {
+  return await Promise.all(
+    logs.map(async (log) => {
+      const [business, campaign] = await Promise.all([
+        ctx.db.get(log.businessId),
+        log.campaignId ? ctx.db.get(log.campaignId) : Promise.resolve(null),
+      ]);
+      const inboxPayload =
+        log.inboxPayload && typeof log.inboxPayload === 'object'
+          ? (log.inboxPayload as Record<string, unknown>)
+          : null;
+      const payloadTitle =
+        inboxPayload && typeof inboxPayload.title === 'string'
+          ? inboxPayload.title
+          : null;
+      const payloadBody =
+        inboxPayload && typeof inboxPayload.body === 'string'
+          ? inboxPayload.body
+          : null;
+      const destinationHref =
+        inboxPayload && typeof inboxPayload.destinationHref === 'string'
+          ? inboxPayload.destinationHref
+          : null;
+
+      return {
+        messageId: log._id,
+        campaignId: log.campaignId ?? null,
+        businessId: log.businessId,
+        businessName: business?.name ?? 'העסק',
+        campaignType: campaign?.type ?? 'promo',
+        title:
+          payloadTitle ??
+          campaign?.messageTitle ??
+          campaign?.title ??
+          'עדכון חדש מהעסק',
+        body:
+          payloadBody ??
+          campaign?.messageBody ??
+          'יש לכם עדכון חדש. היכנסו לצפות בפרטים.',
+        destinationHref,
+        notificationType: log.notificationType ?? null,
+        createdAt: log.createdAt,
+        readAt: log.readAt ?? null,
+        status: log.status,
+      };
+    })
+  );
+}
+
 export const listInboxForCustomer = query({
   args: {},
   handler: async (ctx) => {
@@ -2423,53 +2473,39 @@ export const listInboxForCustomer = query({
       .collect();
 
     const sorted = logs.sort((a, b) => b.createdAt - a.createdAt);
-    const inbox = await Promise.all(
-      sorted.map(async (log) => {
-        const [business, campaign] = await Promise.all([
-          ctx.db.get(log.businessId),
-          log.campaignId ? ctx.db.get(log.campaignId) : Promise.resolve(null),
-        ]);
-        const inboxPayload =
-          log.inboxPayload && typeof log.inboxPayload === 'object'
-            ? (log.inboxPayload as Record<string, unknown>)
-            : null;
-        const payloadTitle =
-          inboxPayload && typeof inboxPayload.title === 'string'
-            ? inboxPayload.title
-            : null;
-        const payloadBody =
-          inboxPayload && typeof inboxPayload.body === 'string'
-            ? inboxPayload.body
-            : null;
-        const destinationHref =
-          inboxPayload && typeof inboxPayload.destinationHref === 'string'
-            ? inboxPayload.destinationHref
-            : null;
+    return await inboxItems(ctx, sorted);
+  },
+});
 
-        return {
-          messageId: log._id,
-          campaignId: log.campaignId ?? null,
-          businessId: log.businessId,
-          businessName: business?.name ?? 'העסק',
-          campaignType: campaign?.type ?? 'promo',
-          title:
-            payloadTitle ??
-            campaign?.messageTitle ??
-            campaign?.title ??
-            'עדכון חדש מהעסק',
-          body:
-            payloadBody ??
-            campaign?.messageBody ??
-            'יש לכם עדכון חדש. היכנסו לצפות בפרטים.',
-          destinationHref,
-          notificationType: log.notificationType ?? null,
-          createdAt: log.createdAt,
-          readAt: log.readAt ?? null,
-          status: log.status,
-        };
-      })
-    );
-
-    return inbox;
+export const listInboxForCustomerPage = query({
+  args: { paginationOpts: paginationOptsValidator },
+  returns: paginationResultValidator(
+    v.object({
+      messageId: v.id('messageLog'),
+      campaignId: v.union(v.id('campaigns'), v.null()),
+      businessId: v.id('businesses'),
+      businessName: v.string(),
+      campaignType: v.string(),
+      title: v.string(),
+      body: v.string(),
+      destinationHref: v.union(v.string(), v.null()),
+      notificationType: v.union(v.string(), v.null()),
+      createdAt: v.number(),
+      readAt: v.union(v.number(), v.null()),
+      status: v.string(),
+    })
+  ),
+  handler: async (ctx, { paginationOpts }) => {
+    const user = await getCurrentUserOrNull(ctx);
+    if (!user) return { page: [], isDone: true, continueCursor: '' };
+    const page = await ctx.db
+      .query('messageLog')
+      .withIndex('by_toUserId_createdAt', (q) => q.eq('toUserId', user._id))
+      .order('desc')
+      .paginate({
+        ...paginationOpts,
+        numItems: Math.min(25, Math.max(1, paginationOpts.numItems)),
+      });
+    return { ...page, page: await inboxItems(ctx, page.page) };
   },
 });
