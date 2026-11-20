@@ -630,7 +630,7 @@
     "expression": "ctx.db\n    .query('messageLog')\n    .withIndex('by_campaignId', (q: any) => q.eq('campaignId', campaignId))",
     "review": {
       "classification": "improvement_required",
-      "decision": "Current editor reads exact stationary history in ordered pages. Legacy management statistics defer large results. Customer rewards now use a paged inbox; the installed inbox/Wallet array endpoint remains for compatibility.",
+      "decision": "The current campaign editor reads history in ordered pages and list/draft readers defer large counts. Wallet previews and Rewards use the paged inbox. The old inbox array remains exact up to 500 and errors explicitly when the budget is exceeded; approve cutover before serving affected installed clients.",
       "status": "reviewed",
       "regression": "Existing domain tests; changed paginated search has behavioral sparse-match/auth regression. No new behavioral test claimed for unchanged reads."
     }

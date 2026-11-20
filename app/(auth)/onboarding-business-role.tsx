@@ -184,7 +184,7 @@ export default function OnboardingBusinessRoleScreen() {
       return;
     }
     didSyncStepRef.current = true;
-    void saveStep({ step: 'role' }).catch(() => {});
+    void saveStep({ step: 'role', progressOnly: true }).catch(() => {});
   }, [saveStep]);
 
   useEffect(() => {

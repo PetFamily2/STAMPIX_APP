@@ -73,3 +73,5 @@ Static evidence for every TSX input or direct mutation/action surface in app, sc
 | components/web-scanner/BusinessScanner.web.tsx | input-or-delegated-form |  | false | false | false | Search/auth/scanner or delegated input: no direct persistence hook. Parent owns saving; no automatic blanket guard added. |
 | components/web-scanner/QrScanner.web.tsx | input-or-delegated-form |  | false | false | false | Search/auth/scanner or delegated input: no direct persistence hook. Parent owns saving; no automatic blanket guard added. |
 | components/web-scanner/ScannerCameraSettings.web.tsx | input-or-delegated-form |  | false | false | false | Search/auth/scanner or delegated input: no direct persistence hook. Parent owns saving; no automatic blanket guard added. |
+
+Automatic business-onboarding screen entry now writes progress only. The server preserves stored fields and automatic step updates cannot move a completed, paused or farther-advanced draft backward. Explicit draft saves on installed clients retain the existing contract during migration.

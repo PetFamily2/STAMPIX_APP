@@ -189,13 +189,13 @@ export default function WalletWebScreen() {
       {inbox.length > 0 ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>הודעות</Text>
-          {inbox.map((item) => (
+          {inbox.slice(0, 3).map((item) => (
             <View key={String(item.messageId)} style={styles.message}>
               <Text style={styles.messageTitle}>{item.businessName}</Text>
               <Text style={styles.messageBody}>{item.title}</Text>
             </View>
           ))}
-          {inboxStatus === 'CanLoadMore' ? (
+          {inboxStatus === 'CanLoadMore' || inbox.length > 3 ? (
             <PwaButton
               label="לכל ההודעות"
               variant="quiet"

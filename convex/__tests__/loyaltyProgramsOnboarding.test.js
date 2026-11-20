@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-
 import {
   createOrResumeBusinessOnboardingProgram,
   getOnboardingProgramForEdit,
   getProgramDetailsForManagement,
   publishProgram,
 } from '../loyaltyPrograms';
+import { saveMyBusinessOnboardingDraft } from '../onboarding';
 import { completeBusinessOnboarding } from '../users';
 import { buildCanonicalBusinessBillingAccount } from './helpers/businessBillingFixtures';
 
@@ -790,4 +790,36 @@ test('two onboarding sessions cannot replace a concurrently created or edited pr
     'Session A'
   );
   expect(state.loyaltyPrograms.size).toBe(1);
+});
+
+test('automatic onboarding progress preserves draft fields and linked records saved in another session', async () => {
+  const { ctx, state } = createMockCtx();
+  const created = await createOrResumeBusinessOnboardingProgram._handler(
+    ctx,
+    programArgs()
+  );
+  const before = [...state.businessOnboardingDrafts.values()][0];
+  await saveMyBusinessOnboardingDraft._handler(ctx, {
+    flow: 'default',
+    currentStep: 'createProgram',
+    progressOnly: true,
+    programDraft: { title: 'Do not store this stale draft' },
+  });
+  const after = [...state.businessOnboardingDrafts.values()][0];
+  expect(after.programId).toBe(created.loyaltyProgramId);
+  expect(after.programDraft).toEqual(before.programDraft);
+  expect(after.businessId).toBe(before.businessId);
+  expect(after.farthestStep).toBe(before.farthestStep);
+  expect(after.currentStep).toBe(before.currentStep);
+  await saveMyBusinessOnboardingDraft._handler(ctx, {
+    flow: 'default',
+    currentStep: 'previewCard',
+    status: 'paused',
+  });
+  await saveMyBusinessOnboardingDraft._handler(ctx, {
+    flow: 'default',
+    currentStep: 'createProgram',
+    progressOnly: true,
+  });
+  expect([...state.businessOnboardingDrafts.values()][0].status).toBe('paused');
 });

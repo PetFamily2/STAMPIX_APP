@@ -198,7 +198,11 @@ export default function CreateProgramScreen() {
       return;
     }
     didSyncStepRef.current = true;
-    const stepSyncPromise = saveStep({ step: 'createProgram', flow }).then(
+    const stepSyncPromise = saveStep({
+      step: 'createProgram',
+      flow,
+      progressOnly: true,
+    }).then(
       () => undefined,
       () => undefined
     );

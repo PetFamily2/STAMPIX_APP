@@ -13,6 +13,7 @@ import {
 
 type SaveBusinessOnboardingStepInput = {
   step: BusinessOnboardingStep;
+  progressOnly?: boolean;
   flow?: string | string[] | null;
   status?: 'in_progress' | 'paused' | 'completed';
   businessId?: Id<'businesses'>;
@@ -34,6 +35,7 @@ export function useBusinessOnboardingDraftPersistence() {
   const saveStep = useCallback(
     async ({
       step,
+      progressOnly = false,
       flow,
       status,
       businessId: businessIdOverride,
@@ -55,11 +57,15 @@ export function useBusinessOnboardingDraftPersistence() {
         flow: resolvedFlow,
         currentStep: step,
         status,
-        businessId: resolvedIdentifiers.businessId,
-        programId: resolvedIdentifiers.programId,
-        businessDraft,
-        programDraft,
-        businessOnboardingDraft,
+        ...(progressOnly
+          ? { progressOnly: true }
+          : {
+              businessId: resolvedIdentifiers.businessId,
+              programId: resolvedIdentifiers.programId,
+              businessDraft,
+              programDraft,
+              businessOnboardingDraft,
+            }),
       });
 
       return normalizedStepOrder;

@@ -271,7 +271,9 @@ export default function BusinessBasicsScreen() {
       return;
     }
     didSyncStepRef.current = true;
-    void saveStep({ step: 'businessBasics', flow }).catch(() => {});
+    void saveStep({ step: 'businessBasics', flow, progressOnly: true }).catch(
+      () => {}
+    );
   }, [flow, saveStep]);
 
   const selectedBusinessExample =
