@@ -4,7 +4,16 @@ import React from 'react';
 import { act, create } from 'react-test-renderer';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-globalThis.window = { addEventListener() {}, removeEventListener() {} };
+const browserListeners = new Set();
+let removalBlocked = false;
+globalThis.window = {
+  addEventListener(name) {
+    browserListeners.add(name);
+  },
+  removeEventListener(name) {
+    browserListeners.delete(name);
+  },
+};
 const host =
   (name) =>
   ({ children, ...props }) =>
@@ -33,7 +42,9 @@ mock.module('@react-navigation/bottom-tabs', () => ({
 }));
 mock.module('@react-navigation/native', () => ({
   useNavigation: () => ({ dispatch() {} }),
-  usePreventRemove() {},
+  usePreventRemove(enabled) {
+    removalBlocked = enabled;
+  },
 }));
 mock.module('expo-router', () => ({
   router: { back() {}, canGoBack: () => false, replace() {}, push() {} },
@@ -245,6 +256,7 @@ try {
 let accountUser = { _id: 'user1', isActive: true, birthdayDay: 1 };
 mock.module('@/contexts/UserContext', () => ({
   useSessionContext: () => ({ user: accountUser, businesses: [] }),
+  useUser: () => ({ user: { _id: 'owner' } }),
 }));
 mock.module('@/components/BackButton', () => ({ BackButton: component }));
 mock.module('@/components/BusinessScreenHeader', () => ({
@@ -507,7 +519,11 @@ mock.module('@/components/OnboardingProgress', () => ({
 mock.module('@/components/StandaloneBackTitleHeader', () => ({
   StandaloneBackTitleHeader: component,
 }));
-mock.module('@/lib/navigation', () => ({ safeBack() {} }));
+mock.module('@/lib/navigation', () => ({
+  safeBack() {},
+  safePush() {},
+  safeDismissTo() {},
+}));
 api.users.getCurrentUser = 'currentUser';
 api.users.setMyName = 'setName';
 api.auth = { createOrUpdateUser: 'bootstrap' };
@@ -559,6 +575,114 @@ try {
   });
   console.log(
     'PASS rendered name capture: server conflict preserves draft, explicit reload adopts latest version; mocked backend'
+  );
+} finally {
+  if (tree) await act(async () => tree.unmount());
+}
+
+const originalProgram = {
+  title: 'Saved card',
+  rewardName: 'Coffee',
+  maxStamps: '10',
+  cardTerms: '',
+  rewardConditions: '',
+  stampIcon: 'star',
+  stampShape: 'circle',
+  cardThemeId: 'midnight-luxe',
+  imageStorageId: null,
+  imagePreviewUri: null,
+};
+let programScope = 'card_a';
+let serverProgram = { ...originalProgram, programId: 'card_1', updatedAt: 1 };
+const programWrites = [];
+api.loyaltyPrograms.getOnboardingProgramForEdit = 'onboarding_program';
+api.loyaltyPrograms.createOrResumeBusinessOnboardingProgram = 'save_program';
+api.loyaltyPrograms.generateProgramImageUploadUrl = 'upload_program';
+api.loyaltyPrograms.listThemeReservationsByBusiness = 'reservations';
+mock.module('expo-image-picker', () => ({
+  launchImageLibraryAsync: async () => ({ canceled: true, assets: [] }),
+  MediaTypeOptions: { Images: 'images' },
+}));
+mock.module('@/contexts/OnboardingContext', () => ({
+  useOnboarding() {
+    const [programDraft, setProgramDraft] = React.useState(originalProgram);
+    const [programId, setProgramId] = React.useState('card_1');
+    return {
+      businessId: programScope,
+      programDraft,
+      setProgramDraft,
+      programId,
+      setProgramId,
+    };
+  },
+}));
+mock.module('@/contexts/UserContext', () => ({
+  useUser: () => ({ user: { _id: 'owner' } }),
+}));
+mock.module('@/lib/onboarding/useBusinessOnboardingDraftPersistence', () => ({
+  useBusinessOnboardingDraftPersistence: () => ({
+    saveStep: async () => undefined,
+  }),
+}));
+mock.module('@/lib/analytics/activation', () => ({
+  trackActivationEvent: async () => undefined,
+}));
+mock.module('convex/react', () => ({
+  useConvexAuth: () => ({ isAuthenticated: true, isLoading: false }),
+  useQuery: (name) => (name === 'onboarding_program' ? serverProgram : []),
+  useMutation: (name) => async (args) => {
+    programWrites.push({ name, args });
+    return { loyaltyProgramId: 'card_1' };
+  },
+}));
+const { default: OnboardingProgram } = await import(
+  '../app/(authenticated)/merchant/onboarding/create-program.tsx'
+);
+try {
+  await act(async () => {
+    tree = create(<OnboardingProgram />);
+  });
+  const field = () =>
+    tree.root
+      .findAllByType('input')
+      .find((node) => node.props.accessibilityLabel === 'שם הכרטיסיה');
+  const save = () =>
+    tree.root
+      .findAllByType('continue')
+      .find((node) => node.props.label === 'שמירה והמשך לפרסום');
+  const load = () =>
+    tree.root
+      .findAllByType('continue')
+      .find((node) => node.props.label.startsWith('טעינת הכרטיסייה'));
+  await act(async () => field().props.onChangeText('Local draft'));
+  assert.equal(removalBlocked, true);
+  assert(browserListeners.has('beforeunload'));
+  programScope = 'card_b';
+  await act(async () => tree.update(<OnboardingProgram />));
+  assert.equal(save().props.disabled, true);
+  await act(async () => save().props.onPress());
+  assert.equal(programWrites.length, 0);
+  programScope = 'card_a';
+  serverProgram = {
+    ...serverProgram,
+    title: 'Second session title',
+    updatedAt: 2,
+  };
+  await act(async () => tree.update(<OnboardingProgram />));
+  assert.equal(field().props.value, 'Local draft');
+  assert.equal(save().props.disabled, true);
+  await act(async () => load().props.onPress());
+  assert.equal(field().props.value, 'Second session title');
+  assert.equal(removalBlocked, false);
+  assert(!browserListeners.has('beforeunload'));
+  await act(async () => save().props.onPress());
+  assert.deepEqual(programWrites[0].args.expectedProgram, {
+    programId: 'card_1',
+    updatedAt: 2,
+  });
+  assert.equal(programWrites[0].args.businessId, 'card_a');
+  console.log(
+    'PASS rendered onboarding program: stale draft, business switch, navigation and refresh guard; mocked backend'
   );
 } finally {
   if (tree) await act(async () => tree.unmount());

@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   createOrResumeBusinessOnboardingProgram,
+  getOnboardingProgramForEdit,
   getProgramDetailsForManagement,
   publishProgram,
 } from '../loyaltyPrograms';
@@ -748,4 +749,45 @@ describe('atomic business onboarding completion', () => {
     ).rejects.toThrow('NOT_AUTHORIZED');
     expect(patchLog).toHaveLength(0);
   });
+});
+
+test('two onboarding sessions cannot replace a concurrently created or edited program', async () => {
+  const { ctx, state } = createMockCtx();
+  const scope = { businessId: 'business_1', flow: 'default' };
+  expect(await getOnboardingProgramForEdit._handler(ctx, scope)).toBeNull();
+  const first = await createOrResumeBusinessOnboardingProgram._handler(
+    ctx,
+    programArgs({ expectedProgram: null })
+  );
+  await expect(
+    createOrResumeBusinessOnboardingProgram._handler(
+      ctx,
+      programArgs({
+        expectedProgram: null,
+        title: 'stale create',
+      })
+    )
+  ).rejects.toMatchObject({ data: { code: 'ONBOARDING_PROGRAM_CONFLICT' } });
+  const snapshot = await getOnboardingProgramForEdit._handler(ctx, scope);
+  const expectedProgram = {
+    programId: first.loyaltyProgramId,
+    updatedAt: snapshot.updatedAt,
+  };
+  await createOrResumeBusinessOnboardingProgram._handler(
+    ctx,
+    programArgs({ expectedProgram, title: 'Session A' })
+  );
+  await expect(
+    createOrResumeBusinessOnboardingProgram._handler(
+      ctx,
+      programArgs({
+        expectedProgram,
+        title: 'Session B stale',
+      })
+    )
+  ).rejects.toMatchObject({ data: { code: 'EDIT_CONFLICT' } });
+  expect(state.loyaltyPrograms.get(first.loyaltyProgramId).title).toBe(
+    'Session A'
+  );
+  expect(state.loyaltyPrograms.size).toBe(1);
 });

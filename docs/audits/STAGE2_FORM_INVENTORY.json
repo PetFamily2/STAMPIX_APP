@@ -25,12 +25,12 @@
     "file": "app/(auth)/onboarding-business-role.tsx",
     "input": true,
     "writes": ["api.users.setMyName", "api.users.setActiveMode"],
-    "sharedGuard": false,
-    "navigationGuard": false,
-    "versionArgument": false,
+    "sharedGuard": true,
+    "navigationGuard": true,
+    "versionArgument": true,
     "serverHydration": true,
     "classification": "persistent-input",
-    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. No direct route removal guard. No direct optimistic version argument; concurrent existing-record edits are not proven safe."
+    "decision": "Current editor protects draft navigation and browser refresh, ties the save to its source scope, and checks the saved value before writing."
   },
   {
     "file": "app/(auth)/onboarding-client-otp.tsx",
@@ -411,12 +411,12 @@
       "api.loyaltyPrograms.createOrResumeBusinessOnboardingProgram",
       "api.loyaltyPrograms.generateProgramImageUploadUrl"
     ],
-    "sharedGuard": false,
-    "navigationGuard": false,
-    "versionArgument": false,
+    "sharedGuard": true,
+    "navigationGuard": true,
+    "versionArgument": true,
     "serverHydration": true,
     "classification": "persistent-input",
-    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. No direct route removal guard. No direct optimistic version argument; concurrent existing-record edits are not proven safe."
+    "decision": "Current editor protects draft navigation and browser refresh, ties the save to its source scope, and checks the saved value before writing."
   },
   {
     "file": "app/(authenticated)/merchant/onboarding/preview-card.tsx",

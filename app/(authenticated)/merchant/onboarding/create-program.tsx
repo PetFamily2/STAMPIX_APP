@@ -1,9 +1,17 @@
+import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import { useMutation, useQuery } from 'convex/react';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type SetStateAction,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,7 +20,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
+import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
 import { ContinueButton } from '@/components/ContinueButton';
 import { LoyaltyThemePalette } from '@/components/loyalty/LoyaltyThemePalette';
 import { StampIconPicker } from '@/components/loyalty/StampIconPicker';
@@ -20,10 +28,11 @@ import { StampShapePicker } from '@/components/loyalty/StampShapePicker';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import { MAX_STAMP_OPTIONS } from '@/constants/stampOptions';
-import { useOnboarding } from '@/contexts/OnboardingContext';
+import { type ProgramDraft, useOnboarding } from '@/contexts/OnboardingContext';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { Alert } from '@/lib/alert';
 import { trackActivationEvent } from '@/lib/analytics/activation';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import {
@@ -73,8 +82,14 @@ const CREATE_PROGRAM_COPY = {
 
 export default function CreateProgramScreen() {
   const { flow } = useLocalSearchParams<{ flow?: string }>();
-  const { businessId, programDraft, programId, setProgramDraft, setProgramId } =
-    useOnboarding();
+  const {
+    businessId,
+    programDraft,
+    programId,
+    setProgramDraft: updateDraft,
+    setProgramId,
+  } = useOnboarding();
+  const navigation = useNavigation();
   const { user } = useUser();
   const { saveStep } = useBusinessOnboardingDraftPersistence();
   const didSyncStepRef = useRef(false);
@@ -99,9 +114,87 @@ export default function CreateProgramScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [conflict, setConflict] = useState(false);
+  const formFlow = resolveBusinessOnboardingFlow(flow);
+  const scope = JSON.stringify([user?._id, businessId, formFlow]);
+  const currentScope = useRef(scope);
+  currentScope.current = scope;
+  const draftScope = useRef(scope);
+  const writeInFlight = useRef(false);
+  const existing = useQuery(
+    api.loyaltyPrograms.getOnboardingProgramForEdit,
+    businessId
+      ? {
+          businessId,
+          flow: formFlow,
+          programId: programId ?? undefined,
+        }
+      : 'skip'
+  );
+  const [baseline, setBaseline] = useState<{
+    scope: string;
+    expected: { programId: Id<'loyaltyPrograms'>; updatedAt: number } | null;
+  } | null>(null);
+  if (!dirty && !writeInFlight.current) draftScope.current = scope;
+  const scopeChanged = dirty && draftScope.current !== scope;
+  useBusinessWebUnsavedChanges(Platform.OS === 'web' && dirty);
+  usePreventRemove(dirty, ({ data }) => {
+    if (writeInFlight.current) return;
+    Alert.alert('יש שינויים שלא נשמרו', 'אפשר להמשיך לערוך או לצאת מהמסך.', [
+      { text: 'המשך עריכה', style: 'cancel' },
+      {
+        text: 'יציאה',
+        style: 'destructive',
+        onPress: () => navigation.dispatch(data.action),
+      },
+    ]);
+  });
+  function setProgramDraft(next: SetStateAction<ProgramDraft>) {
+    if (scopeChanged) return;
+    setDirty(true);
+    updateDraft(next);
+  }
+  useEffect(() => {
+    if (scopeChanged || existing === undefined || baseline?.scope === scope)
+      return;
+    if (existing === null) {
+      if (!programId) setBaseline({ scope, expected: null });
+      return;
+    }
+    const {
+      programId: id,
+      updatedAt,
+      imagePreviewUri: _preview,
+      ...storedFields
+    } = existing;
+    if (
+      Object.entries(storedFields).every(
+        ([field, value]) => programDraft[field as keyof ProgramDraft] === value
+      )
+    ) {
+      setBaseline({ scope, expected: { programId: id, updatedAt } });
+    }
+  }, [baseline, existing, programDraft, programId, scope, scopeChanged]);
+  const revisionChanged =
+    existing !== undefined &&
+    baseline?.scope === scope &&
+    ((existing?.programId ?? null) !== (baseline.expected?.programId ?? null) ||
+      (existing?.updatedAt ?? null) !== (baseline.expected?.updatedAt ?? null));
+  const loadLatest = () => {
+    if (scopeChanged || existing === undefined) return;
+    if (existing === null) return;
+    const { programId: id, updatedAt, ...draft } = existing;
+    updateDraft(draft);
+    setProgramId(id);
+    setBaseline({ scope, expected: { programId: id, updatedAt } });
+    setDirty(false);
+    setConflict(false);
+    setError(null);
+  };
 
   useEffect(() => {
-    if (didSyncStepRef.current) {
+    if (!businessId || didSyncStepRef.current) {
       return;
     }
     didSyncStepRef.current = true;
@@ -111,10 +204,10 @@ export default function CreateProgramScreen() {
     );
     stepSyncPromiseRef.current = stepSyncPromise;
     void stepSyncPromise;
-  }, [flow, saveStep]);
+  }, [businessId, flow, saveStep]);
 
   useEffect(() => {
-    if (!businessId) {
+    if (!businessId && !dirty) {
       safePush(
         withBusinessOnboardingFlow(
           BUSINESS_ONBOARDING_ROUTES.createBusiness,
@@ -122,7 +215,7 @@ export default function CreateProgramScreen() {
         )
       );
     }
-  }, [businessId, flow]);
+  }, [businessId, dirty, flow]);
 
   const maxStampsNumber = useMemo(
     () => Number(programDraft.maxStamps),
@@ -130,6 +223,11 @@ export default function CreateProgramScreen() {
   );
 
   const canSubmit =
+    !scopeChanged &&
+    !conflict &&
+    !revisionChanged &&
+    baseline?.scope === scope &&
+    existing !== undefined &&
     Boolean(programDraft.title.trim()) &&
     Boolean(programDraft.rewardName.trim()) &&
     MAX_STAMP_OPTIONS.includes(
@@ -142,7 +240,7 @@ export default function CreateProgramScreen() {
     !isUploadingImage;
 
   const handlePickAndUploadImage = async () => {
-    if (!businessId || isUploadingImage || isSubmitting) {
+    if (!businessId || scopeChanged || isUploadingImage || isSubmitting) {
       return;
     }
 
@@ -156,7 +254,7 @@ export default function CreateProgramScreen() {
     }
 
     const asset = result.assets[0];
-    if (!asset.uri) {
+    if (!asset.uri || currentScope.current !== scope) {
       return;
     }
 
@@ -182,6 +280,7 @@ export default function CreateProgramScreen() {
         throw new Error('UPLOAD_FAILED');
       }
 
+      if (currentScope.current !== scope) return;
       setProgramDraft((prev) => ({
         ...prev,
         imageStorageId: payload.storageId ?? null,
@@ -199,19 +298,22 @@ export default function CreateProgramScreen() {
       setError(TEXT.missingBusiness);
       return;
     }
-    if (!canSubmit) {
+    if (!canSubmit || !baseline || writeInFlight.current) {
       return;
     }
 
     setError(null);
+    writeInFlight.current = true;
     setIsSubmitting(true);
 
     try {
       await stepSyncPromiseRef.current;
+      if (currentScope.current !== scope) return;
       const { loyaltyProgramId } = await createOrResumeProgram({
         flow: resolveBusinessOnboardingFlow(flow),
         businessId,
-        programId: programId ?? undefined,
+        programId: baseline.expected?.programId,
+        expectedProgram: baseline.expected,
         title: programDraft.title.trim(),
         rewardName: programDraft.rewardName.trim(),
         maxStamps: maxStampsNumber,
@@ -223,6 +325,8 @@ export default function CreateProgramScreen() {
         cardThemeId: programDraft.cardThemeId,
       });
 
+      if (currentScope.current !== scope) return;
+      setDirty(false);
       setProgramId(loyaltyProgramId);
       void trackActivationEvent(ANALYTICS_EVENTS.loyaltyCardCreated, {
         role: 'business',
@@ -233,12 +337,19 @@ export default function CreateProgramScreen() {
         withBusinessOnboardingFlow(BUSINESS_ONBOARDING_ROUTES.previewCard, flow)
       );
     } catch (submitError: unknown) {
+      const code = (submitError as { data?: { code?: string } })?.data?.code;
+      if (code === 'EDIT_CONFLICT' || code === 'ONBOARDING_PROGRAM_CONFLICT') {
+        setConflict(true);
+        setError('הכרטיסייה השתנתה במכשיר אחר. הטיוטה נשמרה במסך.');
+        return;
+      }
       setError(
         String(submitError).includes('LOYALTY_THEME_CONFLICT')
           ? 'הצבע שבחרתם כבר בשימוש. בחרו צבע פנוי; שאר הפרטים נשמרו.'
           : toErrorMessage(submitError, TEXT.errorFallback)
       );
     } finally {
+      writeInFlight.current = false;
       setIsSubmitting(false);
     }
   };
@@ -273,6 +384,19 @@ export default function CreateProgramScreen() {
           contentContainerStyle={styles.formContent}
           showsVerticalScrollIndicator={false}
         >
+          {scopeChanged ? (
+            <Text accessibilityRole="alert">
+              העסק השתנה. חזרו לעסק המקורי כדי לשמור.
+            </Text>
+          ) : null}
+          {!scopeChanged &&
+          existing &&
+          (baseline?.scope !== scope || revisionChanged || conflict) ? (
+            <ContinueButton
+              label="טעינת הכרטיסייה העדכנית במקום הטיוטה"
+              onPress={loadLatest}
+            />
+          ) : null}
           <View style={styles.field}>
             <Text style={styles.label}>שם הכרטיסייה</Text>
             <TextInput

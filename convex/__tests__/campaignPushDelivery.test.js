@@ -6,6 +6,7 @@ import {
   estimateManagementAudienceBatch,
   getManagementCampaignDraft,
   getManagementCampaignHistoryPaged,
+  listInboxForCustomer,
   listInboxForCustomerPage,
   listManagementCampaignsByBusiness,
   managementHistoryBatch,
@@ -1201,4 +1202,60 @@ test('paged customer inbox is chronological, bounded and scoped to the session',
   });
   expect(next.page.map((row) => row.messageId)).toEqual(['older']);
   expect(next.isDone).toBe(true);
+});
+
+test('wallet and full inbox handle a history over the old array budget without dropping messages', async () => {
+  const tables = baseTables();
+  tables.messageLog = Array.from({ length: 1205 }, (_, i) => ({
+    _id: 'wallet_history_' + i,
+    toUserId: CUSTOMER_ID,
+    businessId: BUSINESS_ID,
+    createdAt: i,
+    status: 'sent',
+  }));
+  tables.messageLog.push({
+    _id: 'foreign',
+    toUserId: OWNER_ID,
+    businessId: BUSINESS_ID,
+    createdAt: 5000,
+    status: 'sent',
+  });
+  const ctx = buildCtx(tables, CUSTOMER_ID);
+  const original = ctx.db.query.bind(ctx.db);
+  ctx.db.query = (table) => {
+    const q = original(table);
+    if (table === 'messageLog')
+      q.collect = async () => {
+        throw Error('UNBOUNDED_INBOX');
+      };
+    return q;
+  };
+  const preview = await listInboxForCustomerPage._handler(ctx, {
+    paginationOpts: { cursor: null, numItems: 3 },
+  });
+  expect(preview.page.map((row) => row.createdAt)).toEqual([1204, 1203, 1202]);
+  expect(preview.isDone).toBe(false);
+  await expect(listInboxForCustomer._handler(ctx, {})).rejects.toMatchObject({
+    data: { code: 'CUSTOMER_INBOX_PAGINATION_REQUIRED' },
+  });
+  const ids = [];
+  let cursor = null,
+    done = false;
+  while (!done) {
+    const next = await listInboxForCustomerPage._handler(ctx, {
+      paginationOpts: { cursor, numItems: 25 },
+    });
+    ids.push(...next.page.map((row) => row.messageId));
+    cursor = next.continueCursor;
+    done = next.isDone;
+    if (ids.length > 1205) throw Error('DUPLICATE_OR_FOREIGN_INBOX_ROW');
+  }
+  expect(ids).toEqual(
+    Array.from({ length: 1205 }, (_, i) => 'wallet_history_' + (1204 - i))
+  );
+  tables.messageLog = tables.messageLog.slice(0, 500);
+  const legacy = await listInboxForCustomer._handler(ctx, {});
+  expect(legacy.map((row) => row.createdAt)).toEqual(
+    Array.from({ length: 500 }, (_, i) => 499 - i)
+  );
 });

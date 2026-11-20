@@ -2,7 +2,7 @@ import {
   paginationOptsValidator,
   paginationResultValidator,
 } from 'convex/server';
-import { v } from 'convex/values';
+import { ConvexError, v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
 import {
@@ -2470,7 +2470,12 @@ export const listInboxForCustomer = query({
     const logs = await ctx.db
       .query('messageLog')
       .withIndex('by_toUserId', (q: any) => q.eq('toUserId', user._id))
-      .collect();
+      .take(501);
+    // This array API promises full history. Never give a partial array to an
+    // installed client that cannot represent a continuation.
+    if (logs.length > 500) {
+      throw new ConvexError({ code: 'CUSTOMER_INBOX_PAGINATION_REQUIRED' });
+    }
 
     const sorted = logs.sort((a, b) => b.createdAt - a.createdAt);
     return await inboxItems(ctx, sorted);

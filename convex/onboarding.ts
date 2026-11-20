@@ -1,7 +1,12 @@
 import { v } from 'convex/values';
 
 import type { Doc, Id } from './_generated/dataModel';
-import { type MutationCtx, mutation, query } from './_generated/server';
+import {
+  type MutationCtx,
+  mutation,
+  type QueryCtx,
+  query,
+} from './_generated/server';
 import {
   COMPLETED_ONBOARDING_DRAFT_RETENTION_MS,
   INACTIVE_ONBOARDING_DRAFT_RETENTION_MS,
@@ -131,7 +136,7 @@ export function getProgramImageStorageIdCandidate(programDraft: unknown) {
 }
 
 export async function getBusinessOnboardingDraftForUserAndFlow(
-  ctx: MutationCtx,
+  ctx: Pick<QueryCtx, 'db'>,
   userId: Id<'users'>,
   flow: BusinessOnboardingFlow
 ): Promise<Doc<'businessOnboardingDrafts'> | null> {
