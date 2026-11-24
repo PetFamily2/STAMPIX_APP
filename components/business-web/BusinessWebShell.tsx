@@ -1,3 +1,4 @@
+import { StampAixBrand } from '@/components/StampAixBrand';
 import { type Href, usePathname } from 'expo-router';
 import { ChevronDown, LogOut, Menu, X } from 'lucide-react-native';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
@@ -553,13 +554,7 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
             ]}
           >
             <View style={styles.brandArea}>
-              <View style={styles.brandMark}>
-                <Text style={styles.brandMarkText}>S</Text>
-              </View>
-              <View style={styles.brandCopy}>
-                <Text style={styles.brandName}>StampAix</Text>
-                <Text style={styles.brandProduct}>Business</Text>
-              </View>
+              <StampAixBrand product="Business" size="compact" />
             </View>
             <View style={styles.sidebarBusiness}>
               <BusinessIdentityMark
@@ -871,26 +866,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: TOKENS.space.md,
     paddingHorizontal: TOKENS.space.sm,
-  },
-  brandMark: {
-    width: 26,
-    height: 26,
-    borderRadius: TOKENS.radii.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: TOKENS.colors.primary,
-  },
-  brandMarkText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
-  brandCopy: { alignItems: alignItems.start },
-  brandName: {
-    color: TOKENS.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  brandProduct: {
-    color: TOKENS.colors.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
   },
   sidebarBusiness: {
     alignItems: 'center',
