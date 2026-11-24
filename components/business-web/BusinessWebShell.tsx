@@ -1,4 +1,3 @@
-import { StampAixBrand } from '@/components/StampAixBrand';
 import { type Href, usePathname } from 'expo-router';
 import { ChevronDown, LogOut, Menu, X } from 'lucide-react-native';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
@@ -17,6 +16,7 @@ import {
   BusinessWebBottomNav,
   businessWebNavIcons,
 } from '@/components/business-web/BusinessWebBottomNav';
+import { StampAixBrand } from '@/components/StampAixBrand';
 import { AppText as Text } from '@/components/ui/AppText';
 
 import type { Id } from '@/convex/_generated/dataModel';

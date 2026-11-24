@@ -1,4 +1,3 @@
-import { StampAixBrand } from '@/components/StampAixBrand';
 import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import {
   Building2,
@@ -16,6 +15,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { StampAixBrand } from '@/components/StampAixBrand';
 
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
 import { flexDirection, rtlBaseText } from '@/lib/rtl';

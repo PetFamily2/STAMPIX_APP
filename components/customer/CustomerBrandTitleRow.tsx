@@ -1,7 +1,7 @@
-import { StampAixBrand } from '@/components/StampAixBrand';
 import type { ReactNode } from 'react';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 import { Platform, StyleSheet, Text, View } from 'react-native';
+import { StampAixBrand } from '@/components/StampAixBrand';
 import { UserAvatar } from '@/components/UserAvatar';
 import {
   alignItems,

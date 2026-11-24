@@ -1,4 +1,3 @@
-import { StampAixBrand } from '@/components/StampAixBrand';
 import { useRouter } from 'expo-router';
 import {
   CheckCircle2,
@@ -7,6 +6,7 @@ import {
   XCircle,
 } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { StampAixBrand } from '@/components/StampAixBrand';
 
 import { AppText as Text } from '@/components/ui/AppText';
 import { resolveBusinessSignedOutHref } from '@/lib/auth/webAuthEntry';

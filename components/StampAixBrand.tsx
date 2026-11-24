@@ -18,19 +18,39 @@ export function StampAixBrand({
   const markSize = size === 'compact' ? 28 : 42;
   const nameSize = size === 'compact' ? 14 : 18;
   return (
-    <View style={styles.row} accessible={true} accessibilityLabel={product ? `StampAix ${product}` : 'StampAix'}>
+    <View
+      style={styles.row}
+      accessible={true}
+      accessibilityLabel={product ? `StampAix ${product}` : 'StampAix'}
+    >
       {showMark ? (
-        <View style={[styles.mark, { width: markSize, height: markSize, borderRadius: markSize / 2 }]}>
+        <View
+          style={[
+            styles.mark,
+            { width: markSize, height: markSize, borderRadius: markSize / 2 },
+          ]}
+        >
           <Image
             source={BRAND_IMAGE_LOGO}
             resizeMode="contain"
             accessible={false}
-            style={{ width: markSize, height: markSize, borderRadius: markSize / 2 }}
+            style={{
+              width: markSize,
+              height: markSize,
+              borderRadius: markSize / 2,
+            }}
           />
         </View>
       ) : null}
       <View style={styles.copy}>
-        <Text style={[styles.wordmark, { fontSize: nameSize, lineHeight: nameSize + 5 }]}>StampAix</Text>
+        <Text
+          style={[
+            styles.wordmark,
+            { fontSize: nameSize, lineHeight: nameSize + 5 },
+          ]}
+        >
+          StampAix
+        </Text>
         {product ? <Text style={styles.product}>{product}</Text> : null}
       </View>
     </View>
@@ -38,7 +58,12 @@ export function StampAixBrand({
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: flexDirection.row, alignItems: 'center', gap: 8, flexShrink: 0 },
+  row: {
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
+  },
   mark: { overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   copy: { alignItems: 'flex-start', direction: 'ltr' },
   wordmark: {
