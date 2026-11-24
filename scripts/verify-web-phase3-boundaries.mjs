@@ -4,8 +4,8 @@ import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { assertPreservedDependencies } from './lib/release-dependency-policy.mjs';
 
-// Freeze point after the verified stage-2 RC that intentionally updated
-// protected scanner/referral contracts while keeping Native camera sources.
+// Freeze at the verified stage-2 RC that already includes intentional
+// scanner/referral/H3 contract updates while preserving Native camera sources.
 const base = 'a619fb32d33de5e575f60774159c6637520a7af2';
 execFileSync('git', ['merge-base', '--is-ancestor', base, 'HEAD']);
 const files = new Set(
@@ -142,14 +142,16 @@ function withoutApprovedDiscoveryIndexes(source) {
   }
   return node.getText(ast);
 }
-for (const [name, source] of oldTables)
-  if (
-    !newTables.has(name) ||
-    (name === 'businesses'
-      ? withoutApprovedDiscoveryIndexes(newTables.get(name)) !== source
-      : newTables.get(name) !== source)
-  )
+for (const [name, source] of oldTables) {
+  const next = newTables.get(name);
+  const unchanged =
+    next === source ||
+    (name === 'businesses' &&
+      withoutApprovedDiscoveryIndexes(next) === source);
+  if (!next || !unchanged) {
     throw new Error(`Existing schema table changed: ${name}`);
+  }
+}
 const priorPackage = JSON.parse(
   execFileSync('git', ['show', `${base}:package.json`], { encoding: 'utf8' })
 );
