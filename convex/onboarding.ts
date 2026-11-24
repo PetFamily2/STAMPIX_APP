@@ -1,7 +1,12 @@
 import { v } from 'convex/values';
 
 import type { Doc, Id } from './_generated/dataModel';
-import { type MutationCtx, mutation, query } from './_generated/server';
+import {
+  type MutationCtx,
+  mutation,
+  type QueryCtx,
+  query,
+} from './_generated/server';
 import {
   COMPLETED_ONBOARDING_DRAFT_RETENTION_MS,
   INACTIVE_ONBOARDING_DRAFT_RETENTION_MS,
@@ -131,7 +136,7 @@ export function getProgramImageStorageIdCandidate(programDraft: unknown) {
 }
 
 export async function getBusinessOnboardingDraftForUserAndFlow(
-  ctx: MutationCtx,
+  ctx: Pick<QueryCtx, 'db'>,
   userId: Id<'users'>,
   flow: BusinessOnboardingFlow
 ): Promise<Doc<'businessOnboardingDrafts'> | null> {
@@ -147,6 +152,7 @@ export async function upsertBusinessOnboardingDraft(
     userId: Id<'users'>;
     flow: BusinessOnboardingFlow;
     currentStep: BusinessOnboardingStep;
+    progressOnly?: boolean;
     status?: BusinessOnboardingStatus;
     businessId?: Id<'businesses'>;
     programId?: Id<'loyaltyPrograms'>;
@@ -164,6 +170,33 @@ export async function upsertBusinessOnboardingDraft(
     input.userId,
     input.flow
   );
+
+  if (
+    input.progressOnly &&
+    existing &&
+    (existing.status !== 'in_progress' ||
+      currentStepOrder <=
+        resolveStepOrder(
+          input.flow,
+          normalizeStep(
+            input.flow,
+            existing.currentStep as BusinessOnboardingStep
+          )
+        ))
+  ) {
+    return {
+      draftId: existing._id,
+      status: existing.status as BusinessOnboardingStatus,
+      currentStep: normalizeStep(
+        input.flow,
+        existing.currentStep as BusinessOnboardingStep
+      ),
+      farthestStep: normalizeStep(
+        input.flow,
+        existing.farthestStep as BusinessOnboardingStep
+      ),
+    };
+  }
 
   const hasReusableProgress = existing && existing.status !== 'completed';
   const previousFarthestStep = hasReusableProgress
@@ -285,6 +318,7 @@ export const saveMyBusinessOnboardingDraft = mutation({
   args: {
     flow: BUSINESS_ONBOARDING_FLOW_UNION,
     currentStep: BUSINESS_ONBOARDING_STEP_UNION,
+    progressOnly: v.optional(v.boolean()),
     status: v.optional(BUSINESS_ONBOARDING_STATUS_UNION),
     businessId: v.optional(v.id('businesses')),
     programId: v.optional(v.id('loyaltyPrograms')),
@@ -297,6 +331,7 @@ export const saveMyBusinessOnboardingDraft = mutation({
     {
       flow,
       currentStep,
+      progressOnly,
       status,
       businessId,
       programId,
@@ -306,6 +341,14 @@ export const saveMyBusinessOnboardingDraft = mutation({
     }
   ) => {
     const user = await requireCurrentUser(ctx);
+    if (progressOnly) {
+      return await upsertBusinessOnboardingDraft(ctx, {
+        userId: user._id,
+        flow,
+        currentStep,
+        progressOnly: true,
+      });
+    }
     return await upsertBusinessOnboardingDraft(ctx, {
       userId: user._id,
       flow,

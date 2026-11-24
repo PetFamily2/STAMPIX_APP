@@ -6,16 +6,15 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import BusinessAddressSelector from '@/components/business/BusinessAddressSelector';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { AppText as Text } from '@/components/ui/AppText';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
@@ -30,6 +29,12 @@ import {
   consumePendingJoin,
   savePendingJoin,
 } from '@/lib/deeplink/pendingJoin';
+import {
+  productPageBackground,
+  webBody,
+  webPage,
+  webTitle,
+} from '@/lib/design/webProductChrome';
 import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
   BUSINESS_ONBOARDING_ROUTES,
@@ -183,7 +188,9 @@ export default function CreateBusinessScreen() {
       return;
     }
     didSyncStepRef.current = true;
-    void saveStep({ step: 'createBusiness', flow }).catch(() => {});
+    void saveStep({ step: 'createBusiness', flow, progressOnly: true }).catch(
+      () => {}
+    );
   }, [flow, saveStep]);
 
   useEffect(() => {
@@ -355,7 +362,9 @@ export default function CreateBusinessScreen() {
         >
           <StickyScrollHeader
             topPadding={0}
-            backgroundColor="#FBFAF7"
+            backgroundColor={
+              Platform.OS === 'web' ? productPageBackground : '#FBFAF7'
+            }
             style={styles.titleContainer}
           >
             <StandaloneBackTitleHeader
@@ -378,7 +387,7 @@ export default function CreateBusinessScreen() {
                   )}
                 />
               }
-              style={styles.header}
+              style={Platform.OS === 'web' ? undefined : styles.nativeHeader}
               titleStyle={styles.title}
               subtitleStyle={styles.subtitle}
             />
@@ -419,6 +428,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FBFAF7',
+    ...webPage,
   },
   content: {
     flex: 1,
@@ -429,7 +439,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 32,
   },
-  header: {
+  nativeHeader: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -451,12 +461,14 @@ const styles = StyleSheet.create({
     color: '#111827',
     textAlign: 'right',
     writingDirection: 'rtl',
+    ...webTitle,
   },
   subtitle: {
     marginTop: 8,
     fontSize: 14,
     fontWeight: '600',
     color: '#6B7280',
+    ...webBody,
     textAlign: 'right',
     writingDirection: 'rtl',
     lineHeight: 20,

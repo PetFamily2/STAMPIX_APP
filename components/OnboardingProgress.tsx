@@ -1,11 +1,13 @@
 import React from 'react';
 import {
   type DimensionValue,
+  Platform,
   type StyleProp,
   StyleSheet,
   View,
   type ViewStyle,
 } from 'react-native';
+import { BUSINESS_WEB_TOKENS as T } from '@/lib/design/businessWebTokens';
 import { selfStart } from '@/lib/rtl';
 
 type OnboardingProgressProps = {
@@ -47,21 +49,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     maxWidth: 112,
-    marginStart: 12,
+    marginRight: 12,
     alignItems: 'stretch',
     justifyContent: 'center',
+    ...(Platform.OS === 'web'
+      ? { maxWidth: '100%' as const, width: '100%' as const, marginRight: 0 }
+      : null),
   },
   track: {
     height: 6,
     width: '100%',
     borderRadius: 999,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: Platform.OS === 'web' ? T.colors.border : '#E5E7EB',
     overflow: 'hidden',
   },
   fill: {
     alignSelf: selfStart,
     height: '100%',
     borderRadius: 999,
-    backgroundColor: '#2563EB',
+    backgroundColor: Platform.OS === 'web' ? T.colors.primary : '#2563EB',
   },
 });

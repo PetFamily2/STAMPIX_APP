@@ -117,16 +117,25 @@ export const getRecentActivity = query({
 
     const resolvedLimit = limit ?? 5;
     const safeLimit = Math.max(1, Math.min(resolvedLimit, 10));
-    const events = await ctx.db
-      .query('events')
-      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-      .collect();
-
-    const sorted = events
-      .filter(
-        (event: Doc<'events'>) =>
-          event.type === 'STAMP_ADDED' || event.type === 'REWARD_REDEEMED'
-      )
+    // Top N of the union equals the top N of each timestamp-ordered
+    // event type merged together, even for events inserted out of order.
+    const [stamps, redemptions] = await Promise.all([
+      ctx.db
+        .query('events')
+        .withIndex('by_businessId_type_createdAt', (q) =>
+          q.eq('businessId', businessId).eq('type', 'STAMP_ADDED')
+        )
+        .order('desc')
+        .take(safeLimit),
+      ctx.db
+        .query('events')
+        .withIndex('by_businessId_type_createdAt', (q) =>
+          q.eq('businessId', businessId).eq('type', 'REWARD_REDEEMED')
+        )
+        .order('desc')
+        .take(safeLimit),
+    ]);
+    const sorted = [...stamps, ...redemptions]
       .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, safeLimit);
 

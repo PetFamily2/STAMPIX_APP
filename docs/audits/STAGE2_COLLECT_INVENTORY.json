@@ -1,0 +1,513 @@
+[
+  {
+    "file": "convex/referrals.ts",
+    "line": 282,
+    "owner": "staff",
+    "expression": "ctx.db\n    .query('businessStaff')\n    .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 378,
+    "owner": "memberships",
+    "expression": "ctx.db\n    .query('memberships')\n    .withIndex('by_userId_businessId', (q: any) =>\n      q.eq('userId', args.recipientUserId).eq('businessId', args.businessId)\n    )\n    .filter((q: any) => q.eq(q.field('isActive'), true))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 463,
+    "owner": "rows",
+    "expression": "ctx.db\n      .query('referralRewards')\n      .withIndex('by_businessId_recipientUserId_status', (q: any) =>\n        q\n          .eq('businessId', args.businessId)\n          .eq('recipientUserId', args.referrerUserId)\n          .eq('status', status)\n      )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 546,
+    "owner": "activeCandidates",
+    "expression": "ctx.db\n    .query('customerReferralLinks')\n    .withIndex('by_referrer_business_origin_status', (q: any) =>\n      q\n        .eq('referrerUserId', args.actorUserId)\n        .eq('businessId', args.businessId)\n        .eq('originProgramId', args.originProgramId)\n        .eq('status', 'active')\n    )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 803,
+    "owner": "events",
+    "expression": "ctx.db\n    .query('events')\n    .withIndex('by_businessId_customerUserId_createdAt', (q: any) =>\n      q\n        .eq('businessId', args.businessId)\n        .eq('customerUserId', args.referredUserId)\n    )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1398,
+    "owner": "refs",
+    "expression": "ctx.db\n      .query('customerReferrals')\n      .withIndex('by_referrerUserId_businessId_createdAt', (q: any) =>\n        q.eq('referrerUserId', user._id)\n      )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1410,
+    "owner": "rows",
+    "expression": "ctx.db\n        .query('referralRewards')\n        .withIndex('by_recipientUserId_status_expiresAt', (q: any) =>\n          q.eq('recipientUserId', user._id).eq('status', status)\n        )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1455,
+    "owner": "rows",
+    "expression": "ctx.db\n      .query('customerReferrals')\n      .withIndex('by_referrerUserId_businessId_createdAt', (q: any) =>\n        q.eq('referrerUserId', user._id)\n      )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1523,
+    "owner": "subset",
+    "expression": "ctx.db\n        .query('referralRewards')\n        .withIndex('by_recipientUserId_status_expiresAt', (q: any) =>\n          q.eq('recipientUserId', user._id).eq('status', state)\n        )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1596,
+    "owner": "[referrals, rewards, b2b]",
+    "expression": "ctx.db\n        .query('customerReferrals')\n        .withIndex('by_businessId_status_createdAt', (q: any) =>\n          q.eq('businessId', businessId)\n        )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1602,
+    "owner": "[referrals, rewards, b2b]",
+    "expression": "ctx.db\n        .query('referralRewards')\n        .withIndex('by_businessId_status_createdAt', (q: any) =>\n          q.eq('businessId', businessId)\n        )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1608,
+    "owner": "[referrals, rewards, b2b]",
+    "expression": "ctx.db\n        .query('businessReferrals')\n        .withIndex('by_referrerBusinessId_status_createdAt', (q: any) =>\n          q.eq('referrerBusinessId', businessId)\n        )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1676,
+    "owner": "rows",
+    "expression": "ctx.db\n      .query('customerReferrals')\n      .withIndex('by_businessId_status_createdAt', (q: any) => {\n        const business = q.eq('businessId', businessId);\n        return status ? business.eq('status', status) : business;\n      })",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1752,
+    "owner": "subset",
+    "expression": "ctx.db\n        .query('referralRewards')\n        .withIndex('by_businessId_status_createdAt', (q: any) =>\n          q.eq('businessId', businessId).eq('status', state)\n        )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1821,
+    "owner": "rows",
+    "expression": "ctx.db\n      .query('referralRewards')\n      .withIndex('by_businessId_recipientUserId_status', (q: any) =>\n        q\n          .eq('businessId', businessId)\n          .eq('recipientUserId', customerUserId)\n          .eq('status', 'granted')\n      )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1891,
+    "owner": "[referrals, rewards, links]",
+    "expression": "ctx.db\n        .query('customerReferrals')\n        .withIndex('by_businessId_status_createdAt', (q: any) =>\n          q.eq('businessId', businessId)\n        )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1897,
+    "owner": "[referrals, rewards, links]",
+    "expression": "ctx.db\n        .query('referralRewards')\n        .withIndex('by_businessId_status_createdAt', (q: any) =>\n          q.eq('businessId', businessId)\n        )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 1903,
+    "owner": "[referrals, rewards, links]",
+    "expression": "ctx.db\n        .query('customerReferralLinks')\n        .withIndex('by_businessId_createdAt', (q: any) =>\n          q.eq('businessId', businessId)\n        )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2026,
+    "owner": "[referrer, rewards]",
+    "expression": "ctx.db\n        .query('referralRewards')\n        .withIndex('by_customerReferralId_recipientUserId', (q: any) =>\n          q.eq('customerReferralId', referral._id)\n        )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2311,
+    "owner": "[\n      customerLinks,\n      businessLinks,\n      customerReferrals,\n      rewards,\n      businessReferrals,\n    ]",
+    "expression": "ctx.db.query('customerReferralLinks')",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2314,
+    "owner": "[\n      customerLinks,\n      businessLinks,\n      customerReferrals,\n      rewards,\n      businessReferrals,\n    ]",
+    "expression": "ctx.db.query('businessReferralLinks')",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2317,
+    "owner": "[\n      customerLinks,\n      businessLinks,\n      customerReferrals,\n      rewards,\n      businessReferrals,\n    ]",
+    "expression": "ctx.db.query('customerReferrals')",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2320,
+    "owner": "[\n      customerLinks,\n      businessLinks,\n      customerReferrals,\n      rewards,\n      businessReferrals,\n    ]",
+    "expression": "ctx.db.query('referralRewards')",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2323,
+    "owner": "[\n      customerLinks,\n      businessLinks,\n      customerReferrals,\n      rewards,\n      businessReferrals,\n    ]",
+    "expression": "ctx.db.query('businessReferrals')",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2461,
+    "owner": "rows",
+    "expression": "ctx.db\n            .query('referralAdminAuditLog')\n            .withIndex('by_targetType_targetId', (q: any) =>\n              q.eq('targetType', args.targetType).eq('targetId', args.targetId)\n            )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2467,
+    "owner": "rows",
+    "expression": "ctx.db\n            .query('referralAdminAuditLog')\n            .withIndex('by_createdAt', (q: any) => q)",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2619,
+    "owner": "events",
+    "expression": "ctx.db\n        .query('events')\n        .withIndex('by_membershipId_createdAt', (q: any) =>\n          q.eq('membershipId', membership._id)\n        )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2712,
+    "owner": "rewards",
+    "expression": "ctx.db\n      .query('referralRewards')\n      .withIndex('by_customerReferralId_recipientUserId', (q: any) =>\n        q.eq('customerReferralId', before._id)\n      )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2834,
+    "owner": "waiting",
+    "expression": "ctx.db\n      .query('businessReferrals')\n      .withIndex('by_status_qualificationDueAt', (q: any) =>\n        q.eq('status', 'waiting_30_days')\n      )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2876,
+    "owner": "creditedRows",
+    "expression": "ctx.db\n        .query('businessReferrals')\n        .withIndex('by_referrerBusinessId_status_createdAt', (q: any) =>\n          q\n            .eq('referrerBusinessId', row.referrerBusinessId)\n            .eq('status', 'credited')\n        )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2949,
+    "owner": "customerActive",
+    "expression": "ctx.db\n      .query('customerReferralLinks')\n      .withIndex('by_status_expiresAt', (q: any) => q.eq('status', 'active'))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2963,
+    "owner": "businessActive",
+    "expression": "ctx.db\n      .query('businessReferralLinks')\n      .withIndex('by_status_expiresAt', (q: any) => q.eq('status', 'active'))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/referrals.ts",
+    "line": 2990,
+    "owner": "granted",
+    "expression": "ctx.db\n      .query('referralRewards')\n      .withIndex('by_status_expiresAt', (q: any) => q.eq('status', 'granted'))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/dashboard.ts",
+    "line": 488,
+    "owner": "[\n      businessSettings,\n      usageSummary,\n      recommendationFacts,\n      allEvents,\n      allMemberships,\n    ]",
+    "expression": "ctx.db\n        .query('events')\n        .withIndex('by_businessId_createdAt', (q: any) =>\n          q.eq('businessId', businessId)\n        )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/dashboard.ts",
+    "line": 494,
+    "owner": "[\n      businessSettings,\n      usageSummary,\n      recommendationFacts,\n      allEvents,\n      allMemberships,\n    ]",
+    "expression": "ctx.db\n        .query('memberships')\n        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/dashboard.ts",
+    "line": 609,
+    "owner": "[events, messageLog, activePrograms]",
+    "expression": "ctx.db\n        .query('events')\n        .withIndex('by_businessId_createdAt', (q: any) =>\n          q.eq('businessId', businessId).lte('createdAt', referenceNow)\n        )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/dashboard.ts",
+    "line": 615,
+    "owner": "[events, messageLog, activePrograms]",
+    "expression": "ctx.db\n        .query('messageLog')\n        .withIndex('by_businessId_createdAt', (q: any) =>\n          q.eq('businessId', businessId).lte('createdAt', referenceNow)\n        )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/dashboard.ts",
+    "line": 621,
+    "owner": "[events, messageLog, activePrograms]",
+    "expression": "ctx.db\n        .query('loyaltyPrograms')\n        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))\n        .filter((q: any) => q.eq(q.field('isActive'), true))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/events.ts",
+    "line": 120,
+    "owner": "events",
+    "expression": "ctx.db\n      .query('events')\n      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/customerLifecycle.ts",
+    "line": 599,
+    "owner": "memberships",
+    "expression": "ctx.db\n    .query('memberships')\n    .withIndex('by_businessId_createdAt', (q: any) =>\n      q.eq('businessId', businessId).lte('createdAt', now)\n    )\n    .filter((q: any) => q.eq(q.field('isActive'), true))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/customerLifecycle.ts",
+    "line": 661,
+    "owner": "[programs, users, events]",
+    "expression": "ctx.db\n      .query('events')\n      .withIndex('by_businessId_createdAt', (q: any) =>\n        q.eq('businessId', businessId).lte('createdAt', now)\n      )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/customerCards.ts",
+    "line": 163,
+    "owner": "events",
+    "expression": "ctx.db\n    .query('events')\n    .withIndex('by_membershipId_createdAt', (q: any) =>\n      q.eq('membershipId', membershipId)\n    )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/customerCards.ts",
+    "line": 257,
+    "owner": "activeMemberships",
+    "expression": "ctx.db\n      .query('memberships')\n      .withIndex('by_userId_businessId', (q: any) =>\n        q.eq('userId', customerUserId).eq('businessId', businessId)\n      )\n      .filter((q: any) => q.eq(q.field('isActive'), true))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/customerCards.ts",
+    "line": 301,
+    "owner": "events",
+    "expression": "ctx.db\n      .query('events')\n      .withIndex('by_businessId_customerUserId_createdAt', (q: any) =>\n        q.eq('businessId', businessId).eq('customerUserId', customerUserId)\n      )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/loyaltyPrograms.ts",
+    "line": 301,
+    "owner": "linkedDrafts",
+    "expression": "ctx.db\n    .query('businessOnboardingDrafts')\n    .withIndex('by_programId', (q) => q.eq('programId', programId))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/loyaltyPrograms.ts",
+    "line": 312,
+    "owner": "listBusinessPrograms",
+    "expression": "ctx.db\n    .query('loyaltyPrograms')\n    .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))\n    .filter((q: any) => q.eq(q.field('isActive'), true))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/loyaltyPrograms.ts",
+    "line": 413,
+    "owner": "memberships",
+    "expression": "ctx.db\n    .query('memberships')\n    .withIndex('by_programId', (q: any) => q.eq('programId', programId))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/loyaltyPrograms.ts",
+    "line": 537,
+    "owner": "[programs, allMemberships, events]",
+    "expression": "ctx.db\n        .query('memberships')\n        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/loyaltyPrograms.ts",
+    "line": 541,
+    "owner": "[programs, allMemberships, events]",
+    "expression": "ctx.db\n        .query('events')\n        .withIndex('by_businessId_createdAt', (q: any) =>\n          q.eq('businessId', businessId).gte('createdAt', thirtyDaysAgo)\n        )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/loyaltyPrograms.ts",
+    "line": 664,
+    "owner": "[allMemberships, events]",
+    "expression": "ctx.db\n        .query('memberships')\n        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/loyaltyPrograms.ts",
+    "line": 668,
+    "owner": "[allMemberships, events]",
+    "expression": "ctx.db\n        .query('events')\n        .withIndex('by_businessId_createdAt', (q: any) =>\n          q.eq('businessId', businessId).gte('createdAt', thirtyDaysAgo)\n        )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/campaigns.ts",
+    "line": 434,
+    "owner": "memberships",
+    "expression": "ctx.db\n    .query('memberships')\n    .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))\n    .filter((q: any) => q.eq(q.field('isActive'), true))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/campaigns.ts",
+    "line": 494,
+    "owner": "getCampaignLogs",
+    "expression": "ctx.db\n    .query('messageLog')\n    .withIndex('by_campaignId', (q: any) => q.eq('campaignId', campaignId))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/campaigns.ts",
+    "line": 785,
+    "owner": "campaigns",
+    "expression": "ctx.db\n      .query('campaigns')\n      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))\n      .filter((q: any) => q.eq(q.field('type'), 'ai_marketing'))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/campaigns.ts",
+    "line": 890,
+    "owner": "campaigns",
+    "expression": "ctx.db\n      .query('campaigns')\n      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/campaigns.ts",
+    "line": 1648,
+    "owner": "recurringCampaigns",
+    "expression": "ctx.db\n        .query('campaigns')\n        .withIndex('by_automationEnabled', (q: any) =>\n          q.eq('automationEnabled', true)\n        )\n        .filter((q: any) =>\n          q.and(\n            q.eq(q.field('isActive'), true),\n            q.neq(q.field('type'), 'ai_marketing')\n          )\n        )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/campaigns.ts",
+    "line": 1702,
+    "owner": "oneTimeCandidates",
+    "expression": "ctx.db\n      .query('campaigns')\n      .withIndex('by_activationStatus', (q: any) =>\n        q.eq('activationStatus', 'active')\n      )\n      .filter((q: any) =>\n        q.and(\n          q.eq(q.field('isActive'), true),\n          q.eq(q.field('automationEnabled'), false),\n          q.neq(q.field('type'), 'ai_marketing'),\n          q.neq(q.field('type'), 'ai_retention'),\n          q.neq(q.field('type'), 'retention_action')\n        )\n      )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/campaigns.ts",
+    "line": 1812,
+    "owner": "logs",
+    "expression": "ctx.db\n      .query('messageLog')\n      .withIndex('by_toUserId', (q: any) => q.eq('toUserId', user._id))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 664,
+    "owner": "rows",
+    "expression": "ctx.db\n    .query('businesses')\n    .withIndex('by_ownerUserId', (q: any) => q.eq('ownerUserId', ownerUserId))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 1145,
+    "owner": "ownedBusinesses",
+    "expression": "ctx.db\n      .query('businesses')\n      .withIndex('by_ownerUserId', (q: any) => q.eq('ownerUserId', user._id))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 2658,
+    "owner": "businesses",
+    "expression": "ctx.db\n      .query('businesses')\n      .withIndex('by_isActive', (q: any) => q.eq('isActive', true))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 2976,
+    "owner": "[staffRows, pendingInvites]",
+    "expression": "ctx.db\n      .query('businessStaff')\n      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 2980,
+    "owner": "[staffRows, pendingInvites]",
+    "expression": "ctx.db\n      .query('staffInvites')\n      .withIndex('by_businessId_status', (q: any) =>\n        q.eq('businessId', businessId).eq('status', 'pending')\n      )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 3082,
+    "owner": "staffRecords",
+    "expression": "ctx.db\n      .query('businessStaff')\n      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 3147,
+    "owner": "pendingInvites",
+    "expression": "ctx.db\n      .query('staffInvites')\n      .withIndex('by_businessId_status', (q: any) =>\n        q.eq('businessId', businessId).eq('status', 'pending')\n      )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 3206,
+    "owner": "[staffRows, invites, entitlements]",
+    "expression": "ctx.db\n        .query('businessStaff')\n        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 3210,
+    "owner": "[staffRows, invites, entitlements]",
+    "expression": "ctx.db\n        .query('staffInvites')\n        .withIndex('by_businessId_status', (q: any) =>\n          q.eq('businessId', businessId).eq('status', 'pending')\n        )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 3268,
+    "owner": "events",
+    "expression": "ctx.db\n      .query('staffEvents')\n      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 3413,
+    "owner": "invites",
+    "expression": "ctx.db\n      .query('staffInvites')\n      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 3480,
+    "owner": "memberships",
+    "expression": "ctx.db\n      .query('businessStaff')\n      .withIndex('by_userId', (q: any) => q.eq('userId', actor._id))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 3568,
+    "owner": "existingPendingInvites",
+    "expression": "ctx.db\n      .query('staffInvites')\n      .withIndex('by_businessId_invitedEmail_status', (q: any) =>\n        q\n          .eq('businessId', businessId)\n          .eq('invitedEmail', normalizedEmail)\n          .eq('status', 'pending')\n      )",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 3714,
+    "owner": "pendingByUser",
+    "expression": "ctx.db\n      .query('staffInvites')\n      .withIndex('by_invitedUserId', (q: any) =>\n        q.eq('invitedUserId', targetUser._id)\n      )\n      .filter((q: any) => q.eq(q.field('businessId'), businessId))\n      .filter((q: any) => q.eq(q.field('status'), 'pending'))",
+    "review": "requires semantic and scale review; do not truncate results"
+  },
+  {
+    "file": "convex/business.ts",
+    "line": 3724,
+    "owner": "pendingByEmail",
+    "expression": "ctx.db\n          .query('staffInvites')\n          .withIndex('by_businessId_invitedEmail_status', (q: any) =>\n            q\n              .eq('businessId', businessId)\n              .eq('invitedEmail', normalizedEmail)\n              .eq('status', 'pending')\n          )",
+    "review": "requires semantic and scale review; do not truncate results"
+  }
+]

@@ -1,21 +1,18 @@
 import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
-import {
-  internalMutation,
-  mutation,
-  query,
-} from './_generated/server';
+import { internalMutation, mutation, query } from './_generated/server';
 import {
   requireActorHasBusinessCapability,
   requireCurrentUser,
 } from './guards';
-import { generateJoinCode } from './lib/ids';
+import { getBillingAccountForBusiness } from './lib/billing/accounts';
 import {
-  REFERRAL_CONTRACT,
   buildCanonicalReferralUrl,
   getReferrerRewardMonths,
+  REFERRAL_CONTRACT,
 } from './lib/billing/productionContract';
-import { getBillingAccountForBusiness } from './lib/billing/accounts';
+import { generateJoinCode } from './lib/ids';
+import { REFERRAL_COPY } from './lib/referrals/copy';
 import {
   buildRewardIdempotencyKey,
   canAcceptMoreWalletMonths,
@@ -25,10 +22,9 @@ import {
   resolveRewardEligibility,
   walletMonthsFromRewards,
 } from './lib/referrals/qualification';
-import { REFERRAL_COPY } from './lib/referrals/copy';
 import { selectRedemptionProvider } from './lib/referrals/redemptionProvider';
-import { sendPushNotificationToUser } from './pushNotifications';
 import { runRegisteredHandler } from './lib/runRegisteredHandler';
+import { sendPushNotificationToUser } from './pushNotifications';
 
 const REFERRAL_CODE_PATTERN = /^[A-Za-z0-9_-]{8,24}$/;
 
@@ -92,9 +88,9 @@ export const resolvePublicBusinessReferralCode = query({
     if (row.status !== 'active') {
       return publicReferralPayload({ code: normalized, status: 'revoked' });
     }
-    const business = await ctx.db.get(row.referrerBusinessId) as
-      | { name?: string }
-      | null;
+    const business = (await ctx.db.get(row.referrerBusinessId)) as {
+      name?: string;
+    } | null;
     return publicReferralPayload({
       code: normalized,
       status: 'valid',
@@ -246,12 +242,16 @@ export const getBusinessReferralHub = query({
         )
       )
       .reduce((sum: number, row: any) => {
-        const period = row.effectiveBillingPeriod === 'yearly' ? 'yearly' : 'monthly';
+        const period =
+          row.effectiveBillingPeriod === 'yearly' ? 'yearly' : 'monthly';
         return sum + getReferrerRewardMonths(period);
       }, 0);
     const redeemedMonths = rewards
       .filter((row: any) => row.status === 'redeemed')
-      .reduce((sum: number, row: any) => sum + Number(row.rewardMonths ?? 0), 0);
+      .reduce(
+        (sum: number, row: any) => sum + Number(row.rewardMonths ?? 0),
+        0
+      );
     return {
       heading: REFERRAL_COPY.hubHeading,
       metrics: {
@@ -259,7 +259,8 @@ export const getBusinessReferralHub = query({
         monthsPending: pendingMonths,
         monthsRedeemed: redeemedMonths,
         invited: relationships.length,
-        joined: relationships.filter((row: any) => row.referredBusinessId).length,
+        joined: relationships.filter((row: any) => row.referredBusinessId)
+          .length,
         matured: relationships.filter((row: any) =>
           ['qualified', 'reward_created'].includes(row.status)
         ).length,
@@ -276,7 +277,8 @@ export const getBusinessReferralHub = query({
             : null;
           return {
             id: row._id,
-            publicName: (referred as { name?: string } | null)?.name ?? 'עסק מוזמן',
+            publicName:
+              (referred as { name?: string } | null)?.name ?? 'עסק מוזמן',
             claimedAt: row.claimedAt ?? row.createdAt,
             status: row.status,
             paidMonthsConfirmed: row.paidMonthsConfirmed ?? 0,
@@ -300,11 +302,9 @@ export const getBusinessReferralHub = query({
 export const getBusinessReferralCreditSummary = query({
   args: { businessId: v.id('businesses') },
   handler: async (ctx, { businessId }) => {
-    const hub = await runRegisteredHandler<any>(
-      getBusinessReferralHub,
-      ctx,
-      { businessId }
-    );
+    const hub = await runRegisteredHandler<any>(getBusinessReferralHub, ctx, {
+      businessId,
+    });
     return {
       creditedMonths: hub.metrics.monthsEarned,
       pendingMonths: hub.metrics.monthsPending,
@@ -317,7 +317,11 @@ export const getBusinessReferralCreditSummary = query({
 export const getOrCreateBusinessReferralLink = mutation({
   args: { businessId: v.id('businesses') },
   handler: async (ctx, args) => {
-    return await runRegisteredHandler(getOrCreateBusinessReferralCode, ctx, args);
+    return await runRegisteredHandler(
+      getOrCreateBusinessReferralCode,
+      ctx,
+      args
+    );
   },
 });
 
@@ -434,7 +438,9 @@ export const evaluateReferralProgressInternal = internalMutation({
     eventType: v.string(),
     eventId: v.string(),
     plan: v.optional(v.string()),
-    period: v.optional(v.union(v.literal('monthly'), v.literal('yearly'), v.null())),
+    period: v.optional(
+      v.union(v.literal('monthly'), v.literal('yearly'), v.null())
+    ),
     expirationAt: v.optional(v.union(v.number(), v.null())),
     isRevoked: v.optional(v.boolean()),
     now: v.number(),
@@ -456,7 +462,10 @@ export const evaluateReferralProgressInternal = internalMutation({
         });
         return { evaluated: true, revoked: true };
       }
-      const wallet = await listWalletRewards(ctx, relationship.referrerBusinessId);
+      const wallet = await listWalletRewards(
+        ctx,
+        relationship.referrerBusinessId
+      );
       for (const reward of wallet) {
         if (
           String(reward.relationshipId) === String(relationship._id) &&
@@ -476,10 +485,12 @@ export const evaluateReferralProgressInternal = internalMutation({
     const period =
       args.period === 'yearly' || args.period === 'monthly'
         ? args.period
-        : relationship.effectiveBillingPeriod ?? 'monthly';
+        : (relationship.effectiveBillingPeriod ?? 'monthly');
     const periods = await ctx.db
       .query('businessPaidServicePeriods')
-      .withIndex('by_businessId', (q: any) => q.eq('businessId', args.businessId))
+      .withIndex('by_businessId', (q: any) =>
+        q.eq('businessId', args.businessId)
+      )
       .collect();
     if (
       ['INITIAL_PURCHASE', 'RENEWAL'].includes(args.eventType) &&
@@ -489,14 +500,19 @@ export const evaluateReferralProgressInternal = internalMutation({
       const existingPeriod = await ctx.db
         .query('businessPaidServicePeriods')
         .withIndex('by_businessId_idempotencyKey', (q: any) =>
-          q.eq('businessId', args.businessId).eq('idempotencyKey', idempotencyKey)
+          q
+            .eq('businessId', args.businessId)
+            .eq('idempotencyKey', idempotencyKey)
         )
         .first();
       if (!existingPeriod) {
         await ctx.db.insert('businessPaidServicePeriods', {
           businessId: args.businessId,
           billingPeriod: period,
-          plan: args.plan === 'premium' || args.plan === 'pro' ? args.plan : 'starter',
+          plan:
+            args.plan === 'premium' || args.plan === 'pro'
+              ? args.plan
+              : 'starter',
           periodStartAt: args.now,
           periodEndAt: args.expirationAt ?? undefined,
           isPaid: true,
@@ -512,7 +528,9 @@ export const evaluateReferralProgressInternal = internalMutation({
     const paidMonths =
       period === 'yearly'
         ? annualQualificationElapsedSafe(
-            relationship.firstPaidAt ?? relationship.subscriptionStartedAt ?? args.now,
+            relationship.firstPaidAt ??
+              relationship.subscriptionStartedAt ??
+              args.now,
             args.now
           )
           ? REFERRAL_CONTRACT.qualificationPaidMonths
@@ -521,14 +539,21 @@ export const evaluateReferralProgressInternal = internalMutation({
               relationship.paidMonthsConfirmed ?? 0
             )
         : countCompletedMonthlyPaidPeriods(
-            [...periods, ...(args.period ? [{
-              isPaid: true,
-              isReferralReward: false,
-              isRefunded: false,
-              periodStartAt: args.now,
-              periodEndAt: args.expirationAt,
-              billingPeriod: period,
-            }] : [])],
+            [
+              ...periods,
+              ...(args.period
+                ? [
+                    {
+                      isPaid: true,
+                      isReferralReward: false,
+                      isRefunded: false,
+                      periodStartAt: args.now,
+                      periodEndAt: args.expirationAt,
+                      billingPeriod: period,
+                    },
+                  ]
+                : []),
+            ],
             args.now
           );
     const nextStatus =
@@ -540,7 +565,10 @@ export const evaluateReferralProgressInternal = internalMutation({
     await ctx.db.patch(relationship._id, {
       status: nextStatus === 'qualified' ? 'qualified' : nextStatus,
       effectiveBillingPeriod: period,
-      paidMonthsConfirmed: Math.max(relationship.paidMonthsConfirmed ?? 0, paidMonths),
+      paidMonthsConfirmed: Math.max(
+        relationship.paidMonthsConfirmed ?? 0,
+        paidMonths
+      ),
       subscriptionStartedAt:
         relationship.subscriptionStartedAt ??
         (args.eventType === 'INITIAL_PURCHASE' ? args.now : undefined),
@@ -565,10 +593,14 @@ export const evaluateReferralProgressInternal = internalMutation({
         updatedAt: args.now,
       });
     }
-    const referredPaidMonths = countCompletedMonthlyPaidPeriods(periods, args.now);
+    const referredPaidMonths = countCompletedMonthlyPaidPeriods(
+      periods,
+      args.now
+    );
     if (
       (period === 'monthly' &&
-        referredPaidMonths >= REFERRAL_CONTRACT.referredAnniversaryPaidMonths) ||
+        referredPaidMonths >=
+          REFERRAL_CONTRACT.referredAnniversaryPaidMonths) ||
       (period === 'yearly' && hasCompletedAnnualTerm(periods, args.now))
     ) {
       if (!relationship.anniversaryRewardedAt) {
@@ -613,11 +645,19 @@ export const prepareReferralRewardRedemption = mutation({
       'manage_subscription'
     );
     const reward = await ctx.db.get(rewardId);
-    if (!reward || String(reward.beneficiaryBusinessId) !== String(businessId)) {
+    if (
+      !reward ||
+      String(reward.beneficiaryBusinessId) !== String(businessId)
+    ) {
       throw new Error('REWARD_NOT_FOUND');
     }
     if (reward.status === 'redeemed') {
-      return { canRedeem: false, provider: store, code: 'ALREADY_REDEEMED', message: 'ההטבה כבר מומשה' };
+      return {
+        canRedeem: false,
+        provider: store,
+        code: 'ALREADY_REDEEMED',
+        message: 'ההטבה כבר מומשה',
+      };
     }
     const existingRedemption = await ctx.db
       .query('businessReferralRewardRedemptions')
@@ -626,7 +666,12 @@ export const prepareReferralRewardRedemption = mutation({
       )
       .first();
     if (existingRedemption?.status === 'confirmed') {
-      return { canRedeem: false, provider: store, code: 'ALREADY_REDEEMED', message: 'ההטבה כבר מומשה' };
+      return {
+        canRedeem: false,
+        provider: store,
+        code: 'ALREADY_REDEEMED',
+        message: 'ההטבה כבר מומשה',
+      };
     }
     if (
       reward.status !== 'earned' &&
@@ -669,7 +714,8 @@ export const prepareReferralRewardRedemption = mutation({
     });
     const prepared = provider.canRedeem({
       months: reward.rewardMonths,
-      hasActivePaidSubscription: billing?.hasProviderEvidence === true &&
+      hasActivePaidSubscription:
+        billing?.hasProviderEvidence === true &&
         (billing.status === 'active' || billing.status === 'canceled'),
       storeProductId: billing?.providerProductId,
     });
@@ -717,7 +763,11 @@ export const prepareReferralRewardRedemption = mutation({
         createdAt: Date.now(),
         updatedAt: Date.now(),
       });
-      return { ...prepared, applied: true, newPeriodEndAt: applied.newPeriodEndAt };
+      return {
+        ...prepared,
+        applied: true,
+        newPeriodEndAt: applied.newPeriodEndAt,
+      };
     }
     return prepared;
   },
@@ -738,7 +788,10 @@ export const confirmReferralRewardRedemption = mutation({
       'manage_subscription'
     );
     const reward = await ctx.db.get(args.rewardId);
-    if (!reward || String(reward.beneficiaryBusinessId) !== String(args.businessId)) {
+    if (
+      !reward ||
+      String(reward.beneficiaryBusinessId) !== String(args.businessId)
+    ) {
       throw new Error('REWARD_NOT_FOUND');
     }
     const idempotencyKey = `redeem:${String(args.rewardId)}`;
@@ -748,7 +801,10 @@ export const confirmReferralRewardRedemption = mutation({
         q.eq('idempotencyKey', idempotencyKey)
       )
       .first();
-    if (reward.status === 'redeemed' || existingRedemption?.status === 'confirmed') {
+    if (
+      reward.status === 'redeemed' ||
+      existingRedemption?.status === 'confirmed'
+    ) {
       return { ok: true, duplicate: true };
     }
     const now = Date.now();

@@ -1,6 +1,6 @@
 import { getAuthUserId } from '@convex-dev/auth/server';
 import type { PaginationResult } from 'convex/server';
-import { v } from 'convex/values';
+import { ConvexError, v } from 'convex/values';
 import type { SubscriptionPlan } from '../lib/domain/subscriptions';
 import {
   BUSINESS_TERMS_VERSION,
@@ -10,6 +10,7 @@ import {
   MARKETING_CONSENT_SCOPE,
   MARKETING_CONSENT_VERSION,
 } from '../lib/legalContract';
+import { WEB_LEGAL_VERSION } from '../lib/legalWebContract';
 import type { Doc, Id } from './_generated/dataModel';
 import {
   internalMutation,
@@ -42,6 +43,7 @@ import { normalizeEmailAddress } from './lib/email';
 import { markSmartManagerDirty } from './lib/smartManagerDirty';
 import { SMART_MANAGER_EXECUTION_KIND } from './lib/smartManagerExecution';
 import { transitionSmartManagerOutcomeState } from './lib/smartManagerOutcomes';
+import { deleteSystemTeamUserData } from './lib/systemTeamPrivacy';
 import { resolveProgramLifecycle } from './loyaltyPrograms';
 import {
   type BusinessOnboardingFlow,
@@ -118,13 +120,16 @@ async function ensureLegalAcceptance(
 }
 
 export const acceptCurrentTerms = mutation({
-  args: { source: TERMS_ACCEPTANCE_SOURCE_UNION },
-  handler: async (ctx, { source }) => {
+  args: {
+    source: TERMS_ACCEPTANCE_SOURCE_UNION,
+    webLegalVersion: v.optional(v.literal(WEB_LEGAL_VERSION)),
+  },
+  handler: async (ctx, { source, webLegalVersion }) => {
     const user = await requireCurrentUser(ctx);
     return await ensureLegalAcceptance(ctx, {
       userId: user._id,
       documentKind: 'terms',
-      version: CANONICAL_TERMS_VERSION,
+      version: webLegalVersion ?? CANONICAL_TERMS_VERSION,
       source: source as TermsAcceptanceSource,
       acceptedAt: Date.now(),
     });
@@ -248,6 +253,11 @@ async function findUserByExternalId(ctx: any, externalId: string) {
 const DELETE_BATCH_SIZE = 100;
 const SMART_MANAGER_AUDIT_RETENTION_MS = AI_AUDIT_RETENTION_MS;
 const WIPE_ALL_TABLE_ORDER = [
+  'systemTeamAssignments',
+  'systemTeamAudit',
+  'systemTeamMembers',
+  'scannerCommandReceipts',
+  'webPushSubscriptions',
   'apiKeys',
   'apiClients',
   'providerRevocationJobs',
@@ -267,6 +277,7 @@ const WIPE_ALL_TABLE_ORDER = [
   'customerReferralLinks',
   'referralConfigs',
   'pushDeliveryLog',
+  'pushDeliveryOutbox',
   'pushTokens',
   'messageLog',
   'redemptionCelebrationReceipts',
@@ -325,6 +336,8 @@ type DeleteStats = {
   loyaltyPrograms: number;
   memberships: number;
   events: number;
+  scannerCommandReceipts: number;
+  webPushSubscriptions: number;
   scanTokenEvents: number;
   scanSessions: number;
   campaigns: number;
@@ -344,6 +357,7 @@ type DeleteStats = {
   campaignRunRecipients: number;
   pushTokens: number;
   pushDeliveryLog: number;
+  pushDeliveryOutbox: number;
   supportRequests: number;
   marketingConsentEvents: number;
   legalAcceptances: number;
@@ -396,6 +410,8 @@ function emptyDeleteStats(): DeleteStats {
     loyaltyPrograms: 0,
     memberships: 0,
     events: 0,
+    scannerCommandReceipts: 0,
+    webPushSubscriptions: 0,
     scanTokenEvents: 0,
     scanSessions: 0,
     campaigns: 0,
@@ -415,6 +431,7 @@ function emptyDeleteStats(): DeleteStats {
     campaignRunRecipients: 0,
     pushTokens: 0,
     pushDeliveryLog: 0,
+    pushDeliveryOutbox: 0,
     supportRequests: 0,
     marketingConsentEvents: 0,
     legalAcceptances: 0,
@@ -433,6 +450,9 @@ function emptyDeleteStats(): DeleteStats {
 
 function emptyWipeAllDataHardCounts(): WipeAllDataHardCounts {
   return {
+    systemTeamAssignments: 0,
+    systemTeamAudit: 0,
+    systemTeamMembers: 0,
     apiKeys: 0,
     apiClients: 0,
     providerRevocationJobs: 0,
@@ -452,6 +472,7 @@ function emptyWipeAllDataHardCounts(): WipeAllDataHardCounts {
     customerReferralLinks: 0,
     referralConfigs: 0,
     pushDeliveryLog: 0,
+    pushDeliveryOutbox: 0,
     pushTokens: 0,
     messageLog: 0,
     redemptionCelebrationReceipts: 0,
@@ -472,6 +493,8 @@ function emptyWipeAllDataHardCounts(): WipeAllDataHardCounts {
     campaigns: 0,
     subscriptions: 0,
     scanSessions: 0,
+    scannerCommandReceipts: 0,
+    webPushSubscriptions: 0,
     scanTokenEvents: 0,
     events: 0,
     memberships: 0,
@@ -959,6 +982,13 @@ async function deleteUserScopedBusinessData(
   );
   deleted.campaignRunRecipients +=
     await deleteSmartManagerExecutionRecipientsForAccount(ctx, userId);
+  deleted.pushDeliveryOutbox += await deleteByIndexInBatches(
+    ctx,
+    'pushDeliveryOutbox',
+    'by_toUserId',
+    'toUserId',
+    userId
+  );
   deleted.pushDeliveryLog += await deleteByIndexInBatches(
     ctx,
     'pushDeliveryLog',
@@ -1372,8 +1402,9 @@ export const completeBusinessOnboarding = mutation({
     businessId: v.id('businesses'),
     programId: v.id('loyaltyPrograms'),
     flow: BUSINESS_ONBOARDING_FLOW_UNION,
+    webLegalVersion: v.optional(v.literal(WEB_LEGAL_VERSION)),
   },
-  handler: async (ctx, { businessId, programId, flow }) => {
+  handler: async (ctx, { businessId, programId, flow, webLegalVersion }) => {
     const user = await requireCurrentUser(ctx);
     const onboardingFlow = flow as BusinessOnboardingFlow;
     if (onboardingFlow === 'additional' && user.businessOnboardedAt == null) {
@@ -1439,7 +1470,7 @@ export const completeBusinessOnboarding = mutation({
     await ensureLegalAcceptance(ctx, {
       userId: user._id,
       documentKind: 'business_terms',
-      version: BUSINESS_TERMS_VERSION,
+      version: webLegalVersion ?? BUSINESS_TERMS_VERSION,
       source: 'business_activation',
       businessId,
       acceptedAt: now,
@@ -1517,10 +1548,26 @@ export const setMyName = mutation({
   args: {
     firstName: v.string(),
     lastName: v.string(),
+    expectedName: v.optional(
+      v.object({ firstName: v.string(), lastName: v.string() })
+    ),
   },
-  handler: async (ctx, { firstName, lastName }) => {
+  handler: async (ctx, { firstName, lastName, expectedName }) => {
     const user = await requireCurrentUser(ctx);
 
+    const currentName = {
+      firstName: user.firstName?.trim() ?? '',
+      lastName: user.lastName?.trim() ?? '',
+    };
+    if (
+      expectedName &&
+      (expectedName.firstName !== currentName.firstName ||
+        expectedName.lastName !== currentName.lastName)
+    )
+      throw new ConvexError({
+        code: 'ACCOUNT_NAME_CONFLICT',
+        current: currentName,
+      });
     const normalizedFirstName = normalizeNamePart(firstName, 'FIRST_NAME');
     const normalizedLastName = normalizeNamePart(lastName, 'LAST_NAME');
     const now = Date.now();
@@ -1543,9 +1590,13 @@ export const setMyName = mutation({
 export const setMyPhone = mutation({
   args: {
     phone: v.string(),
+    expectedPhone: v.optional(v.string()),
   },
-  handler: async (ctx, { phone }) => {
+  handler: async (ctx, { phone, expectedPhone }) => {
     const user = await requireCurrentUser(ctx);
+    const currentPhone = user.phone?.trim() ?? '';
+    if (expectedPhone !== undefined && expectedPhone !== currentPhone)
+      throw new ConvexError({ code: 'ACCOUNT_PHONE_CONFLICT', currentPhone });
     const normalizedPhone = normalizePhone(phone);
     const now = Date.now();
 
@@ -1565,6 +1616,17 @@ export const setMyPhone = mutation({
 export const setMyMarketingProfile = mutation({
   args: {
     marketingOptIn: v.boolean(),
+    preserveDates: v.optional(v.boolean()),
+    expectedMarketingOptIn: v.optional(v.boolean()),
+    expectedMarketingSnapshot: v.optional(
+      v.object({
+        marketingOptIn: v.boolean(),
+        birthdayMonth: v.union(v.number(), v.null()),
+        birthdayDay: v.union(v.number(), v.null()),
+        anniversaryMonth: v.union(v.number(), v.null()),
+        anniversaryDay: v.union(v.number(), v.null()),
+      })
+    ),
     source: MARKETING_CONSENT_SOURCE_UNION,
     birthdayMonth: v.optional(v.number()),
     birthdayDay: v.optional(v.number()),
@@ -1576,6 +1638,9 @@ export const setMyMarketingProfile = mutation({
     {
       marketingOptIn,
       source,
+      preserveDates,
+      expectedMarketingOptIn,
+      expectedMarketingSnapshot,
       birthdayMonth,
       birthdayDay,
       anniversaryMonth,
@@ -1583,6 +1648,35 @@ export const setMyMarketingProfile = mutation({
     }
   ) => {
     const user = await requireCurrentUser(ctx);
+    const current = {
+      marketingOptIn: user.marketingOptIn === true,
+      birthdayMonth: user.birthdayMonth ?? null,
+      birthdayDay: user.birthdayDay ?? null,
+      anniversaryMonth: user.anniversaryMonth ?? null,
+      anniversaryDay: user.anniversaryDay ?? null,
+    };
+    if (
+      expectedMarketingOptIn !== undefined &&
+      current.marketingOptIn !== expectedMarketingOptIn
+    ) {
+      throw new ConvexError({ code: 'MARKETING_PROFILE_CONFLICT', current });
+    }
+    if (
+      expectedMarketingSnapshot &&
+      Object.keys(current).some(
+        (key) =>
+          current[key as keyof typeof current] !==
+          expectedMarketingSnapshot[key as keyof typeof current]
+      )
+    ) {
+      throw new ConvexError({ code: 'MARKETING_PROFILE_CONFLICT', current });
+    }
+    if (preserveDates) {
+      birthdayMonth = user.birthdayMonth;
+      birthdayDay = user.birthdayDay;
+      anniversaryMonth = user.anniversaryMonth;
+      anniversaryDay = user.anniversaryDay;
+    }
 
     const normalizedBirthdayMonth = normalizeMonth(
       birthdayMonth,
@@ -1725,6 +1819,28 @@ export async function deleteMyAccountHardImpl(
   }
 
   await cleanupCompletedDeletionReferencesForUser(ctx, user._id);
+  await deleteSystemTeamUserData(ctx, user);
+  await redactUserReferenceByIndexInBatches(
+    ctx,
+    'systemTeamAudit',
+    'by_actorUserId',
+    'actorUserId',
+    user._id
+  );
+  await redactUserReferenceByIndexInBatches(
+    ctx,
+    'systemTeamMembers',
+    'by_createdByUserId',
+    'createdByUserId',
+    user._id
+  );
+  await redactUserReferenceByIndexInBatches(
+    ctx,
+    'systemTeamAssignments',
+    'by_createdByUserId',
+    'createdByUserId',
+    user._id
+  );
 
   const deleted = emptyDeleteStats();
   const providerRevocation = await prepareProviderRevocationsForUser(
@@ -1734,6 +1850,27 @@ export async function deleteMyAccountHardImpl(
   deleted.providerRevocationCredentials +=
     providerRevocation.deletedCredentials;
 
+  deleted.scannerCommandReceipts += await deleteByIndexInBatches(
+    ctx,
+    'scannerCommandReceipts',
+    'by_actor_operation',
+    'actorId',
+    user._id
+  );
+  deleted.scannerCommandReceipts += await deleteByIndexInBatches(
+    ctx,
+    'scannerCommandReceipts',
+    'by_customer',
+    'customerId',
+    user._id
+  );
+  deleted.webPushSubscriptions += await deleteByIndexInBatches(
+    ctx,
+    'webPushSubscriptions',
+    'by_user_active',
+    'userId',
+    user._id
+  );
   await deleteUserScopedBusinessData(
     ctx,
     user._id,

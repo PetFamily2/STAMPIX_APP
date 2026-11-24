@@ -168,6 +168,7 @@ function buildTables(overrides = {}) {
     messageLog: [],
     pushTokens: [],
     pushDeliveryLog: [],
+    pushDeliveryOutbox: [],
     ...overrides,
   };
 }
@@ -194,10 +195,7 @@ async function runScheduledRecipientDeliveries(ctx, scheduled, startIndex = 0) {
     const job = scheduled[index];
     index += 1;
     if (job.args.toUserId) {
-      await deliverBusinessClosureNotificationInternal._handler(
-        ctx,
-        job.args
-      );
+      await deliverBusinessClosureNotificationInternal._handler(ctx, job.args);
       continue;
     }
     if (job.args.messageId) {
@@ -225,9 +223,7 @@ describe('business closure notification fan-out', () => {
     expect(closeMutation).not.toContain('sendPushNotificationToUser');
     expect(closeMutation).not.toContain("query('memberships')");
 
-    const restoreStart = source.indexOf(
-      'export const restoreBusinessAccount'
-    );
+    const restoreStart = source.indexOf('export const restoreBusinessAccount');
     const restoreEnd = source.indexOf(
       'export const createBusiness',
       restoreStart
@@ -279,9 +275,7 @@ describe('business closure notification fan-out', () => {
     );
     expect(tables.messageLog[0].dedupeKey).toContain(String(CLOSED_AT));
     expect(
-      tables.messageLog.some(
-        (row) => row.toUserId === 'inactive_history_only'
-      )
+      tables.messageLog.some((row) => row.toUserId === 'inactive_history_only')
     ).toBeFalse();
     expect(tables.memberships).toEqual(membershipsBefore);
   });
@@ -318,8 +312,7 @@ describe('business closure notification fan-out', () => {
     });
     const continuation = scheduled.find(
       (job) =>
-        job.args.cursor ===
-        String(BUSINESS_CLOSURE_NOTIFICATION_BATCH_SIZE)
+        job.args.cursor === String(BUSINESS_CLOSURE_NOTIFICATION_BATCH_SIZE)
     );
     expect(continuation).toBeTruthy();
     const firstPageScheduledCount = await runScheduledRecipientDeliveries(
@@ -409,10 +402,7 @@ describe('business closure notification fan-out', () => {
       closedAt: CLOSED_AT,
       cursor: null,
     });
-    let scheduledCount = await runScheduledRecipientDeliveries(
-      ctx,
-      scheduled
-    );
+    let scheduledCount = await runScheduledRecipientDeliveries(ctx, scheduled);
     await processBusinessClosureStaffBatchInternal._handler(ctx, {
       businessId: BUSINESS_ID,
       closedAt: CLOSED_AT,
@@ -435,7 +425,7 @@ describe('business closure notification fan-out', () => {
     expect(tables.businessStaff).toEqual(staffBefore);
   });
 
-  test('same-closure retries skip Inbox and Push while a later closure creates a fresh occurrence', async () => {
+  test('same closure queues only one Push; later closure gets a new delivery identity', async () => {
     const tables = buildTables({
       pushTokens: [
         {
@@ -462,10 +452,7 @@ describe('business closure notification fan-out', () => {
       cursor: null,
     };
     await processBusinessClosureCustomerBatchInternal._handler(ctx, args);
-    let scheduledCount = await runScheduledRecipientDeliveries(
-      ctx,
-      scheduled
-    );
+    let scheduledCount = await runScheduledRecipientDeliveries(ctx, scheduled);
     await processBusinessClosureCustomerBatchInternal._handler(ctx, args);
     scheduledCount = await runScheduledRecipientDeliveries(
       ctx,
@@ -474,13 +461,13 @@ describe('business closure notification fan-out', () => {
     );
 
     expect(tables.messageLog).toHaveLength(1);
-    expect(tables.pushDeliveryLog).toHaveLength(1);
-    expect(fetchCalls).toBe(1);
+    expect(tables.pushDeliveryOutbox).toHaveLength(1);
+    expect(fetchCalls).toBe(0);
     await sendBusinessClosurePushInternal._handler(ctx, {
       messageId: tables.messageLog[0]._id,
     });
-    expect(tables.pushDeliveryLog).toHaveLength(1);
-    expect(fetchCalls).toBe(1);
+    expect(tables.pushDeliveryOutbox).toHaveLength(1);
+    expect(fetchCalls).toBe(0);
 
     const secondClosedAt = CLOSED_AT + 50_000;
     tables.businesses[0].closedAt = secondClosedAt;
@@ -495,11 +482,14 @@ describe('business closure notification fan-out', () => {
     expect(tables.messageLog[0].dedupeKey).not.toBe(
       tables.messageLog[1].dedupeKey
     );
-    expect(tables.pushDeliveryLog).toHaveLength(2);
-    expect(fetchCalls).toBe(2);
+    expect(tables.pushDeliveryOutbox).toHaveLength(2);
+    expect(tables.pushDeliveryOutbox[0].deliveryKey).not.toBe(
+      tables.pushDeliveryOutbox[1].deliveryKey
+    );
+    expect(fetchCalls).toBe(0);
   });
 
-  test('Push failure leaves the authoritative Inbox notification intact', async () => {
+  test('Push provider failure cannot compromise the Inbox before Action transport', async () => {
     const tables = buildTables({
       pushTokens: [
         {
@@ -524,15 +514,13 @@ describe('business closure notification fan-out', () => {
     await runScheduledRecipientDeliveries(ctx, scheduled);
 
     expect(tables.messageLog).toHaveLength(1);
-    expect(tables.messageLog[0].deliveryStatus).toBe(
-      'inbox_push_attempted'
-    );
-    expect(tables.pushDeliveryLog).toContainEqual(
+    expect(tables.messageLog[0].deliveryStatus).toBe('inbox_push_attempted');
+    expect(tables.pushDeliveryOutbox).toContainEqual(
       expect.objectContaining({
         toUserId: CUSTOMER_ID,
-        status: 'failed',
-        errorMessage: 'expo_push_transport_ambiguous',
+        status: 'pending',
       })
     );
+    expect(tables.pushDeliveryLog).toHaveLength(0);
   });
 });

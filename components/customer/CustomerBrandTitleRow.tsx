@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
+import { StampAixBrand } from '@/components/StampAixBrand';
 import { UserAvatar } from '@/components/UserAvatar';
 import {
   alignItems,
   flexDirection,
-  ltrBaseText,
   rtlAutoText,
   rtlBaseText,
   rtlBaseView,
@@ -72,12 +72,7 @@ export default function CustomerBrandTitleRow({
           />
         ) : null}
         {brandAccessory}
-        <Text style={styles.brand}>
-          <Text style={styles.brandAccent}>S</Text>
-          tamp
-          <Text style={styles.brandAccent}>A</Text>
-          ix
-        </Text>
+        <StampAixBrand showMark={false} />
       </View>
     </View>
   );
@@ -100,19 +95,6 @@ const styles = StyleSheet.create({
     direction: 'ltr',
     flexShrink: 0,
   },
-  brand: {
-    fontSize: 22,
-    lineHeight: 26,
-    color: '#2F6BFF',
-    fontWeight: '900',
-    ...ltrBaseText,
-  },
-  brandAccent: {
-    fontSize: 26,
-    lineHeight: 26,
-    fontWeight: '900',
-    color: '#2F6BFF',
-  },
   titleZone: {
     flex: 1,
     flexDirection: flexDirection.row,
@@ -127,10 +109,10 @@ const styles = StyleSheet.create({
     alignItems: alignItems.start,
   },
   title: {
-    fontSize: 24,
-    lineHeight: 30,
-    fontWeight: '900',
-    color: '#1A2B4A',
+    fontSize: Platform.OS === 'web' ? 22 : 24,
+    lineHeight: Platform.OS === 'web' ? 28 : 30,
+    fontWeight: Platform.OS === 'web' ? '600' : '900',
+    color: Platform.OS === 'web' ? '#101936' : '#1A2B4A',
     width: '100%',
     ...rtlAutoText,
   },
@@ -140,7 +122,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',
-    color: '#64748B',
+    color: Platform.OS === 'web' ? '#475569' : '#64748B',
     ...rtlBaseText,
   },
 });

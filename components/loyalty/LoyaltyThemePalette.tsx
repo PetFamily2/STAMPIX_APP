@@ -1,7 +1,8 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { CARD_THEMES } from '@/constants/cardThemes';
+import { resolveClassicStampPalette } from '@/lib/loyalty/classicStampPalette';
 import { flexDirection } from '@/lib/rtl';
 import {
   VISUAL_PICKER_COLUMNS,
@@ -47,12 +48,33 @@ export function LoyaltyThemePalette({
             inUse={inUse}
             onPress={() => onChange(theme.id)}
           >
-            <LinearGradient
-              colors={theme.gradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.swatch}
-            />
+            {Platform.OS === 'web' ? (
+              <View
+                style={[
+                  styles.swatch,
+                  styles.paperSwatch,
+                  {
+                    backgroundColor: resolveClassicStampPalette(theme.id).paper,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.inkMark,
+                    {
+                      backgroundColor: resolveClassicStampPalette(theme.id).ink,
+                    },
+                  ]}
+                />
+              </View>
+            ) : (
+              <LinearGradient
+                colors={theme.gradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.swatch}
+              />
+            )}
           </VisualSelectionTile>
         );
       })}
@@ -68,4 +90,6 @@ const styles = StyleSheet.create({
     gap: VISUAL_PICKER_GAP,
   },
   swatch: { width: '100%', height: '100%' },
+  paperSwatch: { alignItems: 'center', justifyContent: 'center' },
+  inkMark: { borderRadius: 999, height: 18, width: 18 },
 });

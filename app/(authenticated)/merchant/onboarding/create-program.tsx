@@ -1,31 +1,52 @@
+import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import { useMutation, useQuery } from 'convex/react';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type SetStateAction,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
+  Image,
+  Platform,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
+import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
 import { ContinueButton } from '@/components/ContinueButton';
 import { LoyaltyThemePalette } from '@/components/loyalty/LoyaltyThemePalette';
 import { StampIconPicker } from '@/components/loyalty/StampIconPicker';
 import { StampShapePicker } from '@/components/loyalty/StampShapePicker';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
+import { AppText as Text } from '@/components/ui/AppText';
 import { MAX_STAMP_OPTIONS } from '@/constants/stampOptions';
-import { useOnboarding } from '@/contexts/OnboardingContext';
+import { type ProgramDraft, useOnboarding } from '@/contexts/OnboardingContext';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { Alert } from '@/lib/alert';
 import { trackActivationEvent } from '@/lib/analytics/activation';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import {
+  productAccent,
+  webAccentSoft,
+  webAccentText,
+  webBody,
+  webField,
+  webInputTypography,
+  webLabel,
+  webPage,
+  webTitle,
+} from '@/lib/design/webProductChrome';
 import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
   BUSINESS_ONBOARDING_ROUTES,
@@ -44,8 +65,9 @@ const TEXT = {
   submitting: 'שומרים כרטיסיה',
   missingBusiness: 'נדרש עסק פעיל קודם',
   errorFallback: 'שגיאה ביצירת הכרטיסיה',
-  imageUploadFailed: 'העלאת התמונה נכשלה. נסו שוב.',
-  uploadImage: 'העלה תמונה',
+  imageUploadFailed: 'לא הצלחנו לשמור את התמונה. נסו שוב עם קובץ JPG או PNG.',
+  imagePickFailed: 'לא הצלחנו לפתוח את התמונה. בחרו קובץ JPG או PNG תקין.',
+  uploadImage: 'בחירת תמונה',
   uploadingImage: 'מעלה תמונה...',
   recommended: 'מומלץ',
 };
@@ -59,8 +81,8 @@ function toErrorMessage(error: unknown, fallback: string) {
 
 const CREATE_PROGRAM_COPY = {
   title: 'הכרטיסייה הראשונה שלך',
-  subtitle: 'בחרו תגמול, מספר חותמות ועיצוב ראשוני. אפשר לשנות אחר כך',
-  continue: 'שמירה והמשך לפרסום',
+  subtitle: 'בחרו הטבה, כמה חותמות צריך כדי לקבל אותה ואיך הכרטיסייה תיראה.',
+  continue: 'שמירה ותצוגה מקדימה',
 };
 
 export default function CreateProgramScreen() {
@@ -69,9 +91,10 @@ export default function CreateProgramScreen() {
     businessId,
     programDraft,
     programId,
-    setProgramDraft,
+    setProgramDraft: updateDraft,
     setProgramId,
   } = useOnboarding();
+  const navigation = useNavigation();
   const { user } = useUser();
   const { saveStep } = useBusinessOnboardingDraftPersistence();
   const didSyncStepRef = useRef(false);
@@ -88,28 +111,113 @@ export default function CreateProgramScreen() {
     businessId ? { businessId } : 'skip'
   ) ?? []) as Array<{ programId: Id<'loyaltyPrograms'>; themeId: string }>;
   const usedThemeIds = themeReservations
-    .filter((reservation) => String(reservation.programId) !== String(programId))
+    .filter(
+      (reservation) => String(reservation.programId) !== String(programId)
+    )
     .map((reservation) => reservation.themeId);
 
   const [error, setError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [conflict, setConflict] = useState(false);
+  const formFlow = resolveBusinessOnboardingFlow(flow);
+  const scope = JSON.stringify([user?._id, businessId, formFlow]);
+  const currentScope = useRef(scope);
+  currentScope.current = scope;
+  const draftScope = useRef(scope);
+  const writeInFlight = useRef(false);
+  const existing = useQuery(
+    api.loyaltyPrograms.getOnboardingProgramForEdit,
+    businessId
+      ? {
+          businessId,
+          flow: formFlow,
+          programId: programId ?? undefined,
+        }
+      : 'skip'
+  );
+  const [baseline, setBaseline] = useState<{
+    scope: string;
+    expected: { programId: Id<'loyaltyPrograms'>; updatedAt: number } | null;
+  } | null>(null);
+  if (!dirty && !writeInFlight.current) draftScope.current = scope;
+  const scopeChanged = dirty && draftScope.current !== scope;
+  useBusinessWebUnsavedChanges(Platform.OS === 'web' && dirty);
+  usePreventRemove(dirty, ({ data }) => {
+    if (writeInFlight.current) return;
+    Alert.alert('יש שינויים שלא נשמרו', 'אפשר להמשיך לערוך או לצאת מהמסך.', [
+      { text: 'המשך עריכה', style: 'cancel' },
+      {
+        text: 'יציאה',
+        style: 'destructive',
+        onPress: () => navigation.dispatch(data.action),
+      },
+    ]);
+  });
+  function setProgramDraft(next: SetStateAction<ProgramDraft>) {
+    if (scopeChanged) return;
+    setDirty(true);
+    updateDraft(next);
+  }
+  useEffect(() => {
+    if (scopeChanged || existing === undefined || baseline?.scope === scope)
+      return;
+    if (existing === null) {
+      if (!programId) setBaseline({ scope, expected: null });
+      return;
+    }
+    const {
+      programId: id,
+      updatedAt,
+      imagePreviewUri: _preview,
+      ...storedFields
+    } = existing;
+    if (
+      Object.entries(storedFields).every(
+        ([field, value]) => programDraft[field as keyof ProgramDraft] === value
+      )
+    ) {
+      setBaseline({ scope, expected: { programId: id, updatedAt } });
+    }
+  }, [baseline, existing, programDraft, programId, scope, scopeChanged]);
+  const revisionChanged =
+    existing !== undefined &&
+    baseline?.scope === scope &&
+    ((existing?.programId ?? null) !== (baseline.expected?.programId ?? null) ||
+      (existing?.updatedAt ?? null) !== (baseline.expected?.updatedAt ?? null));
+  const loadLatest = () => {
+    if (scopeChanged || existing === undefined) return;
+    if (existing === null) return;
+    const { programId: id, updatedAt, ...draft } = existing;
+    updateDraft(draft);
+    setProgramId(id);
+    setBaseline({ scope, expected: { programId: id, updatedAt } });
+    setDirty(false);
+    setConflict(false);
+    setError(null);
+  };
 
   useEffect(() => {
-    if (didSyncStepRef.current) {
+    if (!businessId || didSyncStepRef.current) {
       return;
     }
     didSyncStepRef.current = true;
-    const stepSyncPromise = saveStep({ step: 'createProgram', flow }).then(
+    const stepSyncPromise = saveStep({
+      step: 'createProgram',
+      flow,
+      progressOnly: true,
+    }).then(
       () => undefined,
       () => undefined
     );
     stepSyncPromiseRef.current = stepSyncPromise;
     void stepSyncPromise;
-  }, [flow, saveStep]);
+  }, [businessId, flow, saveStep]);
 
   useEffect(() => {
-    if (!businessId) {
+    if (!businessId && !dirty) {
       safePush(
         withBusinessOnboardingFlow(
           BUSINESS_ONBOARDING_ROUTES.createBusiness,
@@ -117,7 +225,7 @@ export default function CreateProgramScreen() {
         )
       );
     }
-  }, [businessId, flow]);
+  }, [businessId, dirty, flow]);
 
   const maxStampsNumber = useMemo(
     () => Number(programDraft.maxStamps),
@@ -125,6 +233,11 @@ export default function CreateProgramScreen() {
   );
 
   const canSubmit =
+    !scopeChanged &&
+    !conflict &&
+    !revisionChanged &&
+    baseline?.scope === scope &&
+    existing !== undefined &&
     Boolean(programDraft.title.trim()) &&
     Boolean(programDraft.rewardName.trim()) &&
     MAX_STAMP_OPTIONS.includes(
@@ -137,35 +250,48 @@ export default function CreateProgramScreen() {
     !isUploadingImage;
 
   const handlePickAndUploadImage = async () => {
-    if (!businessId || isUploadingImage || isSubmitting) {
+    if (!businessId || scopeChanged || isUploadingImage || isSubmitting) {
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.8,
-    });
-    if (result.canceled || result.assets.length === 0) {
-      return;
-    }
-
-    const asset = result.assets[0];
-    if (!asset.uri) {
-      return;
-    }
-
-    setError(null);
-    setIsUploadingImage(true);
+    setImageError(null);
     try {
-      const { uploadUrl } = await generateProgramImageUploadUrl({ businessId });
-      const fileResponse = await fetch(asset.uri);
-      const blob = await fileResponse.blob();
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: Platform.OS !== 'web',
+        quality: 0.8,
+      }).catch(() => null);
+      if (result === null) {
+        setImageError(TEXT.imagePickFailed);
+        return;
+      }
+      if (result.canceled) {
+        return;
+      }
+      const asset = result.assets[0];
+      if (!asset?.uri || currentScope.current !== scope) {
+        return;
+      }
+      setIsUploadingImage(true);
 
+      // Expo provides the actual File on Web. Fetching its blob URL would
+      // require relaxing the site's connect-src policy.
+      const file =
+        Platform.OS === 'web'
+          ? asset.file
+          : await (await fetch(asset.uri)).blob();
+      if (!file || (Platform.OS === 'web' && file.size === 0)) {
+        setImageError(TEXT.imagePickFailed);
+        return;
+      }
+
+      const { uploadUrl } = await generateProgramImageUploadUrl({ businessId });
       const uploadResponse = await fetch(uploadUrl, {
         method: 'POST',
-        headers: { 'Content-Type': asset.mimeType ?? 'image/jpeg' },
-        body: blob,
+        headers: {
+          'Content-Type': asset.mimeType || file.type || 'image/jpeg',
+        },
+        body: file,
       });
       if (!uploadResponse.ok) {
         throw new Error('UPLOAD_FAILED');
@@ -177,13 +303,14 @@ export default function CreateProgramScreen() {
         throw new Error('UPLOAD_FAILED');
       }
 
+      if (currentScope.current !== scope) return;
       setProgramDraft((prev) => ({
         ...prev,
         imageStorageId: payload.storageId ?? null,
         imagePreviewUri: asset.uri,
       }));
     } catch {
-      setError(TEXT.imageUploadFailed);
+      setImageError(TEXT.imageUploadFailed);
     } finally {
       setIsUploadingImage(false);
     }
@@ -194,19 +321,22 @@ export default function CreateProgramScreen() {
       setError(TEXT.missingBusiness);
       return;
     }
-    if (!canSubmit) {
+    if (!canSubmit || !baseline || writeInFlight.current) {
       return;
     }
 
     setError(null);
+    writeInFlight.current = true;
     setIsSubmitting(true);
 
     try {
       await stepSyncPromiseRef.current;
+      if (currentScope.current !== scope) return;
       const { loyaltyProgramId } = await createOrResumeProgram({
         flow: resolveBusinessOnboardingFlow(flow),
         businessId,
-        programId: programId ?? undefined,
+        programId: baseline.expected?.programId,
+        expectedProgram: baseline.expected,
         title: programDraft.title.trim(),
         rewardName: programDraft.rewardName.trim(),
         maxStamps: maxStampsNumber,
@@ -218,6 +348,8 @@ export default function CreateProgramScreen() {
         cardThemeId: programDraft.cardThemeId,
       });
 
+      if (currentScope.current !== scope) return;
+      setDirty(false);
       setProgramId(loyaltyProgramId);
       void trackActivationEvent(ANALYTICS_EVENTS.loyaltyCardCreated, {
         role: 'business',
@@ -228,12 +360,19 @@ export default function CreateProgramScreen() {
         withBusinessOnboardingFlow(BUSINESS_ONBOARDING_ROUTES.previewCard, flow)
       );
     } catch (submitError: unknown) {
+      const code = (submitError as { data?: { code?: string } })?.data?.code;
+      if (code === 'EDIT_CONFLICT' || code === 'ONBOARDING_PROGRAM_CONFLICT') {
+        setConflict(true);
+        setError('הכרטיסייה השתנתה במכשיר אחר. הטיוטה נשמרה במסך.');
+        return;
+      }
       setError(
         String(submitError).includes('LOYALTY_THEME_CONFLICT')
           ? 'הצבע שבחרתם כבר בשימוש. בחרו צבע פנוי; שאר הפרטים נשמרו.'
           : toErrorMessage(submitError, TEXT.errorFallback)
       );
     } finally {
+      writeInFlight.current = false;
       setIsSubmitting(false);
     }
   };
@@ -268,6 +407,19 @@ export default function CreateProgramScreen() {
           contentContainerStyle={styles.formContent}
           showsVerticalScrollIndicator={false}
         >
+          {scopeChanged ? (
+            <Text accessibilityRole="alert">
+              העסק השתנה. חזרו לעסק המקורי כדי לשמור.
+            </Text>
+          ) : null}
+          {!scopeChanged &&
+          existing &&
+          (baseline?.scope !== scope || revisionChanged || conflict) ? (
+            <ContinueButton
+              label="טעינת הכרטיסייה העדכנית במקום הטיוטה"
+              onPress={loadLatest}
+            />
+          ) : null}
           <View style={styles.field}>
             <Text style={styles.label}>שם הכרטיסייה</Text>
             <TextInput
@@ -275,8 +427,8 @@ export default function CreateProgramScreen() {
               onChangeText={(text) =>
                 setProgramDraft((prev) => ({ ...prev, title: text }))
               }
-              placeholder="שם הכרטיסיה"
-              placeholderTextColor="#9CA3AF"
+              placeholder="לדוגמה: מועדון הפיצה"
+              placeholderTextColor="#64748B"
               style={styles.input}
               accessibilityLabel="שם הכרטיסיה"
             />
@@ -289,8 +441,8 @@ export default function CreateProgramScreen() {
               onChangeText={(text) =>
                 setProgramDraft((prev) => ({ ...prev, rewardName: text }))
               }
-              placeholder="מה הלקוח מקבל"
-              placeholderTextColor="#9CA3AF"
+              placeholder="לדוגמה: משולש פיצה חינם"
+              placeholderTextColor="#64748B"
               style={styles.input}
               accessibilityLabel="הטבה"
             />
@@ -298,7 +450,9 @@ export default function CreateProgramScreen() {
 
           <View style={styles.field}>
             <Text style={styles.label}>חותמות עד ההטבה</Text>
-            <Text style={styles.helper}>כמה ביקורים לקבלת פרס?</Text>
+            <Text style={styles.helper}>
+              לדוגמה, בחרו 8 כדי לתת את ההטבה אחרי 8 חותמות.
+            </Text>
             <View style={styles.optionsWrap}>
               {MAX_STAMP_OPTIONS.map((option) => {
                 const selected = Number(programDraft.maxStamps) === option;
@@ -327,7 +481,17 @@ export default function CreateProgramScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>תמונה</Text>
+            <Text style={styles.label}>תמונת הכרטיסייה (לא חובה)</Text>
+            <Text style={styles.helper}>
+              לדוגמה, תמונה של הפיצה או של ההטבה.
+            </Text>
+            {programDraft.imagePreviewUri ? (
+              <Image
+                accessibilityLabel="תמונת הכרטיסייה שנבחרה"
+                source={{ uri: programDraft.imagePreviewUri }}
+                style={styles.imagePreview}
+              />
+            ) : null}
             <TouchableOpacity
               onPress={() => {
                 void handlePickAndUploadImage();
@@ -336,26 +500,35 @@ export default function CreateProgramScreen() {
               style={styles.inputButton}
             >
               {isUploadingImage ? (
-                <ActivityIndicator color="#2563EB" />
+                <ActivityIndicator color={productAccent} />
               ) : (
                 <Text style={styles.inputButtonText}>
                   {programDraft.imagePreviewUri
-                    ? 'החלף תמונה'
+                    ? 'החלפת תמונה'
                     : TEXT.uploadImage}
                 </Text>
               )}
             </TouchableOpacity>
+            {imageError ? (
+              <Text accessibilityRole="alert" style={styles.errorText}>
+                {imageError}
+              </Text>
+            ) : null}
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>תנאי הכרטיסייה</Text>
+            <Text style={styles.label}>תנאי צבירת חותמות (לא חובה)</Text>
+            <Text style={styles.helper}>
+              כתבו מה צריך לעשות כדי לקבל חותמת.
+            </Text>
             <TextInput
               value={programDraft.cardTerms}
               onChangeText={(text) =>
                 setProgramDraft((prev) => ({ ...prev, cardTerms: text }))
               }
-              placeholder="תנאי הכרטיס"
-              placeholderTextColor="#9CA3AF"
+              accessibilityLabel="תנאי צבירת חותמות"
+              placeholder="לדוגמה: חותמת אחת בקנייה של משולש פיצה"
+              placeholderTextColor="#64748B"
               style={[styles.input, styles.multilineInput]}
               multiline={true}
               textAlignVertical="top"
@@ -363,14 +536,18 @@ export default function CreateProgramScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>תנאי מימוש ההטבה</Text>
+            <Text style={styles.label}>תנאי מימוש ההטבה (לא חובה)</Text>
+            <Text style={styles.helper}>
+              כתבו איך מקבלים את ההטבה אחרי שצוברים מספיק חותמות.
+            </Text>
             <TextInput
               value={programDraft.rewardConditions}
               onChangeText={(text) =>
                 setProgramDraft((prev) => ({ ...prev, rewardConditions: text }))
               }
-              placeholder="תנאי מימוש"
-              placeholderTextColor="#9CA3AF"
+              accessibilityLabel="תנאי מימוש ההטבה"
+              placeholder="לדוגמה: בוחרים משולש פיצה אחד בקופה, ללא כפל מבצעים"
+              placeholderTextColor="#64748B"
               style={[styles.input, styles.multilineInput]}
               multiline={true}
               textAlignVertical="top"
@@ -410,7 +587,7 @@ export default function CreateProgramScreen() {
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         {isSubmitting ? (
           <View style={styles.submittingRow}>
-            <ActivityIndicator color="#2563EB" />
+            <ActivityIndicator color={productAccent} />
             <Text style={styles.submittingText}>{TEXT.submitting}</Text>
           </View>
         ) : null}
@@ -433,6 +610,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FBFAF7',
+    ...webPage,
   },
   content: {
     flex: 1,
@@ -451,12 +629,14 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#111827',
     textAlign: 'right',
+    ...webTitle,
   },
   subtitle: {
     fontSize: 13,
     fontWeight: '600',
     color: '#6B7280',
     textAlign: 'right',
+    ...webBody,
   },
   formScroll: {
     marginTop: 16,
@@ -476,6 +656,7 @@ const styles = StyleSheet.create({
     color: '#334155',
     textAlign: 'right',
     writingDirection: 'rtl',
+    ...webLabel,
   },
   helper: {
     fontSize: 11,
@@ -483,6 +664,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'right',
     writingDirection: 'rtl',
+    ...webBody,
   },
   input: {
     borderWidth: 1,
@@ -495,9 +677,16 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
     fontWeight: '600',
+    ...webField,
+    ...webInputTypography,
   },
   multilineInput: {
     minHeight: 78,
+  },
+  imagePreview: {
+    width: 112,
+    height: 72,
+    borderRadius: 10,
   },
   inputButton: {
     borderWidth: 1,
@@ -532,6 +721,7 @@ const styles = StyleSheet.create({
   optionChipOn: {
     borderColor: '#2563EB',
     backgroundColor: '#EAF1FF',
+    ...webAccentSoft,
   },
   optionChipText: {
     fontSize: 12,
@@ -560,6 +750,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#2563EB',
+    ...webAccentText,
     textAlign: 'right',
   },
   footer: {

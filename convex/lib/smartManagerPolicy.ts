@@ -37,9 +37,7 @@ export type SmartManagerPolicyConfig = {
     SmartManagerRecommendationClass,
     {
       snoozeDays: number;
-      dismissal:
-        | { mode: 'evidence_bound' }
-        | { mode: 'timed'; days: number };
+      dismissal: { mode: 'evidence_bound' } | { mode: 'timed'; days: number };
     }
   >;
   celebration: {
@@ -125,10 +123,7 @@ export const SMART_MANAGER_POLICY_V1_HASH = hashSmartManagerValue({
   config: SMART_MANAGER_POLICY_V1,
 });
 
-export async function loadActiveSmartManagerPolicy(
-  ctx: any,
-  now = Date.now()
-) {
+export async function loadActiveSmartManagerPolicy(ctx: any, now = Date.now()) {
   const policy = await ctx.db
     .query('smartManagerPolicyVersions')
     .withIndex('by_effectiveFrom', (q: any) => q.lte('effectiveFrom', now))

@@ -1,7 +1,12 @@
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
-import { internalMutation, mutation, query } from './_generated/server';
+import {
+  internalMutation,
+  mutation,
+  type QueryCtx,
+  query,
+} from './_generated/server';
 import { ONBOARDING_RESEARCH_RETENTION_MS } from './dataRetention';
 import { assertEntitlement } from './entitlements';
 import {
@@ -19,6 +24,7 @@ import {
 } from './guards';
 import { ensureBusinessBillingAccount } from './lib/billing/accounts';
 import { MVP_FEATURE_FLAGS } from './lib/billing/productionContract';
+import { getDiscoveryH3Cell, getDiscoveryH3Cells } from './lib/discoveryGeo';
 import { assertExpectedUpdatedAt } from './lib/editConflicts';
 import {
   generateInviteCode,
@@ -706,6 +712,8 @@ export async function createBusinessForOwner(
     name: input.name,
     logoUrl: input.logoUrl,
     colors: input.colors,
+    // New owners prepare a draft, then pay before activating. Existing
+    // accounts and historical trial periods are never rewritten here.
     subscriptionPlan: 'starter',
     subscriptionStatus: 'inactive',
     subscriptionStartAt: null,
@@ -717,6 +725,7 @@ export async function createBusinessForOwner(
     },
     businessRetentionProfile: buildDefaultBusinessRetentionProfile(now),
     location: normalizedAddress.location,
+    discoveryH3R5: getDiscoveryH3Cell(normalizedAddress.location) ?? undefined,
     placeId: normalizedAddress.placeId,
     formattedAddress: normalizedAddress.formattedAddress,
     city: normalizedAddress.city,
@@ -731,6 +740,7 @@ export async function createBusinessForOwner(
   await ensureBusinessBillingAccount(ctx, {
     businessId,
     ownerUserId: input.ownerUserId,
+    startGeneralFreeTrial: false,
     now,
   });
   await markSmartManagerDirty(ctx, {
@@ -884,6 +894,7 @@ export const sendBusinessClosurePushInternal = internalMutation({
         toUserId: message.toUserId,
         title,
         body,
+        dedupeKey: message.dedupeKey ?? String(message._id),
       });
       await ctx.db.patch(messageId, {
         deliveryStatus: 'inbox_push_attempted',
@@ -1471,6 +1482,8 @@ export const createOrResumeBusinessOnboarding = mutation({
         onboardingResearchPurgeAfter: now + ONBOARDING_RESEARCH_RETENTION_MS,
         onboardingResearchMinimizedAt: undefined,
         location: normalizedAddress.location,
+        discoveryH3R5:
+          getDiscoveryH3Cell(normalizedAddress.location) ?? undefined,
         placeId: normalizedAddress.placeId,
         formattedAddress: normalizedAddress.formattedAddress,
         city: normalizedAddress.city,
@@ -1601,6 +1614,8 @@ export const updateBusinessAddress = mutation({
     const updatedAt = Date.now();
     await ctx.db.patch(businessId, {
       location: normalizedAddress.location,
+      discoveryH3R5:
+        getDiscoveryH3Cell(normalizedAddress.location) ?? undefined,
       placeId: normalizedAddress.placeId,
       formattedAddress: normalizedAddress.formattedAddress,
       city: normalizedAddress.city,
@@ -2159,6 +2174,100 @@ export const updateBusinessProfile = mutation({
   },
 });
 
+export const generateBusinessLogoUploadUrl = mutation({
+  args: {
+    businessId: v.id('businesses'),
+  },
+  handler: async (ctx, { businessId }) => {
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'edit_business_profile'
+    );
+    const business = await ctx.db.get(businessId);
+    if (!business || business.isActive !== true) {
+      throw new Error('BUSINESS_INACTIVE');
+    }
+    const uploadUrl = await ctx.storage.generateUploadUrl();
+    return { uploadUrl };
+  },
+});
+
+export const setBusinessLogo = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    expectedUpdatedAt: v.optional(v.number()),
+    storageId: v.optional(v.id('_storage')),
+    remove: v.optional(v.boolean()),
+  },
+  handler: async (
+    ctx,
+    { businessId, expectedUpdatedAt, storageId, remove }
+  ) => {
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'edit_business_profile'
+    );
+    const business = await ctx.db.get(businessId);
+    if (!business || business.isActive !== true) {
+      throw new Error('BUSINESS_INACTIVE');
+    }
+    assertExpectedUpdatedAt({
+      entity: 'business',
+      entityId: String(businessId),
+      expectedUpdatedAt,
+      actualUpdatedAt: business.updatedAt,
+    });
+
+    const updatedAt = Date.now();
+    let logoUrl: string | undefined;
+    if (remove === true) {
+      logoUrl = undefined;
+    } else {
+      if (!storageId) {
+        throw new Error('LOGO_FILE_MISSING');
+      }
+      const metadata = await ctx.storage.getMetadata(storageId);
+      if (!metadata) {
+        throw new Error('LOGO_FILE_MISSING');
+      }
+      if (
+        metadata.contentType !== 'image/jpeg' &&
+        metadata.contentType !== 'image/png' &&
+        metadata.contentType !== 'image/webp'
+      ) {
+        throw new Error('LOGO_FILE_TYPE');
+      }
+      if (metadata.size > 2 * 1024 * 1024) {
+        throw new Error('LOGO_FILE_TOO_LARGE');
+      }
+      const resolvedUrl = await ctx.storage.getUrl(storageId);
+      if (!resolvedUrl) {
+        throw new Error('LOGO_FILE_MISSING');
+      }
+      logoUrl = resolvedUrl;
+    }
+
+    await ctx.db.patch(businessId, {
+      logoUrl,
+      updatedAt,
+    });
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['business', 'profile'],
+      reasons: ['business_logo_updated'],
+      now: updatedAt,
+    });
+
+    return {
+      businessId,
+      logoUrl: logoUrl ?? null,
+      updatedAt,
+    };
+  },
+});
+
 export const saveBusinessOnboardingSnapshot = mutation({
   args: {
     businessId: v.id('businesses'),
@@ -2558,10 +2667,39 @@ export const getBusinessesNearby = query({
     const normalizedRadiusKm = Math.max(0.1, Math.min(radiusKm, 50));
     const normalizedServiceTypeFilters =
       normalizeServiceTypeFilters(serviceTypeFilters);
-    const businesses = await ctx.db
+    const cells = getDiscoveryH3Cells(
+      { lat: userLat, lng: userLng },
+      normalizedRadiusKm
+    );
+    const pages = await Promise.all(
+      cells.map((cell) =>
+        ctx.db
+          .query('businesses')
+          .withIndex('by_isActive_discoveryH3R5', (q: any) =>
+            q.eq('isActive', true).eq('discoveryH3R5', cell)
+          )
+          .collect()
+      )
+    );
+    // After backfill this index range is empty. Keep probing it so a late
+    // legacy write stays discoverable, without scanning unlocated businesses.
+    const legacyBusinesses = await ctx.db
       .query('businesses')
-      .withIndex('by_isActive', (q: any) => q.eq('isActive', true))
+      .withIndex('by_discovery_missing_cell_location', (q) =>
+        q
+          .eq('isActive', true)
+          .eq('discoveryH3R5', undefined)
+          .gte('location.lat', -Infinity)
+      )
       .collect();
+    const businesses = [
+      ...new Map(
+        [...pages.flat(), ...legacyBusinesses].map((business) => [
+          String(business._id),
+          business,
+        ])
+      ).values(),
+    ];
 
     const nearbyBusinesses = businesses
       .flatMap((business) => {
@@ -3150,6 +3288,33 @@ export const getBusinessTeamSummary = query({
   },
 });
 
+export async function readLatestStaffEvents(
+  ctx: QueryCtx,
+  businessId: Id<'businesses'>,
+  limit: number
+) {
+  const newest = await ctx.db
+    .query('staffEvents')
+    .withIndex('by_businessId_createdAt', (q) => q.eq('businessId', businessId))
+    .order('desc')
+    .take(limit);
+  const boundary = newest.at(-1)?.createdAt;
+  if (boundary === undefined) return newest;
+  // The original stable sort selected the earliest insertion when timestamps tied.
+  // Recover that ordering even if a tie is larger than the entire requested page.
+  const earlier = newest.filter((event) => event.createdAt > boundary);
+  const ties = await ctx.db
+    .query('staffEvents')
+    .withIndex('by_businessId_createdAt', (q) =>
+      q.eq('businessId', businessId).eq('createdAt', boundary)
+    )
+    .order('asc')
+    .take(limit - earlier.length);
+  return [...earlier, ...ties].sort(
+    (a, b) => b.createdAt - a.createdAt || a._creationTime - b._creationTime
+  );
+}
+
 export const listBusinessStaffHistory = query({
   args: {
     businessId: v.optional(v.id('businesses')),
@@ -3168,14 +3333,11 @@ export const listBusinessStaffHistory = query({
 
     const normalizedLimit = Math.max(1, Math.min(100, Math.floor(limit ?? 50)));
 
-    const events = await ctx.db
-      .query('staffEvents')
-      .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-      .collect();
-
-    const sortedEvents = [...events].sort((a: any, b: any) => {
-      return b.createdAt - a.createdAt;
-    });
+    const sortedEvents = await readLatestStaffEvents(
+      ctx,
+      businessId,
+      normalizedLimit
+    );
 
     const inviteIds = Array.from(
       new Set(

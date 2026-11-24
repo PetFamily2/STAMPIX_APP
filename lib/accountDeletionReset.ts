@@ -25,7 +25,9 @@ export async function runAccountDeletionWithCleanup<
 >(options: {
   deleteAccount: () => Promise<TResult>;
   cleanupSteps: readonly AccountDeletionCleanupStep[];
-  onCleanupWarning?: (failedStepNames: readonly string[]) => void | Promise<void>;
+  onCleanupWarning?: (
+    failedStepNames: readonly string[]
+  ) => void | Promise<void>;
 }): Promise<AccountDeletionFlowResult<TResult>> {
   const result = await options.deleteAccount();
   if (!result.success) {

@@ -1,0 +1,872 @@
+[
+  {
+    "file": "app/(auth)/name-capture.tsx",
+    "input": true,
+    "writes": ["api.auth.createOrUpdateUser", "api.users.setMyName"],
+    "sharedGuard": true,
+    "navigationGuard": true,
+    "versionArgument": true,
+    "serverHydration": true,
+    "classification": "persistent-input",
+    "decision": "Uses the existing expected-name check, an account-bound baseline and the navigation/PWA draft guard. Rendered conflict regression confirms explicit reload."
+  },
+  {
+    "file": "app/(auth)/oauth-callback.tsx",
+    "input": false,
+    "writes": ["api.users.acceptCurrentTerms"],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "app/(auth)/onboarding-business-role.tsx",
+    "input": true,
+    "writes": ["api.users.setMyName", "api.users.setActiveMode"],
+    "sharedGuard": true,
+    "navigationGuard": true,
+    "versionArgument": true,
+    "serverHydration": true,
+    "classification": "persistent-input",
+    "decision": "Current editor protects draft navigation and browser refresh, ties the save to its source scope, and checks the saved value before writing."
+  },
+  {
+    "file": "app/(auth)/onboarding-client-otp.tsx",
+    "input": true,
+    "writes": ["api.users.acceptCurrentTerms"],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. No direct route removal guard. No direct optimistic version argument; concurrent existing-record edits are not proven safe."
+  },
+  {
+    "file": "app/(auth)/onboarding-client-return-motivation.tsx",
+    "input": false,
+    "writes": ["api.users.completeCustomerOnboarding"],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": false,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "app/(auth)/sign-up-email.tsx",
+    "input": true,
+    "writes": [],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": false,
+    "classification": "input-or-delegated-form",
+    "decision": "Search/auth/scanner or delegated input: no direct persistence hook. Parent owns saving; no automatic blanket guard added."
+  },
+  {
+    "file": "app/(authenticated)/(business)/cards/campaign/[campaignId].tsx",
+    "input": true,
+    "writes": [
+      "api.campaigns.createCampaignDraft",
+      "api.campaigns.updateCampaignDraft",
+      "api.campaigns.estimateCampaignAudience",
+      "api.campaigns.sendCampaignNow",
+      "api.campaigns.setCampaignAutomationEnabled",
+      "api.campaigns.scheduleCampaignOneTime",
+      "api.campaigns.clearCampaignOneTimeSchedule",
+      "api.campaigns.archiveManagementCampaign",
+      "api.campaigns.restoreManagementCampaign"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": true,
+    "versionArgument": true,
+    "serverHydration": true,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. Route removal guard present. A version or snapshot argument appears in this file; verify each write and legacy clients separately."
+  },
+  {
+    "file": "app/(authenticated)/(business)/cards/campaigns.tsx",
+    "input": false,
+    "writes": ["api.campaigns.restoreManagementCampaign"],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "app/(authenticated)/(business)/cards/new.tsx",
+    "input": true,
+    "writes": ["api.loyaltyPrograms.createLoyaltyProgram"],
+    "sharedGuard": true,
+    "navigationGuard": true,
+    "versionArgument": false,
+    "serverHydration": false,
+    "classification": "persistent-input",
+    "decision": "Creation draft guards navigation and reload, and blocks saving after changing business context. Rendered coverage verifies draft preservation. Optimistic versions are not applicable to creation."
+  },
+  {
+    "file": "app/(authenticated)/(business)/cards/[programId].tsx",
+    "input": true,
+    "writes": [
+      "api.loyaltyPrograms.updateProgramForManagement",
+      "api.loyaltyPrograms.publishProgram",
+      "api.loyaltyPrograms.archiveProgram",
+      "api.loyaltyPrograms.unarchiveProgram",
+      "api.loyaltyPrograms.deleteProgram",
+      "api.loyaltyPrograms.generateProgramImageUploadUrl"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": true,
+    "versionArgument": true,
+    "serverHydration": true,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. Route removal guard present. A version or snapshot argument appears in this file; verify each write and legacy clients separately."
+  },
+  {
+    "file": "app/(authenticated)/(business)/customers.tsx",
+    "input": true,
+    "writes": ["api.campaigns.createCampaignDraft"],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. No direct route removal guard. No direct optimistic version argument; concurrent existing-record edits are not proven safe."
+  },
+  {
+    "file": "app/(authenticated)/(business)/dashboard.tsx",
+    "input": false,
+    "writes": [
+      "api.recommendations.dismissBusinessRecommendation",
+      "api.recommendations.snoozeBusinessRecommendation",
+      "api.recommendations.startBusinessRecommendationGuide"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "app/(authenticated)/(business)/qr.tsx",
+    "input": true,
+    "writes": [],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": false,
+    "classification": "input-or-delegated-form",
+    "decision": "Search/auth/scanner or delegated input: no direct persistence hook. Parent owns saving; no automatic blanket guard added."
+  },
+  {
+    "file": "app/(authenticated)/(business)/settings-business-account-data.tsx",
+    "input": false,
+    "writes": [
+      "api.users.setActiveMode",
+      "api.business.closeBusinessAccount",
+      "api.business.selfRemoveFromBusiness"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": false,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "app/(authenticated)/(business)/settings-business-account.tsx",
+    "input": true,
+    "writes": ["api.users.setMyName", "api.users.setMyPhone"],
+    "sharedGuard": true,
+    "navigationGuard": true,
+    "versionArgument": true,
+    "serverHydration": false,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. Shared Web/PWA guard present. Route removal guard present. A version or snapshot argument appears in this file; verify each write and legacy clients separately."
+  },
+  {
+    "file": "app/(authenticated)/(business)/settings-business-address.tsx",
+    "input": false,
+    "writes": ["api.business.updateBusinessAddress"],
+    "sharedGuard": true,
+    "navigationGuard": true,
+    "versionArgument": true,
+    "serverHydration": true,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "app/(authenticated)/(business)/settings-business-invite-businesses.tsx",
+    "input": false,
+    "writes": [
+      "api.referrals.getOrCreateBusinessReferralLink",
+      "api.businessReferralEngine.prepareReferralRewardRedemption"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": false,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "app/(authenticated)/(business)/settings-business-referrals.tsx",
+    "input": true,
+    "writes": ["api.referrals.saveReferralConfig"],
+    "sharedGuard": true,
+    "navigationGuard": true,
+    "versionArgument": true,
+    "serverHydration": true,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. Shared Web/PWA guard present. Route removal guard present. A version or snapshot argument appears in this file; verify each write and legacy clients separately."
+  },
+  {
+    "file": "app/(authenticated)/(business)/team/add.tsx",
+    "input": false,
+    "writes": ["api.business.inviteBusinessStaffByScanToken"],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "app/(authenticated)/(business)/team/index.tsx",
+    "input": false,
+    "writes": [
+      "api.business.cancelStaffInvite",
+      "api.business.updateBusinessStaffRole",
+      "api.business.suspendBusinessStaff",
+      "api.business.reactivateBusinessStaff",
+      "api.business.removeBusinessStaff"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "app/(authenticated)/(customer)/business/[businessId].tsx",
+    "input": false,
+    "writes": [
+      "api.memberships.joinSelectedPrograms",
+      "api.referrals.getOrCreateCustomerReferralLink"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "app/(authenticated)/(customer)/discovery.tsx",
+    "input": true,
+    "writes": [],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": false,
+    "classification": "input-or-delegated-form",
+    "decision": "Search/auth/scanner or delegated input: no direct persistence hook. Parent owns saving; no automatic blanket guard added."
+  },
+  {
+    "file": "app/(authenticated)/(customer)/show-qr.tsx",
+    "input": false,
+    "writes": ["api.scanner.createCustomerScanToken"],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "app/(authenticated)/(staff)/customers.tsx",
+    "input": true,
+    "writes": [],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "input-or-delegated-form",
+    "decision": "Search/auth/scanner or delegated input: no direct persistence hook. Parent owns saving; no automatic blanket guard added."
+  },
+  {
+    "file": "app/(authenticated)/accept-invite.tsx",
+    "input": true,
+    "writes": ["api.business.acceptStaffInvite"],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. No direct route removal guard. No direct optimistic version argument; concurrent existing-record edits are not proven safe."
+  },
+  {
+    "file": "app/(authenticated)/business-permanent-deletion.tsx",
+    "input": true,
+    "writes": [
+      "api.businessDeletion.deleteBusinessPermanently",
+      "api.businessDeletion.retryPermanentBusinessDeletion"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. No direct route removal guard. No direct optimistic version argument; concurrent existing-record edits are not proven safe."
+  },
+  {
+    "file": "app/(authenticated)/business-recovery.tsx",
+    "input": false,
+    "writes": [
+      "api.business.restoreBusinessAccount",
+      "api.users.setActiveBusiness",
+      "api.users.setActiveMode"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "app/(authenticated)/card/[membershipId].tsx",
+    "input": false,
+    "writes": [
+      "api.scanner.createCustomerScanToken",
+      "api.referrals.getOrCreateCustomerReferralLink"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "app/(authenticated)/card/[membershipId].web.tsx",
+    "input": false,
+    "writes": [
+      "api.scanner.createCustomerScanToken",
+      "api.referrals.getOrCreateCustomerReferralLink"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "app/(authenticated)/join.tsx",
+    "input": true,
+    "writes": [
+      "api.referrals.openCustomerReferralLink",
+      "api.referrals.openBusinessReferralLink"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. No direct route removal guard. No direct optimistic version argument; concurrent existing-record edits are not proven safe."
+  },
+  {
+    "file": "app/(authenticated)/merchant/onboarding/business-basics.tsx",
+    "input": true,
+    "writes": [],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "input-or-delegated-form",
+    "decision": "Search/auth/scanner or delegated input: no direct persistence hook. Parent owns saving; no automatic blanket guard added."
+  },
+  {
+    "file": "app/(authenticated)/merchant/onboarding/create-business.tsx",
+    "input": false,
+    "writes": ["api.business.createOrResumeBusinessOnboarding"],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "app/(authenticated)/merchant/onboarding/create-program.tsx",
+    "input": true,
+    "writes": [
+      "api.loyaltyPrograms.createOrResumeBusinessOnboardingProgram",
+      "api.loyaltyPrograms.generateProgramImageUploadUrl"
+    ],
+    "sharedGuard": true,
+    "navigationGuard": true,
+    "versionArgument": true,
+    "serverHydration": true,
+    "classification": "persistent-input",
+    "decision": "Current editor protects draft navigation and browser refresh, ties the save to its source scope, and checks the saved value before writing."
+  },
+  {
+    "file": "app/(authenticated)/merchant/onboarding/preview-card.tsx",
+    "input": false,
+    "writes": [
+      "api.users.completeBusinessOnboarding",
+      "api.loyaltyPrograms.updateProgramForManagement",
+      "api.loyaltyPrograms.publishProgram",
+      "api.business.saveBusinessOnboardingSnapshot"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "app/billing/sumit/success.web.tsx",
+    "input": false,
+    "writes": ["api.sumitBilling.verifySUMITCheckoutPayment"],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "screens/AdminReferralsScreen.tsx",
+    "input": true,
+    "writes": [
+      "api.referrals.adminDisableCustomerReferralLink",
+      "api.referrals.adminMarkCustomerReferralInvalid",
+      "api.referrals.adminRevokeReferralReward"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": false,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. No direct route removal guard. No direct optimistic version argument; concurrent existing-record edits are not proven safe."
+  },
+  {
+    "file": "screens/AdminSupportInboxScreen.tsx",
+    "input": false,
+    "writes": [
+      "api.support.setSupportRequestStatus",
+      "accountDeletionApi.setStatus"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": false,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "screens/CustomerAccountDetailsScreen.tsx",
+    "input": true,
+    "writes": ["api.users.setMyPhone", "api.users.setMyMarketingProfile"],
+    "sharedGuard": true,
+    "navigationGuard": false,
+    "versionArgument": true,
+    "serverHydration": true,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. Shared Web/PWA guard present. No direct route removal guard. A version or snapshot argument appears in this file; verify each write and legacy clients separately."
+  },
+  {
+    "file": "screens/SettingsScreen.tsx",
+    "input": true,
+    "writes": [
+      "api.users.deleteMyAccountHard",
+      "api.users.setActiveMode",
+      "api.users.setMyMarketingProfile"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": true,
+    "serverHydration": true,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. No direct route removal guard. A version or snapshot argument appears in this file; verify each write and legacy clients separately."
+  },
+  {
+    "file": "screens/StaffSettingsScreen.tsx",
+    "input": false,
+    "writes": [
+      "api.users.setActiveMode",
+      "api.business.selfRemoveFromBusiness"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": false,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "components/admin-web/AdminBusinessSearch.tsx",
+    "input": true,
+    "writes": [],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": false,
+    "classification": "input-or-delegated-form",
+    "decision": "Search/auth/scanner or delegated input: no direct persistence hook. Parent owns saving; no automatic blanket guard added."
+  },
+  {
+    "file": "components/admin-web/SystemTeamAdmin.web.tsx",
+    "input": true,
+    "writes": [
+      "api.systemTeam.invite",
+      "api.systemTeam.setMemberStatus",
+      "api.systemTeam.assign"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": false,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. No direct route removal guard. No direct optimistic version argument; concurrent existing-record edits are not proven safe."
+  },
+  {
+    "file": "components/business/BusinessAddressSelector.tsx",
+    "input": true,
+    "writes": [],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "input-or-delegated-form",
+    "decision": "Search/auth/scanner or delegated input: no direct persistence hook. Parent owns saving; no automatic blanket guard added."
+  },
+  {
+    "file": "components/business/BusinessCustomerCardScreen.tsx",
+    "input": true,
+    "writes": [
+      "api.customerCards.reverseCustomerCardEvent",
+      "api.referrals.redeemReferralBenefit"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. No direct route removal guard. No direct optimistic version argument; concurrent existing-record edits are not proven safe."
+  },
+  {
+    "file": "components/business-settings/ProfileFieldForm.tsx",
+    "input": true,
+    "writes": [],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": false,
+    "classification": "input-or-delegated-form",
+    "decision": "Search/auth/scanner or delegated input: no direct persistence hook. Parent owns saving; no automatic blanket guard added."
+  },
+  {
+    "file": "components/business-web/BusinessLogoField.tsx",
+    "input": false,
+    "writes": [
+      "api.business.generateBusinessLogoUploadUrl",
+      "api.business.setBusinessLogo"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": true,
+    "serverHydration": false,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "components/business-web/BusinessReferralSettings.web.tsx",
+    "input": true,
+    "writes": ["api.referrals.saveReferralConfig"],
+    "sharedGuard": true,
+    "navigationGuard": false,
+    "versionArgument": true,
+    "serverHydration": true,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. Shared Web/PWA guard present. No direct route removal guard. A version or snapshot argument appears in this file; verify each write and legacy clients separately."
+  },
+  {
+    "file": "components/business-web/BusinessWebBilling.tsx",
+    "input": false,
+    "writes": [
+      "api.sumitBilling.createSUMITCheckout",
+      "api.businessBilling.acceptActivationTerms",
+      "api.sumitBilling.cancelSUMITRecurring"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": false,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "components/business-web/BusinessWebCampaigns.tsx",
+    "input": false,
+    "writes": ["api.campaigns.restoreManagementCampaign"],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": false,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "components/business-web/BusinessWebCardEditor.web.tsx",
+    "input": true,
+    "writes": [
+      "api.loyaltyPrograms.updateProgramForManagement",
+      "api.loyaltyPrograms.publishProgram",
+      "api.loyaltyPrograms.archiveProgram",
+      "api.loyaltyPrograms.unarchiveProgram",
+      "api.loyaltyPrograms.deleteProgram",
+      "api.loyaltyPrograms.generateProgramImageUploadUrl"
+    ],
+    "sharedGuard": true,
+    "navigationGuard": true,
+    "versionArgument": true,
+    "serverHydration": true,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. Shared Web/PWA guard present. Route removal guard present. A version or snapshot argument appears in this file; verify each write and legacy clients separately."
+  },
+  {
+    "file": "components/business-web/BusinessWebCustomers.tsx",
+    "input": true,
+    "writes": [],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": false,
+    "classification": "input-or-delegated-form",
+    "decision": "Search/auth/scanner or delegated input: no direct persistence hook. Parent owns saving; no automatic blanket guard added."
+  },
+  {
+    "file": "components/business-web/BusinessWebRecommendation.tsx",
+    "input": false,
+    "writes": [
+      "api.recommendations.startBusinessRecommendationGuide",
+      "api.recommendations.snoozeBusinessRecommendation",
+      "api.aiRecommendations.executeRecommendationPrimaryCta"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "components/business-web/BusinessWebReferrals.tsx",
+    "input": false,
+    "writes": ["api.referrals.getOrCreateBusinessReferralLink"],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "components/business-web/BusinessWebSettings.tsx",
+    "input": true,
+    "writes": [],
+    "sharedGuard": true,
+    "navigationGuard": false,
+    "versionArgument": true,
+    "serverHydration": true,
+    "classification": "input-or-delegated-form",
+    "decision": "Search/auth/scanner or delegated input: no direct persistence hook. Parent owns saving; no automatic blanket guard added."
+  },
+  {
+    "file": "components/business-web/BusinessWebShellRoute.tsx",
+    "input": false,
+    "writes": ["api.users.setActiveMode"],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": false,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "components/business-web/BusinessWebTeam.tsx",
+    "input": true,
+    "writes": [
+      "api.business.inviteBusinessStaff",
+      "api.business.cancelStaffInvite",
+      "api.business.updateBusinessStaffRole",
+      "api.business.suspendBusinessStaff",
+      "api.business.reactivateBusinessStaff",
+      "api.business.removeBusinessStaff"
+    ],
+    "sharedGuard": true,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. Shared Web/PWA guard present. No direct route removal guard. No direct optimistic version argument; concurrent existing-record edits are not proven safe."
+  },
+  {
+    "file": "components/business-web/CampaignDraftWizard.web.tsx",
+    "input": true,
+    "writes": ["api.campaigns.createCampaignDraft"],
+    "sharedGuard": true,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. Shared Web/PWA guard present. No direct route removal guard. No direct optimistic version argument; concurrent existing-record edits are not proven safe."
+  },
+  {
+    "file": "components/business-web/ClassicCardWizard.tsx",
+    "input": true,
+    "writes": ["api.loyaltyPrograms.createLoyaltyProgram"],
+    "sharedGuard": true,
+    "navigationGuard": true,
+    "versionArgument": false,
+    "serverHydration": false,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. Shared Web/PWA guard present. Route removal guard present. No direct optimistic version argument; concurrent existing-record edits are not proven safe."
+  },
+  {
+    "file": "components/business-web/WebWinbackCampaignSetup.web.tsx",
+    "input": true,
+    "writes": ["api.campaigns.createCampaignDraft"],
+    "sharedGuard": true,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. Shared Web/PWA guard present. No direct route removal guard. No direct optimistic version argument; concurrent existing-record edits are not proven safe."
+  },
+  {
+    "file": "components/customer/BusinessModeCtaCard.tsx",
+    "input": false,
+    "writes": ["api.users.setActiveMode", "api.users.setActiveBusiness"],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "components/customer/NationalDiscovery.web.tsx",
+    "input": true,
+    "writes": ["api.discoveryWeb.searchPlaces"],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. No direct route removal guard. No direct optimistic version argument; concurrent existing-record edits are not proven safe."
+  },
+  {
+    "file": "components/customer/RedemptionCelebrationHost.tsx",
+    "input": false,
+    "writes": [
+      "api.redemptionReceipts.claimPendingRedemptionReceipt",
+      "api.redemptionReceipts.acknowledgeRedemptionPresentation",
+      "api.redemptionReceipts.authorizeRedemptionReceiptShare"
+    ],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "action-or-delegated-write",
+    "decision": "Writes are immediate actions or delegated forms; no direct text editor. Confirmations and server authorization remain authoritative."
+  },
+  {
+    "file": "components/help/SupportMessageForm.tsx",
+    "input": true,
+    "writes": ["api.support.sendSupportRequest"],
+    "sharedGuard": true,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": false,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. Shared Web/PWA guard present. No direct route removal guard. No direct optimistic version argument; concurrent existing-record edits are not proven safe."
+  },
+  {
+    "file": "components/pwa-ui/PwaTextField.tsx",
+    "input": true,
+    "writes": [],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": false,
+    "classification": "input-or-delegated-form",
+    "decision": "Search/auth/scanner or delegated input: no direct persistence hook. Parent owns saving; no automatic blanket guard added."
+  },
+  {
+    "file": "components/QrScanner.web.tsx",
+    "input": true,
+    "writes": [],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "input-or-delegated-form",
+    "decision": "Search/auth/scanner or delegated input: no direct persistence hook. Parent owns saving; no automatic blanket guard added."
+  },
+  {
+    "file": "components/system-team/SystemTeamWorkspace.web.tsx",
+    "input": true,
+    "writes": ["api.systemTeam.acceptInvite", "api.systemTeam.updateTask"],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": true,
+    "serverHydration": false,
+    "classification": "persistent-input",
+    "decision": "Persistent editor/action input. No direct shared Web/PWA guard; parent coverage must be proven before claiming protection. No direct route removal guard. A version or snapshot argument appears in this file; verify each write and legacy clients separately."
+  },
+  {
+    "file": "components/web-scanner/BusinessScanner.web.tsx",
+    "input": true,
+    "writes": [],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "input-or-delegated-form",
+    "decision": "Search/auth/scanner or delegated input: no direct persistence hook. Parent owns saving; no automatic blanket guard added."
+  },
+  {
+    "file": "components/web-scanner/QrScanner.web.tsx",
+    "input": true,
+    "writes": [],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": true,
+    "classification": "input-or-delegated-form",
+    "decision": "Search/auth/scanner or delegated input: no direct persistence hook. Parent owns saving; no automatic blanket guard added."
+  },
+  {
+    "file": "components/web-scanner/ScannerCameraSettings.web.tsx",
+    "input": true,
+    "writes": [],
+    "sharedGuard": false,
+    "navigationGuard": false,
+    "versionArgument": false,
+    "serverHydration": false,
+    "classification": "input-or-delegated-form",
+    "decision": "Search/auth/scanner or delegated input: no direct persistence hook. Parent owns saving; no automatic blanket guard added."
+  }
+]

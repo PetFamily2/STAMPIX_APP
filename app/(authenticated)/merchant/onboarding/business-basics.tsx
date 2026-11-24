@@ -5,17 +5,27 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
+import { AppText as Text } from '@/components/ui/AppText';
 import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import {
+  webAccentFill,
+  webAccentSoft,
+  webAccentText,
+  webBody,
+  webField,
+  webInputTypography,
+  webPage,
+  webSectionTitle,
+  webTitle,
+} from '@/lib/design/webProductChrome';
 import { safeBack, safeDismissTo, safePush } from '@/lib/navigation';
 import {
   BUSINESS_ONBOARDING_ROUTES,
@@ -261,7 +271,9 @@ export default function BusinessBasicsScreen() {
       return;
     }
     didSyncStepRef.current = true;
-    void saveStep({ step: 'businessBasics', flow }).catch(() => {});
+    void saveStep({ step: 'businessBasics', flow, progressOnly: true }).catch(
+      () => {}
+    );
   }, [flow, saveStep]);
 
   const selectedBusinessExample =
@@ -919,6 +931,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FBFAF7',
+    ...webPage,
   },
   content: {
     flex: 1,
@@ -946,6 +959,7 @@ const styles = StyleSheet.create({
     color: '#111827',
     textAlign: 'right',
     writingDirection: 'rtl',
+    ...webTitle,
   },
   subtitle: {
     fontSize: 14,
@@ -954,6 +968,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'right',
     writingDirection: 'rtl',
+    ...webBody,
   },
   sectionTitle: {
     marginTop: 4,
@@ -962,6 +977,7 @@ const styles = StyleSheet.create({
     color: '#111827',
     textAlign: 'right',
     writingDirection: 'rtl',
+    ...webSectionTitle,
   },
   field: {
     gap: 9,
@@ -993,6 +1009,8 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
     fontWeight: '700',
+    ...webField,
+    ...webInputTypography,
   },
   multilineInput: {
     minHeight: 96,
@@ -1013,6 +1031,7 @@ const styles = StyleSheet.create({
   optionChipOn: {
     borderColor: '#2563EB',
     backgroundColor: '#EAF1FF',
+    ...webAccentSoft,
   },
   optionChipText: {
     fontSize: 12,
@@ -1023,6 +1042,7 @@ const styles = StyleSheet.create({
   },
   optionChipTextOn: {
     color: '#1D4ED8',
+    ...webAccentText,
   },
   tagInputRow: {
     flexDirection: flexDirection.row,
@@ -1033,6 +1053,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: 14,
     backgroundColor: '#2563EB',
+    ...webAccentFill,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },

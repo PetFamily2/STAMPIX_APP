@@ -5,7 +5,10 @@ import {
   ReceiptText,
   XCircle,
 } from 'lucide-react-native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { StampAixBrand } from '@/components/StampAixBrand';
+
+import { AppText as Text } from '@/components/ui/AppText';
 import { resolveBusinessSignedOutHref } from '@/lib/auth/webAuthEntry';
 import { BUSINESS_WEB_ROUTES } from '@/lib/businessWebNavigation';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
@@ -38,7 +41,7 @@ const COPY: Record<SumitReturnState, { title: string; description: string }> = {
   awaiting_verification: {
     title: 'התשלום ממתין לאימות.',
     description:
-      'לא התקבלו מזהי העסקה הדרושים לאימות מיידי. לא שינינו את מצב המנוי; השרת והסנכרון מול SUMIT נשארים מקור הסמכות.',
+      'לא שינינו את מצב המנוי. האימות מול SUMIT יכול להמשיך ברקע. אם כבר שילמתם, אין צורך לשלם שוב.',
   },
   reauthentication: {
     title: 'נדרשת התחברות מחדש כדי לאמת את התשלום.',
@@ -48,7 +51,7 @@ const COPY: Record<SumitReturnState, { title: string; description: string }> = {
   failed: {
     title: 'לא הצלחנו לאמת את התשלום כרגע.',
     description:
-      'לא שינינו את מצב המנוי. אפשר לחזור לעמוד החיוב ולנסות שוב או לבדוק מאוחר יותר.',
+      'לא שינינו את מצב המנוי. אם כבר שילמתם, בדקו שוב את מצב המנוי מאוחר יותר לפני ניסיון תשלום נוסף.',
   },
   canceled: {
     title: 'התשלום לא הושלם',
@@ -77,15 +80,7 @@ export function SumitReturnSurface({ state }: { state: SumitReturnState }) {
 
   return (
     <View style={styles.page}>
-      <View style={styles.brand}>
-        <View style={styles.brandMark}>
-          <Text style={styles.brandMarkText}>S</Text>
-        </View>
-        <View>
-          <Text style={styles.brandName}>StampAix</Text>
-          <Text style={styles.brandProduct}>Business</Text>
-        </View>
-      </View>
+      <StampAixBrand product="Business" />
       <View style={styles.card}>
         <View style={[styles.iconWrap, { backgroundColor: `${iconColor}12` }]}>
           <Icon color={iconColor} size={34} />
@@ -130,30 +125,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: '100%',
     padding: TOKENS.space.xl,
-  },
-  brand: {
-    alignItems: 'center',
-    flexDirection: flexDirection.row,
-    gap: TOKENS.space.md,
-  },
-  brandMark: {
-    alignItems: 'center',
-    backgroundColor: TOKENS.colors.primary,
-    borderRadius: TOKENS.radii.md,
-    height: 42,
-    justifyContent: 'center',
-    width: 42,
-  },
-  brandMarkText: { color: '#FFFFFF', fontSize: 22, fontWeight: '800' },
-  brandName: {
-    color: TOKENS.colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  brandProduct: {
-    color: TOKENS.colors.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
   },
   card: {
     ...TOKENS.shadow,

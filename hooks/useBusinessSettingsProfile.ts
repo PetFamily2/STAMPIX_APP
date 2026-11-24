@@ -103,6 +103,8 @@ export function toBusinessSettingsSnapshot(settings: {
 
 export function useBusinessSettingsProfile() {
   const { activeBusinessId, activeBusiness } = useActiveBusiness();
+  const activeBusinessIdRef = useRef(activeBusinessId);
+  activeBusinessIdRef.current = activeBusinessId;
   const activeBusinessCapabilities = activeBusiness
     ? resolveBusinessCapabilities(
         activeBusiness.capabilities ?? null,
@@ -136,6 +138,12 @@ export function useBusinessSettingsProfile() {
     baseUpdatedAtRef.current = value;
     setBaseUpdatedAt(value);
   }, []);
+  const noteProfileRevision = useCallback(
+    (updatedAt: number) => {
+      commitBaseUpdatedAt(updatedAt);
+    },
+    [commitBaseUpdatedAt]
+  );
 
   const applyBusinessSettingsSnapshot = useCallback(
     (settings: typeof businessSettings) => {
@@ -195,7 +203,11 @@ export function useBusinessSettingsProfile() {
     serviceTypes?: BusinessServiceType[];
     serviceTags?: string[];
   }) => {
-    if (!activeBusinessId || saveInFlightRef.current) {
+    if (
+      !activeBusinessId ||
+      baseUpdatedAtRef.current === null ||
+      saveInFlightRef.current
+    ) {
       return {
         ok: false as const,
         conflict: false,
@@ -223,6 +235,14 @@ export function useBusinessSettingsProfile() {
         expectedUpdatedAt: baseUpdatedAtRef.current ?? undefined,
         ...payload,
       });
+      if (activeBusinessIdRef.current !== activeBusinessId) {
+        return {
+          ok: false as const,
+          conflict: false,
+          message: 'השמירה לעסק הקודם הסתיימה. חזרו אליו כדי לבדוק את פרטיו.',
+          updatedAt: null,
+        };
+      }
       setSnapshot((current) => ({
         ...current,
         ...payload,
@@ -236,6 +256,13 @@ export function useBusinessSettingsProfile() {
       setConflictServerUpdatedAt(null);
       return { ok: true as const, conflict: false, message: null, updatedAt };
     } catch (error) {
+      if (activeBusinessIdRef.current !== activeBusinessId)
+        return {
+          ok: false as const,
+          conflict: false,
+          message: 'העסק השתנה בזמן השמירה. חזרו אליו כדי לבדוק את מצב השמירה.',
+          updatedAt: null,
+        };
       const conflict = getEditConflictError(error);
       if (conflict) {
         setConflictLocked(true);
@@ -310,7 +337,11 @@ export function useBusinessSettingsProfile() {
   };
 
   const saveBusinessAddress = async (address: SelectedBusinessAddress) => {
-    if (!activeBusinessId || saveInFlightRef.current) {
+    if (
+      !activeBusinessId ||
+      baseUpdatedAtRef.current === null ||
+      saveInFlightRef.current
+    ) {
       return {
         ok: false as const,
         conflict: false,
@@ -332,6 +363,14 @@ export function useBusinessSettingsProfile() {
         street: address.street,
         streetNumber: address.streetNumber,
       });
+      if (activeBusinessIdRef.current !== activeBusinessId) {
+        return {
+          ok: false as const,
+          conflict: false,
+          message: 'השמירה לעסק הקודם הסתיימה. חזרו אליו כדי לבדוק את פרטיו.',
+          updatedAt: null,
+        };
+      }
       const updatedAt =
         typeof result?.updatedAt === 'number' ? result.updatedAt : null;
       if (updatedAt !== null) {
@@ -345,6 +384,13 @@ export function useBusinessSettingsProfile() {
       setConflictServerUpdatedAt(null);
       return { ok: true as const, conflict: false, message: null, updatedAt };
     } catch (error) {
+      if (activeBusinessIdRef.current !== activeBusinessId)
+        return {
+          ok: false as const,
+          conflict: false,
+          message: 'העסק השתנה בזמן השמירה. חזרו אליו כדי לבדוק את מצב השמירה.',
+          updatedAt: null,
+        };
       const conflict = getEditConflictError(error);
       if (conflict) {
         setConflictLocked(true);
@@ -384,6 +430,7 @@ export function useBusinessSettingsProfile() {
     saveProfileFields,
     saveOnboardingFields,
     saveBusinessAddress,
+    noteProfileRevision,
     applyBusinessSettingsSnapshot: () =>
       applyBusinessSettingsSnapshot(businessSettings),
     isProfileCompletionField,

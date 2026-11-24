@@ -1,14 +1,74 @@
 import { v } from 'convex/values';
+import { WEB_LEGAL_VERSION } from '../lib/legalWebContract';
 import { mutation, query } from './_generated/server';
 import {
   requireActorHasBusinessCapability,
+  requireActorIsBusinessOwner,
   requireCurrentUser,
 } from './guards';
 import {
   ensureBusinessBillingAccount,
   getBillingAccountForBusiness,
 } from './lib/billing/accounts';
-import { hasOperationalAccessFromStatus } from './lib/billing/lifecycle';
+import { resolveCanonicalBillingState } from './lib/billing/lifecycle';
+import { resolveSumitConfig } from './lib/billing/sumit/config';
+import {
+  findBusinessActivationAcceptance,
+  recordBusinessActivationAcceptance,
+} from './lib/billing/webActivation';
+
+export const getActivationTermsAcceptance = query({
+  args: { businessId: v.id('businesses') },
+  returns: v.object({
+    accepted: v.boolean(),
+    version: v.literal(WEB_LEGAL_VERSION),
+  }),
+  handler: async (ctx, { businessId }) => {
+    const owner = await requireActorIsBusinessOwner(ctx, businessId);
+    const acceptance = await findBusinessActivationAcceptance(
+      ctx,
+      owner._id,
+      businessId
+    );
+    return { accepted: acceptance !== null, version: WEB_LEGAL_VERSION };
+  },
+});
+
+export const acceptActivationTerms = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    version: v.literal(WEB_LEGAL_VERSION),
+  },
+  returns: v.object({ acceptanceId: v.id('legalAcceptances') }),
+  handler: async (ctx, { businessId }) => {
+    const owner = await requireActorIsBusinessOwner(ctx, businessId);
+    const acceptanceId = await recordBusinessActivationAcceptance(
+      ctx,
+      owner._id,
+      businessId
+    );
+    return { acceptanceId };
+  },
+});
+
+// Only non-sensitive readiness reaches the authenticated billing screen.
+// Missing/malformed provider configuration never renders an actionable checkout.
+export const getCheckoutAvailability = query({
+  args: { businessId: v.id('businesses') },
+  returns: v.object({ available: v.boolean() }),
+  handler: async (ctx, { businessId }) => {
+    await requireActorHasBusinessCapability(
+      ctx,
+      businessId,
+      'manage_subscription'
+    );
+    try {
+      return { available: resolveSumitConfig(process.env).liveCheckoutEnabled };
+    } catch {
+      return { available: false };
+    }
+  },
+});
 
 export const getBusinessBillingIdentity = query({
   args: {
@@ -25,21 +85,39 @@ export const getBusinessBillingIdentity = query({
       return null;
     }
     const account = await getBillingAccountForBusiness(ctx, businessId);
-    const hasCurrentPaidAccess = account
-      ? hasOperationalAccessFromStatus({
-          status: account.status ?? 'inactive',
-          hasProviderEvidence: account.hasProviderEvidence === true,
-          currentPeriodEndAt: account.currentPeriodEndAt ?? null,
-          gracePeriodEndAt: account.gracePeriodEndAt ?? null,
-          entitlementRevokedAt: account.entitlementRevokedAt ?? null,
-        })
-      : false;
+    const canonicalState = resolveCanonicalBillingState({
+      plan: account?.plan ?? business.subscriptionPlan,
+      lastPlan: account?.lastPlan,
+      status: account?.status ?? business.subscriptionStatus,
+      billingPeriod: account?.billingPeriod ?? business.billingPeriod,
+      subscriptionStartAt:
+        account?.subscriptionStartAt ?? business.subscriptionStartAt,
+      currentPeriodStartAt: account?.currentPeriodStartAt ?? null,
+      currentPeriodEndAt:
+        account?.currentPeriodEndAt ?? business.subscriptionEndAt,
+      gracePeriodEndAt: account?.gracePeriodEndAt ?? null,
+      canceledAt: account?.canceledAt ?? null,
+      hasProviderEvidence: account?.hasProviderEvidence === true,
+      entitlementRevokedAt: account?.entitlementRevokedAt ?? null,
+      trialSource: account?.trialSource,
+      trialEndsAt: account?.trialEndsAt ?? null,
+    });
+    const hasOperationalAccess = canonicalState.operationalAccess;
+    const hasCurrentPaidAccess =
+      account?.hasProviderEvidence === true && hasOperationalAccess;
+    const isTrialing =
+      canonicalState.status === 'trialing' &&
+      canonicalState.trialSource === 'stampaix' &&
+      account?.hasProviderEvidence !== true;
     return {
       businessId,
       providerAppUserId: account?.providerAppUserId ?? null,
       hasProviderEvidence: account?.hasProviderEvidence === true,
       hasCurrentPaidAccess,
-      status: account?.status ?? business.subscriptionStatus ?? 'inactive',
+      hasOperationalAccess,
+      isTrialing,
+      trialEndsAt: canonicalState.trialEndsAt,
+      status: canonicalState.status,
       plan: account?.plan ?? business.subscriptionPlan ?? 'starter',
       billingPeriod: account?.billingPeriod ?? business.billingPeriod ?? null,
       currentPeriodEndAt:
@@ -82,15 +160,30 @@ export const getBusinessBillingOverview = query({
       return null;
     }
     const account = await getBillingAccountForBusiness(ctx, businessId);
-    const hasCurrentPaidAccess = account
-      ? hasOperationalAccessFromStatus({
-          status: account.status ?? 'inactive',
-          hasProviderEvidence: account.hasProviderEvidence === true,
-          currentPeriodEndAt: account.currentPeriodEndAt ?? null,
-          gracePeriodEndAt: account.gracePeriodEndAt ?? null,
-          entitlementRevokedAt: account.entitlementRevokedAt ?? null,
-        })
-      : false;
+    const canonicalState = resolveCanonicalBillingState({
+      plan: account?.plan ?? business.subscriptionPlan,
+      lastPlan: account?.lastPlan,
+      status: account?.status ?? business.subscriptionStatus,
+      billingPeriod: account?.billingPeriod ?? business.billingPeriod,
+      subscriptionStartAt:
+        account?.subscriptionStartAt ?? business.subscriptionStartAt,
+      currentPeriodStartAt: account?.currentPeriodStartAt ?? null,
+      currentPeriodEndAt:
+        account?.currentPeriodEndAt ?? business.subscriptionEndAt,
+      gracePeriodEndAt: account?.gracePeriodEndAt ?? null,
+      canceledAt: account?.canceledAt ?? null,
+      hasProviderEvidence: account?.hasProviderEvidence === true,
+      entitlementRevokedAt: account?.entitlementRevokedAt ?? null,
+      trialSource: account?.trialSource,
+      trialEndsAt: account?.trialEndsAt ?? null,
+    });
+    const hasOperationalAccess = canonicalState.operationalAccess;
+    const hasCurrentPaidAccess =
+      account?.hasProviderEvidence === true && hasOperationalAccess;
+    const isTrialing =
+      canonicalState.status === 'trialing' &&
+      canonicalState.trialSource === 'stampaix' &&
+      account?.hasProviderEvidence !== true;
     const sumitEvents = await ctx.db
       .query('sumitProviderEvents')
       .withIndex('by_businessId', (q) => q.eq('businessId', businessId))
@@ -114,7 +207,7 @@ export const getBusinessBillingOverview = query({
     return {
       businessId,
       plan: account?.plan ?? business.subscriptionPlan ?? null,
-      status: account?.status ?? business.subscriptionStatus ?? 'inactive',
+      status: canonicalState.status,
       billingPeriod: account?.billingPeriod ?? business.billingPeriod ?? null,
       currentPeriodStartAt:
         account?.currentPeriodStartAt ?? business.subscriptionStartAt ?? null,
@@ -125,6 +218,9 @@ export const getBusinessBillingOverview = query({
       provider: account?.provider ?? null,
       hasProviderEvidence: account?.hasProviderEvidence === true,
       hasCurrentPaidAccess,
+      hasOperationalAccess,
+      isTrialing,
+      trialEndsAt: canonicalState.trialEndsAt,
       canCancel:
         account?.provider === 'sumit' &&
         typeof account.providerSubscriptionIdentifier === 'string' &&

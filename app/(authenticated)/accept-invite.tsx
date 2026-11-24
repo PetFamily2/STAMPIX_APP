@@ -13,11 +13,11 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
+import { webClassName } from '@/lib/design/webProductChrome';
 import { safeBack } from '@/lib/navigation';
 import { CUSTOMER_BACK_FALLBACKS } from '@/lib/navigation/customerRoutes';
 import { tw } from '@/lib/rtl';
@@ -99,7 +99,7 @@ export default function AcceptInviteScreen() {
   const canAccept = effectiveCode && effectiveCode.length > 0 && !busy;
 
   return (
-    <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
+    <SafeAreaView className={webClassName('flex-1 bg-[#E9F0FF]')} edges={[]}>
       <ScrollView
         stickyHeaderIndices={[0]}
         className="flex-1"

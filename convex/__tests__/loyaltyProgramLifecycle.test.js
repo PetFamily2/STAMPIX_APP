@@ -5,7 +5,9 @@ import {
   archiveProgram,
   countActivePrograms,
   createLoyaltyProgram,
+  getProgramDetailsForManagement,
   hasLoyaltyThemeConflict,
+  listManagementByBusiness,
   publishProgram,
   unarchiveProgram,
   updateProgramForManagement,
@@ -123,6 +125,7 @@ function createMockCtx({
   businessBillingAccounts = [buildBillingAccount()],
   memberships = [],
 } = {}) {
+  const eventIndexReads = [];
   const state = {
     users: new Map(users.map((row) => [row._id, { ...row }])),
     businesses: new Map(businesses.map((row) => [row._id, { ...row }])),
@@ -134,6 +137,7 @@ function createMockCtx({
       businessBillingAccounts.map((row) => [row._id, { ...row }])
     ),
     memberships: new Map(memberships.map((row) => [row._id, { ...row }])),
+    events: new Map(),
     businessUsageCounters: new Map(),
     campaigns: new Map(),
     referralConfigs: new Map(),
@@ -150,7 +154,11 @@ function createMockCtx({
         const filters = [];
         const indexQuery = {
           eq(field, value) {
-            filters.push([field, value]);
+            filters.push([field, value, 'eq']);
+            return indexQuery;
+          },
+          gte(field, value) {
+            filters.push([field, value, 'gte']);
             return indexQuery;
           },
         };
@@ -158,8 +166,12 @@ function createMockCtx({
           buildIndex(indexQuery);
         }
         rows = rows.filter((row) =>
-          filters.every(([field, value]) => row[field] === value)
+          filters.every(([field, value, op]) =>
+            op === 'gte' ? row[field] >= value : row[field] === value
+          )
         );
+        if (tableName === 'events')
+          eventIndexReads.push({ index: _indexName, count: rows.length });
         return query;
       },
       filter(builder) {
@@ -234,7 +246,7 @@ function createMockCtx({
     },
   };
 
-  return { ctx, state };
+  return { ctx, state, eventIndexReads };
 }
 
 async function getErrorData(work) {
@@ -249,6 +261,60 @@ async function getErrorData(work) {
 function usageCounter(state) {
   return Array.from(state.businessUsageCounters.values())[0] ?? null;
 }
+
+test('management metrics use the business-scoped 30-day event range', async () => {
+  const { ctx, state, eventIndexReads } = createMockCtx({
+    loyaltyPrograms: [buildProgram()],
+    memberships: [
+      buildMembership(),
+      buildMembership({ _id: 'inactive', isActive: false }),
+    ],
+  });
+  const now = Date.now();
+  const day = 24 * 60 * 60 * 1000;
+  for (const [id, businessId, type, age] of [
+    ['recent', 'business_1', 'STAMP_ADDED', 1],
+    ['redemption', 'business_1', 'REWARD_REDEEMED', 29],
+    ['old', 'business_1', 'STAMP_ADDED', 31],
+    ['other', 'business_2', 'STAMP_ADDED', 1],
+  ]) {
+    state.events.set(id, {
+      _id: id,
+      businessId,
+      programId: 'program_1',
+      type,
+      createdAt: now - age * day,
+    });
+  }
+  for (let i = 0; i < 1000; i++) {
+    state.events.set(`old-${i}`, {
+      _id: `old-${i}`,
+      businessId: 'business_1',
+      programId: 'program_1',
+      type: 'STAMP_ADDED',
+      createdAt: now - 60 * day,
+    });
+  }
+  const list = await listManagementByBusiness._handler(ctx, {
+    businessId: 'business_1',
+  });
+  const detail = await getProgramDetailsForManagement._handler(ctx, {
+    businessId: 'business_1',
+    programId: 'program_1',
+  });
+  expect(list[0].metrics.stamps7d).toBe(1);
+  expect(list[0].metrics.redemptions30d).toBe(1);
+  expect(list[0].metrics.activeMembers).toBe(1);
+  expect(list[0].metrics.totalMembers).toBe(2);
+  expect(detail.metrics.stamps7d).toBe(1);
+  expect(detail.metrics.redemptions30d).toBe(1);
+  expect(detail.metrics.activeMembers).toBe(1);
+  expect(detail.metrics.totalMembers).toBe(2);
+  expect(eventIndexReads).toEqual([
+    { index: 'by_businessId_createdAt', count: 2 },
+    { index: 'by_businessId_createdAt', count: 2 },
+  ]);
+});
 
 describe('archive and reactivation lifecycle', () => {
   test('draft creation remains available at the active-card quota', async () => {

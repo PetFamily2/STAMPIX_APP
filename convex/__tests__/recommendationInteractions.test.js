@@ -82,9 +82,7 @@ describe('recommendation interaction filtering', () => {
     });
 
     expect(suppressed.primary.stableId).not.toBe(first.primary.stableId);
-    expect(suppressed.totalEligibleCount).toBe(
-      first.totalEligibleCount - 1
-    );
+    expect(suppressed.totalEligibleCount).toBe(first.totalEligibleCount - 1);
     expect(
       suppressed.secondary.length + (suppressed.primary ? 1 : 0)
     ).toBeLessThanOrEqual(3);
@@ -117,11 +115,7 @@ describe('server-owned recommendation timing policies', () => {
     ['subscription.quota_near', 'dismiss', 14],
     ['subscription.quota_near', 'snooze', 7],
   ])('%s %s uses %d server days', (stableId, action, days) => {
-    const policy = getRecommendationInteractionPolicy(
-      stableId,
-      action,
-      NOW
-    );
+    const policy = getRecommendationInteractionPolicy(stableId, action, NOW);
     expect(policy.hiddenUntil).toBe(NOW + days * DAY_MS);
   });
 

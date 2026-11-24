@@ -9,7 +9,9 @@
  */
 
 import type * as __tests___helpers_businessBillingFixtures from "../__tests__/helpers/businessBillingFixtures.js";
+import type * as __tests___helpers_scannerFixtures from "../__tests__/helpers/scannerFixtures.js";
 import type * as accountDeletionRequests from "../accountDeletionRequests.js";
+import type * as adminWeb from "../adminWeb.js";
 import type * as aiRecommendations from "../aiRecommendations.js";
 import type * as analytics from "../analytics.js";
 import type * as auth from "../auth.js";
@@ -24,8 +26,10 @@ import type * as customerLifecycle from "../customerLifecycle.js";
 import type * as dashboard from "../dashboard.js";
 import type * as dataRetention from "../dataRetention.js";
 import type * as debug from "../debug.js";
+import type * as discoveryWeb from "../discoveryWeb.js";
 import type * as entitlements from "../entitlements.js";
 import type * as events from "../events.js";
+import type * as generalFreeTrial from "../generalFreeTrial.js";
 import type * as googlePlaces from "../googlePlaces.js";
 import type * as googlePlacesRateLimits from "../googlePlacesRateLimits.js";
 import type * as guards from "../guards.js";
@@ -48,11 +52,13 @@ import type * as lib_billing_sumit_checkout from "../lib/billing/sumit/checkout.
 import type * as lib_billing_sumit_config from "../lib/billing/sumit/config.js";
 import type * as lib_billing_sumit_mapToCanonical from "../lib/billing/sumit/mapToCanonical.js";
 import type * as lib_billing_sumit_providerClient from "../lib/billing/sumit/providerClient.js";
+import type * as lib_billing_sumit_reminders from "../lib/billing/sumit/reminders.js";
 import type * as lib_billing_sumit_verify from "../lib/billing/sumit/verify.js";
 import type * as lib_billing_usageCounters from "../lib/billing/usageCounters.js";
 import type * as lib_campaignRuns from "../lib/campaignRuns.js";
 import type * as lib_campaignState from "../lib/campaignState.js";
 import type * as lib_customerIntelligence from "../lib/customerIntelligence.js";
+import type * as lib_discoveryWeb from "../lib/discoveryWeb.js";
 import type * as lib_editConflicts from "../lib/editConflicts.js";
 import type * as lib_email from "../lib/email.js";
 import type * as lib_ids from "../lib/ids.js";
@@ -66,6 +72,7 @@ import type * as lib_referrals_qualification from "../lib/referrals/qualificatio
 import type * as lib_referrals_redemptionProvider from "../lib/referrals/redemptionProvider.js";
 import type * as lib_runRegisteredHandler from "../lib/runRegisteredHandler.js";
 import type * as lib_secureRandom from "../lib/secureRandom.js";
+import type * as lib_signInEmail from "../lib/signInEmail.js";
 import type * as lib_smartManagerAuthority from "../lib/smartManagerAuthority.js";
 import type * as lib_smartManagerDelivery from "../lib/smartManagerDelivery.js";
 import type * as lib_smartManagerDirty from "../lib/smartManagerDirty.js";
@@ -76,8 +83,12 @@ import type * as lib_smartManagerPreparedActions from "../lib/smartManagerPrepar
 import type * as lib_smartManagerSourceLimits from "../lib/smartManagerSourceLimits.js";
 import type * as lib_smartManagerValidators from "../lib/smartManagerValidators.js";
 import type * as lib_staffPermissions from "../lib/staffPermissions.js";
+import type * as lib_systemTeamPolicy from "../lib/systemTeamPolicy.js";
+import type * as lib_systemTeamPrivacy from "../lib/systemTeamPrivacy.js";
 import type * as lib_verifiedEmailAccountLink from "../lib/verifiedEmailAccountLink.js";
+import type * as lib_webAuthConfiguration from "../lib/webAuthConfiguration.js";
 import type * as loyaltyPrograms from "../loyaltyPrograms.js";
+import type * as manualQa from "../manualQa.js";
 import type * as memberships from "../memberships.js";
 import type * as migrations_auditLegacyBilling from "../migrations/auditLegacyBilling.js";
 import type * as migrations_auditManualSegmentDependencies from "../migrations/auditManualSegmentDependencies.js";
@@ -105,6 +116,7 @@ import type * as referrals from "../referrals.js";
 import type * as retention from "../retention.js";
 import type * as scanTokens from "../scanTokens.js";
 import type * as scanner from "../scanner.js";
+import type * as scannerCommands from "../scannerCommands.js";
 import type * as seed from "../seed.js";
 import type * as smartManager from "../smartManager.js";
 import type * as smartManagerActions from "../smartManagerActions.js";
@@ -115,7 +127,13 @@ import type * as smartManagerOutcomes from "../smartManagerOutcomes.js";
 import type * as smartManagerRateLimits from "../smartManagerRateLimits.js";
 import type * as sumitBilling from "../sumitBilling.js";
 import type * as support from "../support.js";
+import type * as systemTeam from "../systemTeam.js";
 import type * as users from "../users.js";
+import type * as webAuth from "../webAuth.js";
+import type * as webInbox from "../webInbox.js";
+import type * as webPush from "../webPush.js";
+import type * as webPushDelivery from "../webPushDelivery.js";
+import type * as webScanner from "../webScanner.js";
 
 import type {
   ApiFromModules,
@@ -125,7 +143,9 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   "__tests__/helpers/businessBillingFixtures": typeof __tests___helpers_businessBillingFixtures;
+  "__tests__/helpers/scannerFixtures": typeof __tests___helpers_scannerFixtures;
   accountDeletionRequests: typeof accountDeletionRequests;
+  adminWeb: typeof adminWeb;
   aiRecommendations: typeof aiRecommendations;
   analytics: typeof analytics;
   auth: typeof auth;
@@ -140,8 +160,10 @@ declare const fullApi: ApiFromModules<{
   dashboard: typeof dashboard;
   dataRetention: typeof dataRetention;
   debug: typeof debug;
+  discoveryWeb: typeof discoveryWeb;
   entitlements: typeof entitlements;
   events: typeof events;
+  generalFreeTrial: typeof generalFreeTrial;
   googlePlaces: typeof googlePlaces;
   googlePlacesRateLimits: typeof googlePlacesRateLimits;
   guards: typeof guards;
@@ -164,11 +186,13 @@ declare const fullApi: ApiFromModules<{
   "lib/billing/sumit/config": typeof lib_billing_sumit_config;
   "lib/billing/sumit/mapToCanonical": typeof lib_billing_sumit_mapToCanonical;
   "lib/billing/sumit/providerClient": typeof lib_billing_sumit_providerClient;
+  "lib/billing/sumit/reminders": typeof lib_billing_sumit_reminders;
   "lib/billing/sumit/verify": typeof lib_billing_sumit_verify;
   "lib/billing/usageCounters": typeof lib_billing_usageCounters;
   "lib/campaignRuns": typeof lib_campaignRuns;
   "lib/campaignState": typeof lib_campaignState;
   "lib/customerIntelligence": typeof lib_customerIntelligence;
+  "lib/discoveryWeb": typeof lib_discoveryWeb;
   "lib/editConflicts": typeof lib_editConflicts;
   "lib/email": typeof lib_email;
   "lib/ids": typeof lib_ids;
@@ -182,6 +206,7 @@ declare const fullApi: ApiFromModules<{
   "lib/referrals/redemptionProvider": typeof lib_referrals_redemptionProvider;
   "lib/runRegisteredHandler": typeof lib_runRegisteredHandler;
   "lib/secureRandom": typeof lib_secureRandom;
+  "lib/signInEmail": typeof lib_signInEmail;
   "lib/smartManagerAuthority": typeof lib_smartManagerAuthority;
   "lib/smartManagerDelivery": typeof lib_smartManagerDelivery;
   "lib/smartManagerDirty": typeof lib_smartManagerDirty;
@@ -192,8 +217,12 @@ declare const fullApi: ApiFromModules<{
   "lib/smartManagerSourceLimits": typeof lib_smartManagerSourceLimits;
   "lib/smartManagerValidators": typeof lib_smartManagerValidators;
   "lib/staffPermissions": typeof lib_staffPermissions;
+  "lib/systemTeamPolicy": typeof lib_systemTeamPolicy;
+  "lib/systemTeamPrivacy": typeof lib_systemTeamPrivacy;
   "lib/verifiedEmailAccountLink": typeof lib_verifiedEmailAccountLink;
+  "lib/webAuthConfiguration": typeof lib_webAuthConfiguration;
   loyaltyPrograms: typeof loyaltyPrograms;
+  manualQa: typeof manualQa;
   memberships: typeof memberships;
   "migrations/auditLegacyBilling": typeof migrations_auditLegacyBilling;
   "migrations/auditManualSegmentDependencies": typeof migrations_auditManualSegmentDependencies;
@@ -221,6 +250,7 @@ declare const fullApi: ApiFromModules<{
   retention: typeof retention;
   scanTokens: typeof scanTokens;
   scanner: typeof scanner;
+  scannerCommands: typeof scannerCommands;
   seed: typeof seed;
   smartManager: typeof smartManager;
   smartManagerActions: typeof smartManagerActions;
@@ -231,7 +261,13 @@ declare const fullApi: ApiFromModules<{
   smartManagerRateLimits: typeof smartManagerRateLimits;
   sumitBilling: typeof sumitBilling;
   support: typeof support;
+  systemTeam: typeof systemTeam;
   users: typeof users;
+  webAuth: typeof webAuth;
+  webInbox: typeof webInbox;
+  webPush: typeof webPush;
+  webPushDelivery: typeof webPushDelivery;
+  webScanner: typeof webScanner;
 }>;
 
 /**

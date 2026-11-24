@@ -1,5 +1,11 @@
-import { AccessibilityInfo, Platform, StyleSheet, Text, View } from 'react-native';
 import { useEffect } from 'react';
+import {
+  AccessibilityInfo,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { REFERRAL_COPY } from '@/lib/referrals/copy';
 

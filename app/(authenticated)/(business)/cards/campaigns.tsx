@@ -4,7 +4,7 @@ import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
+  Platform,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -30,11 +30,17 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { Alert } from '@/lib/alert';
+import {
+  productPageBackground,
+  webClassName,
+} from '@/lib/design/webProductChrome';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
+import { businessHref } from '@/lib/navigation/businessHref';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { tw } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
@@ -52,8 +58,8 @@ type ManagementCampaign = {
   scheduledForAt: number | null;
   lifecycle: 'active' | 'inactive' | 'archived';
   canArchive: boolean;
-  estimatedAudience: number;
-  reachedMessagesAllTime: number;
+  estimatedAudience: number | null;
+  reachedMessagesAllTime: number | null;
   lastSentAt: number | null;
   archivedAt: number | null;
   updatedAt: number;
@@ -112,7 +118,9 @@ export function CampaignsHubContent() {
 
   const campaignsQuery = useQuery(
     api.campaigns.listManagementCampaignsByBusiness,
-    activeBusinessId ? { businessId: activeBusinessId } : 'skip'
+    activeBusinessId
+      ? { businessId: activeBusinessId, deferLargeStats: true }
+      : 'skip'
   );
   const referralConfig = useQuery(
     api.referrals.getReferralConfig,
@@ -184,7 +192,10 @@ export function CampaignsHubContent() {
       return;
     }
     router.push({
-      pathname: '/(authenticated)/(business)/cards/campaign/[campaignId]',
+      pathname: businessHref(
+        Platform.OS,
+        '/(authenticated)/(business)/cards/campaign/[campaignId]'
+      ) as any,
       params: {
         campaignId: String(campaignId),
         businessId: String(activeBusinessId),
@@ -267,7 +278,10 @@ export function CampaignsHubContent() {
       return;
     }
     router.push({
-      pathname: '/(authenticated)/(business)/cards/campaign/[campaignId]',
+      pathname: businessHref(
+        Platform.OS,
+        '/(authenticated)/(business)/cards/campaign/[campaignId]'
+      ) as any,
       params: {
         campaignId: 'new',
         businessId: String(activeBusinessId),
@@ -307,13 +321,18 @@ export function CampaignsHubContent() {
           : 'הקמפיין שמור אך אינו פעיל'
       }
       onPress={() =>
-        router.push('/(authenticated)/(business)/settings-business-referrals')
+        router.push(
+          businessHref(
+            Platform.OS,
+            '/(authenticated)/(business)/settings-business-referrals'
+          )
+        )
       }
     />
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
+    <SafeAreaView className={webClassName('flex-1 bg-[#E9F0FF]')} edges={[]}>
       <ScrollView
         stickyHeaderIndices={[0]}
         className="flex-1"
@@ -327,7 +346,7 @@ export function CampaignsHubContent() {
       >
         <StickyScrollHeader
           topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
+          backgroundColor={productPageBackground}
         >
           <BusinessScreenHeader
             title="קמפיינים"
@@ -531,6 +550,7 @@ export function CampaignsHubContent() {
         currentPlan={entitlements?.plan ?? null}
         limitSummary={`בשימוש ${campaignLimit.currentValue} מתוך ${campaignLimit.limitValue} הגדרות קמפיין`}
         canManageSubscription={canManageSubscription}
+        navigationReason={planLimitNotice?.navigationReason}
         onManageSubscription={
           planLimitNotice
             ? () => {

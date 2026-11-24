@@ -41,7 +41,10 @@ const businessDeletionSource = readFileSync(
   'utf8'
 );
 const hostSource = readFileSync(
-  new URL('../../components/customer/RedemptionCelebrationHost.tsx', import.meta.url),
+  new URL(
+    '../../components/customer/RedemptionCelebrationHost.tsx',
+    import.meta.url
+  ),
   'utf8'
 );
 const cronSource = readFileSync(
@@ -83,8 +86,8 @@ class FakeQuery {
     return query;
   }
   matchingRows() {
-    const rows = this.db.rows(this.table)
-      .filter((row) => this.conditions.every(([operator, field, value]) => {
+    const rows = this.db.rows(this.table).filter((row) =>
+      this.conditions.every(([operator, field, value]) => {
         if (operator === 'eq') {
           return row[field] === value;
         }
@@ -95,10 +98,11 @@ class FakeQuery {
           return row[field] <= value;
         }
         return false;
-      }));
+      })
+    );
     if (this.direction === 'desc') {
-      return [...rows].sort((left, right) =>
-        (right.confirmedAt ?? 0) - (left.confirmedAt ?? 0)
+      return [...rows].sort(
+        (left, right) => (right.confirmedAt ?? 0) - (left.confirmedAt ?? 0)
       );
     }
     return rows;
@@ -131,7 +135,11 @@ class FakeDb {
     return row._id;
   }
   async get(id) {
-    return Object.values(this.tables).flat().find((row) => row._id === id) ?? null;
+    return (
+      Object.values(this.tables)
+        .flat()
+        .find((row) => row._id === id) ?? null
+    );
   }
   async patch(id, patch) {
     for (const rows of Object.values(this.tables)) {
@@ -176,16 +184,22 @@ describe('durable redemption celebration receipts', () => {
   });
 
   test('standard and referral snapshots retain only presentation facts', async () => {
-    const standard = buildPrivacySafeRedemptionPresentation({
-      ...createArgs(),
-      status: 'available',
-      expiresAt: 10_000,
-    }, 2_000);
-    const referral = buildPrivacySafeRedemptionPresentation({
-      ...createArgs({ variant: 'referral' }),
-      status: 'available',
-      expiresAt: 10_000,
-    }, 2_000);
+    const standard = buildPrivacySafeRedemptionPresentation(
+      {
+        ...createArgs(),
+        status: 'available',
+        expiresAt: 10_000,
+      },
+      2_000
+    );
+    const referral = buildPrivacySafeRedemptionPresentation(
+      {
+        ...createArgs({ variant: 'referral' }),
+        status: 'available',
+        expiresAt: 10_000,
+      },
+      2_000
+    );
     expect(standard.variant).toBe('standard');
     expect(referral.variant).toBe('referral');
     expect(Object.keys(standard).sort()).toEqual([
@@ -200,8 +214,18 @@ describe('durable redemption celebration receipts', () => {
   });
 
   test('expired and revoked receipts map fail-closed presentation states', () => {
-    expect(buildPrivacySafeRedemptionPresentation({ ...createArgs(), status: 'available', expiresAt: 1 }, 2).state).toBe('expired');
-    expect(buildPrivacySafeRedemptionPresentation({ ...createArgs(), status: 'revoked', expiresAt: 9 }, 2).state).toBe('revoked');
+    expect(
+      buildPrivacySafeRedemptionPresentation(
+        { ...createArgs(), status: 'available', expiresAt: 1 },
+        2
+      ).state
+    ).toBe('expired');
+    expect(
+      buildPrivacySafeRedemptionPresentation(
+        { ...createArgs(), status: 'revoked', expiresAt: 9 },
+        2
+      ).state
+    ).toBe('revoked');
   });
 
   test('central policy separates auto-present, reopen, and retention', () => {
@@ -282,35 +306,36 @@ describe('redemption receipt cleanup continuation policy', () => {
 function buildBehaviorContext({ ownerUserId = 'customer_1' } = {}) {
   const now = Date.now();
   const db = new FakeDb();
-  db.tables.users = [
-    { _id: 'customer_1' },
-    { _id: 'customer_2' },
+  db.tables.users = [{ _id: 'customer_1' }, { _id: 'customer_2' }];
+  db.tables.events = [
+    {
+      _id: 'event_1',
+      type: 'REWARD_REDEEMED',
+      businessId: 'business_1',
+      customerUserId: 'customer_1',
+      createdAt: now,
+    },
   ];
-  db.tables.events = [{
-    _id: 'event_1',
-    type: 'REWARD_REDEEMED',
-    businessId: 'business_1',
-    customerUserId: 'customer_1',
-    createdAt: now,
-  }];
-  db.tables.redemptionCelebrationReceipts = [{
-    _id: 'receipt_1',
-    ownerUserId: 'customer_1',
-    businessId: 'business_1',
-    membershipId: 'membership_1',
-    canonicalRedemptionEventId: 'event_1',
-    receiptToken: 'receipt_token_1',
-    variant: 'standard',
-    status: 'available',
-    businessName: 'Business One',
-    rewardDisplayName: 'Free Coffee',
-    confirmedAt: now,
-    autoPresentUntil: now + REDEMPTION_AUTO_PRESENT_MS,
-    expiresAt: now + REDEMPTION_REOPEN_MS,
-    purgeAfter: now + REDEMPTION_RETENTION_MS,
-    createdAt: now,
-    updatedAt: now,
-  }];
+  db.tables.redemptionCelebrationReceipts = [
+    {
+      _id: 'receipt_1',
+      ownerUserId: 'customer_1',
+      businessId: 'business_1',
+      membershipId: 'membership_1',
+      canonicalRedemptionEventId: 'event_1',
+      receiptToken: 'receipt_token_1',
+      variant: 'standard',
+      status: 'available',
+      businessName: 'Business One',
+      rewardDisplayName: 'Free Coffee',
+      confirmedAt: now,
+      autoPresentUntil: now + REDEMPTION_AUTO_PRESENT_MS,
+      expiresAt: now + REDEMPTION_REOPEN_MS,
+      purgeAfter: now + REDEMPTION_RETENTION_MS,
+      createdAt: now,
+      updatedAt: now,
+    },
+  ];
   return {
     db,
     auth: {
@@ -341,13 +366,10 @@ describe('redemption receipt executable claim lifecycle', () => {
     expect(Object.keys(live)).not.toContain('ownerUserId');
     expect(Object.keys(live)).not.toContain('membershipId');
 
-    const acknowledged = await acknowledgeRedemptionPresentation._handler(
-      ctx,
-      {
-        receiptToken: claim.receiptToken,
-        claimToken: claim.claimToken,
-      }
-    );
+    const acknowledged = await acknowledgeRedemptionPresentation._handler(ctx, {
+      receiptToken: claim.receiptToken,
+      claimToken: claim.claimToken,
+    });
     expect(acknowledged.status).toBe('presented');
     expect(
       (
@@ -370,7 +392,9 @@ describe('redemption receipt executable claim lifecycle', () => {
     const first = await claimPendingRedemptionReceipt._handler(ctx, {});
     expect(first.status).toBe('claimed');
     expect(Number.isFinite(first.confirmedAt)).toBe(true);
-    expect((await claimPendingRedemptionReceipt._handler(ctx, {})).status).toBe('none');
+    expect((await claimPendingRedemptionReceipt._handler(ctx, {})).status).toBe(
+      'none'
+    );
 
     await ctx.db.patch('receipt_1', { claimExpiresAt: Date.now() - 1 });
     const reclaimed = await claimPendingRedemptionReceipt._handler(ctx, {});
@@ -385,8 +409,12 @@ describe('redemption receipt executable claim lifecycle', () => {
       receiptToken: claim.receiptToken,
       claimToken: claim.claimToken,
     };
-    expect((await acknowledgeRedemptionPresentation._handler(ctx, args)).status).toBe('presented');
-    expect((await acknowledgeRedemptionPresentation._handler(ctx, args)).status).toBe('presented');
+    expect(
+      (await acknowledgeRedemptionPresentation._handler(ctx, args)).status
+    ).toBe('presented');
+    expect(
+      (await acknowledgeRedemptionPresentation._handler(ctx, args)).status
+    ).toBe('presented');
   });
 
   test('owner isolation and reactive signal expose availability only', async () => {
@@ -400,8 +428,12 @@ describe('redemption receipt executable claim lifecycle', () => {
     ]);
 
     const other = buildBehaviorContext({ ownerUserId: 'customer_2' });
-    expect(await hasPendingRedemptionCelebration._handler(other, {})).toEqual({ pending: false });
-    expect((await claimPendingRedemptionReceipt._handler(other, {})).status).toBe('none');
+    expect(await hasPendingRedemptionCelebration._handler(other, {})).toEqual({
+      pending: false,
+    });
+    expect(
+      (await claimPendingRedemptionReceipt._handler(other, {})).status
+    ).toBe('none');
   });
 
   test('reactive availability watermark advances for a newer receipt', async () => {
@@ -433,24 +465,36 @@ describe('redemption receipt executable claim lifecycle', () => {
       autoPresentUntil: Date.now() - 1,
       expiresAt: Date.now() + 10_000,
     });
-    expect(await hasPendingRedemptionCelebration._handler(ctx, {})).toEqual({ pending: false });
-    expect(await authorizeRedemptionReceiptShare._handler(ctx, {
-      receiptToken: 'receipt_token_1',
-    })).toEqual({ allowed: true, state: 'normal' });
+    expect(await hasPendingRedemptionCelebration._handler(ctx, {})).toEqual({
+      pending: false,
+    });
+    expect(
+      await authorizeRedemptionReceiptShare._handler(ctx, {
+        receiptToken: 'receipt_token_1',
+      })
+    ).toEqual({ allowed: true, state: 'normal' });
   });
 
   test('revoked and expired receipts reject share authorization', async () => {
     const revoked = buildBehaviorContext();
     await revoked.db.patch('receipt_1', { status: 'revoked' });
-    expect((await authorizeRedemptionReceiptShare._handler(revoked, {
-      receiptToken: 'receipt_token_1',
-    })).state).toBe('revoked');
+    expect(
+      (
+        await authorizeRedemptionReceiptShare._handler(revoked, {
+          receiptToken: 'receipt_token_1',
+        })
+      ).state
+    ).toBe('revoked');
 
     const expired = buildBehaviorContext();
     await expired.db.patch('receipt_1', { expiresAt: Date.now() - 1 });
-    expect((await authorizeRedemptionReceiptShare._handler(expired, {
-      receiptToken: 'receipt_token_1',
-    })).state).toBe('expired');
+    expect(
+      (
+        await authorizeRedemptionReceiptShare._handler(expired, {
+          receiptToken: 'receipt_token_1',
+        })
+      ).state
+    ).toBe('expired');
   });
 });
 
@@ -459,13 +503,17 @@ describe('receipt authority and lifecycle source contracts', () => {
     expect(scannerSource.indexOf("type: 'REWARD_REDEEMED'")).toBeLessThan(
       scannerSource.indexOf('createRedemptionCelebrationReceipt(ctx')
     );
-    expect(referralSource.indexOf("type: 'REFERRAL_BENEFIT_REDEEMED'")).toBeLessThan(
+    expect(
+      referralSource.indexOf("type: 'REFERRAL_BENEFIT_REDEEMED'")
+    ).toBeLessThan(
       referralSource.indexOf('createRedemptionCelebrationReceipt(ctx')
     );
   });
 
   test('preview, resolve, and failed paths do not create receipts', () => {
-    const applyRedeemStart = scannerSource.indexOf('async function applyRedeem');
+    const applyRedeemStart = scannerSource.indexOf(
+      'async function applyRedeem'
+    );
     const resolveStart = scannerSource.indexOf('export const resolveScan');
     const resolveEnd = scannerSource.indexOf('export const commitStamp');
     expect(scannerSource.slice(resolveStart, resolveEnd)).not.toContain(
@@ -490,23 +538,31 @@ describe('receipt authority and lifecycle source contracts', () => {
   test('expired receipts cannot be newly claimed or shared', () => {
     expect(receiptSource).toContain(".gt('autoPresentUntil', now)");
     expect(receiptSource).toContain('receipt.expiresAt <= now');
-    expect(receiptSource).toContain("allowed: false as const, state: 'expired'");
+    expect(receiptSource).toContain(
+      "allowed: false as const, state: 'expired'"
+    );
   });
 
   test('acknowledgement is idempotent and presented receipts are not reclaimed', () => {
     expect(receiptSource).toContain("if (receipt.status === 'presented')");
-    expect(receiptSource).not.toContain(".eq('status', 'presented')\n            .gt");
+    expect(receiptSource).not.toContain(
+      ".eq('status', 'presented')\n            .gt"
+    );
   });
 
   test('reversal revokes and disables future claims/shares', () => {
     expect(scannerSource).toContain('revokeRedemptionCelebrationReceipt(ctx');
     expect(receiptSource).toContain("receipt.status === 'revoked'");
-    expect(receiptSource).toContain("allowed: false as const, state: 'revoked'");
+    expect(receiptSource).toContain(
+      "allowed: false as const, state: 'revoked'"
+    );
   });
 
   test('account and business deletion remove receipts', () => {
     expect(accountDeletionSource).toContain("'redemptionCelebrationReceipts'");
-    expect(businessDeletionSource).toContain("table: 'redemptionCelebrationReceipts'");
+    expect(businessDeletionSource).toContain(
+      "table: 'redemptionCelebrationReceipts'"
+    );
   });
 
   test('cleanup is indexed, bounded, and releases crashed-device claims', () => {
@@ -530,12 +586,18 @@ describe('receipt authority and lifecycle source contracts', () => {
   });
 
   test('server never persists a generated share image or private DTO fields', () => {
-    expect(receiptSource).not.toMatch(/storage\.store|imageStorageId|qrPayload|qrSignature/);
+    expect(receiptSource).not.toMatch(
+      /storage\.store|imageStorageId|qrPayload|qrSignature/
+    );
     const dtoBuilder = readFileSync(
       new URL('../lib/redemptionReceipts.ts', import.meta.url),
       'utf8'
     );
-    const dto = dtoBuilder.slice(dtoBuilder.indexOf('buildPrivacySafeRedemptionPresentation'));
-    expect(dto).not.toMatch(/email|phone|customerName|staffId|referralCode|membershipId/);
+    const dto = dtoBuilder.slice(
+      dtoBuilder.indexOf('buildPrivacySafeRedemptionPresentation')
+    );
+    expect(dto).not.toMatch(
+      /email|phone|customerName|staffId|referralCode|membershipId/
+    );
   });
 });

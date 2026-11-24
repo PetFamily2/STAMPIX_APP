@@ -16,9 +16,7 @@ export function resolveFreshUserIdAfterDeletedUserSuppression<
   return userResultId ?? sessionResultId ?? null;
 }
 
-export function shouldSuppressDeletedUserPresentation<
-  TUserId extends string,
->(
+export function shouldSuppressDeletedUserPresentation<TUserId extends string>(
   userResultId: TUserId | null | undefined,
   sessionResultId: TUserId | null | undefined,
   deletedUserId: TUserId | null | undefined

@@ -1,9 +1,9 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMutation } from 'convex/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,11 +22,18 @@ import {
   SettingsField,
   SettingsSection,
 } from '@/components/business-settings';
+import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
 import { UserAvatar } from '@/components/UserAvatar';
 import { PaintedPressable } from '@/components/ui/PaintedPressable';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
+import { Alert } from '@/lib/alert';
+import {
+  productPageBackground,
+  webAccentFill,
+  webPage,
+} from '@/lib/design/webProductChrome';
 import { safeBack } from '@/lib/navigation';
 import { CUSTOMER_BACK_FALLBACKS } from '@/lib/navigation/customerRoutes';
 import { alignItems, flexDirection, justifyContent } from '@/lib/rtl';
@@ -118,6 +125,7 @@ export default function CustomerAccountDetailsScreen() {
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [phoneInput, setPhoneInput] = useState(user?.phone?.trim() ?? '');
   const [isSavingPhone, setIsSavingPhone] = useState(false);
+  const phoneBaseline = useRef('');
 
   const [marketingOptIn, setMarketingOptIn] = useState(
     user?.marketingOptIn === true
@@ -136,6 +144,30 @@ export default function CustomerAccountDetailsScreen() {
   );
   const [isSavingMarketing, setIsSavingMarketing] = useState(false);
 
+  const serverMarketingValue = JSON.stringify([
+    user?.marketingOptIn === true,
+    user?.birthdayDay ? String(user.birthdayDay) : '',
+    user?.birthdayMonth ? String(user.birthdayMonth) : '',
+    user?.anniversaryDay ? String(user.anniversaryDay) : '',
+    user?.anniversaryMonth ? String(user.anniversaryMonth) : '',
+  ]);
+  const marketingValue = JSON.stringify([
+    marketingOptIn,
+    birthdayDay,
+    birthdayMonth,
+    anniversaryDay,
+    anniversaryMonth,
+  ]);
+  const [marketingBaseline, setMarketingBaseline] =
+    useState(serverMarketingValue);
+  const hydratedMarketingUser = useRef<string | null>(null);
+  const marketingDirty = marketingValue !== marketingBaseline;
+  useBusinessWebUnsavedChanges(
+    Platform.OS === 'web' &&
+      (marketingDirty ||
+        (isEditingPhone && phoneInput.trim() !== (user?.phone?.trim() ?? '')))
+  );
+
   useEffect(() => {
     if (!isEditingPhone) {
       setPhoneInput(user?.phone?.trim() ?? '');
@@ -143,6 +175,9 @@ export default function CustomerAccountDetailsScreen() {
   }, [isEditingPhone, user?.phone]);
 
   useEffect(() => {
+    if (user?._id && hydratedMarketingUser.current === String(user._id)) return;
+    hydratedMarketingUser.current = user?._id ? String(user._id) : null;
+    setMarketingBaseline(serverMarketingValue);
     setMarketingOptIn(user?.marketingOptIn === true);
     setBirthdayDay(user?.birthdayDay ? String(user.birthdayDay) : '');
     setBirthdayMonth(user?.birthdayMonth ? String(user.birthdayMonth) : '');
@@ -151,6 +186,8 @@ export default function CustomerAccountDetailsScreen() {
       user?.anniversaryMonth ? String(user.anniversaryMonth) : ''
     );
   }, [
+    user?._id,
+    serverMarketingValue,
     user?.anniversaryDay,
     user?.anniversaryMonth,
     user?.birthdayDay,
@@ -186,11 +223,36 @@ export default function CustomerAccountDetailsScreen() {
   const handleSavePhone = async () => {
     try {
       setIsSavingPhone(true);
-      await setMyPhone({ phone: phoneInput.trim() });
+      await setMyPhone({
+        phone: phoneInput.trim(),
+        expectedPhone: phoneBaseline.current,
+      });
       setIsEditingPhone(false);
       Alert.alert('נשמר', TEXT.phoneSaved);
-    } catch {
-      Alert.alert('שגיאה', TEXT.phoneError);
+    } catch (error) {
+      const data = (
+        error as { data?: { code?: string; currentPhone?: string } }
+      )?.data;
+      if (
+        data?.code === 'ACCOUNT_PHONE_CONFLICT' &&
+        typeof data.currentPhone === 'string'
+      ) {
+        const current = data.currentPhone;
+        Alert.alert(
+          'הטלפון השתנה במכשיר אחר',
+          'הטיוטה נשמרה. אפשר להמשיך לערוך או לטעון את הטלפון העדכני.',
+          [
+            { text: 'המשך עריכה', style: 'cancel' },
+            {
+              text: 'טען טלפון עדכני',
+              onPress: () => {
+                phoneBaseline.current = current;
+                setPhoneInput(current);
+              },
+            },
+          ]
+        );
+      } else Alert.alert('שגיאה', TEXT.phoneError);
     } finally {
       setIsSavingPhone(false);
     }
@@ -214,17 +276,87 @@ export default function CustomerAccountDetailsScreen() {
 
     try {
       setIsSavingMarketing(true);
+      const [
+        baselineOptIn,
+        baselineDay,
+        baselineMonth,
+        baselineAnniversaryDay,
+        baselineAnniversaryMonth,
+      ] = JSON.parse(marketingBaseline);
+      const valueOrNull = (value: string) => (value ? Number(value) : null);
       await setMyMarketingProfile({
         marketingOptIn,
         source: 'account_details',
+        expectedMarketingSnapshot: {
+          marketingOptIn: baselineOptIn,
+          birthdayDay: valueOrNull(baselineDay),
+          birthdayMonth: valueOrNull(baselineMonth),
+          anniversaryDay: valueOrNull(baselineAnniversaryDay),
+          anniversaryMonth: valueOrNull(baselineAnniversaryMonth),
+        },
         birthdayDay: birthdayDayValue,
         birthdayMonth: birthdayMonthValue,
         anniversaryDay: anniversaryDayValue,
         anniversaryMonth: anniversaryMonthValue,
       });
+      setMarketingBaseline(marketingValue);
       Alert.alert('נשמר', TEXT.marketingSaved);
-    } catch {
-      Alert.alert('שגיאה', TEXT.marketingError);
+    } catch (error) {
+      const data = (
+        error as {
+          data?: {
+            code?: string;
+            current?: {
+              marketingOptIn: boolean;
+              birthdayDay: number | null;
+              birthdayMonth: number | null;
+              anniversaryDay: number | null;
+              anniversaryMonth: number | null;
+            };
+          };
+        }
+      )?.data;
+      if (data?.code === 'MARKETING_PROFILE_CONFLICT' && data.current) {
+        const current = data.current;
+        Alert.alert(
+          'הפרטים השתנו',
+          'הטיוטה נשמרה. אפשר להמשיך לערוך או לטעון את הפרטים העדכניים.',
+          [
+            { text: 'המשך עריכה', style: 'cancel' },
+            {
+              text: 'טען פרטים עדכניים',
+              onPress: () => {
+                const day = current.birthdayDay
+                  ? String(current.birthdayDay)
+                  : '';
+                const month = current.birthdayMonth
+                  ? String(current.birthdayMonth)
+                  : '';
+                const anniversaryDay = current.anniversaryDay
+                  ? String(current.anniversaryDay)
+                  : '';
+                const anniversaryMonth = current.anniversaryMonth
+                  ? String(current.anniversaryMonth)
+                  : '';
+                setMarketingOptIn(current.marketingOptIn);
+                setBirthdayDay(day);
+                setBirthdayMonth(month);
+                setAnniversaryDay(anniversaryDay);
+                setAnniversaryMonth(anniversaryMonth);
+                setMarketingBaseline(
+                  JSON.stringify([
+                    current.marketingOptIn,
+                    day,
+                    month,
+                    anniversaryDay,
+                    anniversaryMonth,
+                  ])
+                );
+              },
+            },
+          ]
+        );
+      } else Alert.alert('שגיאה', TEXT.marketingError);
     } finally {
       setIsSavingMarketing(false);
     }
@@ -244,7 +376,7 @@ export default function CustomerAccountDetailsScreen() {
       >
         <StickyScrollHeader
           topPadding={(insets.top || 0) + 12}
-          backgroundColor="#E9F0FF"
+          backgroundColor={productPageBackground}
           style={styles.headerRow}
         >
           <BusinessScreenHeader
@@ -335,7 +467,10 @@ export default function CustomerAccountDetailsScreen() {
                   </View>
                 ) : (
                   <PaintedPressable
-                    onPress={() => setIsEditingPhone(true)}
+                    onPress={() => {
+                      phoneBaseline.current = user?.phone?.trim() ?? '';
+                      setIsEditingPhone(true);
+                    }}
                     accessibilityRole="button"
                     accessibilityLabel={
                       phone === TEXT.missingValue
@@ -484,7 +619,7 @@ export default function CustomerAccountDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#E9F0FF' },
+  safeArea: { flex: 1, backgroundColor: '#E9F0FF', ...webPage },
   scrollContent: {
     paddingHorizontal: 20,
     gap: SETTINGS_TOKENS.sectionGap,
@@ -499,6 +634,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
+    ...webAccentFill,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
@@ -608,6 +744,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: 999,
     backgroundColor: '#2F6BFF',
+    ...webAccentFill,
     paddingHorizontal: 14,
     alignItems: 'center',
     justifyContent: 'center',

@@ -419,6 +419,7 @@ export const byCustomerBusinesses = query({
         previewMaxStamps: number | null;
         previewCurrentStamps: number | null;
         previewStampShape: string | null;
+        previewStampIcon: string | null;
         previewProgramLifecycle: 'active' | 'archived';
       }
     >();
@@ -470,6 +471,7 @@ export const byCustomerBusinesses = query({
           previewMaxStamps: Number(program.maxStamps ?? 0),
           previewCurrentStamps: Number(membership.currentStamps ?? 0),
           previewStampShape: program.stampShape ?? 'circle',
+          previewStampIcon: program.stampIcon,
           previewProgramLifecycle: programLifecycle,
         });
         continue;
@@ -489,6 +491,7 @@ export const byCustomerBusinesses = query({
         existing.previewMaxStamps = Number(program.maxStamps ?? 0);
         existing.previewCurrentStamps = Number(membership.currentStamps ?? 0);
         existing.previewStampShape = program.stampShape ?? 'circle';
+        existing.previewStampIcon = program.stampIcon;
         existing.previewProgramLifecycle = programLifecycle;
       }
     }

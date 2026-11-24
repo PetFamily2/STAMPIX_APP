@@ -3,27 +3,37 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Linking,
+  Platform,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { ContinueButton } from '@/components/ContinueButton';
 import LoyaltyCard from '@/components/loyalty/LoyaltyCard';
 import { LoyaltyThemePalette } from '@/components/loyalty/LoyaltyThemePalette';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { WebPaidBusinessActivation } from '@/components/onboarding/WebPaidBusinessActivation';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { AppText as Text } from '@/components/ui/AppText';
 import { TERMS_OF_SERVICE_URL } from '@/config/legalUrls';
 import { CARD_THEMES } from '@/constants/cardThemes';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { Alert } from '@/lib/alert';
+import {
+  productAccent,
+  productPageBackground,
+  webAccentText,
+  webBody,
+  webPage,
+  webTitle,
+} from '@/lib/design/webProductChrome';
+import { webLegalAcceptanceArgs } from '@/lib/legalWebContract';
 import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
   BUSINESS_ONBOARDING_ROUTES,
@@ -39,8 +49,8 @@ const TEXT = {
   subtitle: 'בחרו את העיצוב שמרגיש הכי מדויק למותג שלכם',
   progressLabel: 'התקדמות לדוגמה',
   feelLabel: 'אופי הכרטיס',
-  themeSectionTitle: '10 צבעים לבחירה',
-  themeSectionSubtitle: 'לחצו על סגנון כדי לראות את הכרטיס מתחלף מיד.',
+  themeSectionTitle: 'צבע הכרטיסייה',
+  themeSectionSubtitle: 'בחרו צבע כדי לראות איך הוא נראה על הכרטיסייה.',
   continue: 'סיום ופתיחת סורק',
   submitting: 'משלימים הגדרות',
   fallbackBusinessName: 'עסק חדש',
@@ -55,8 +65,8 @@ const TEXT = {
 };
 
 const PREVIEW_COPY = {
-  title: 'בדיקה אחרונה לפני פרסום',
-  subtitle: 'כך הכרטיסייה תיראה ללקוחות באפליקציה',
+  title: 'תצוגה מקדימה של הכרטיסייה',
+  subtitle: 'בדקו איך הכרטיסייה תיראה ללקוחות לפני הפרסום.',
   publishNote: 'נפרסם את הכרטיסייה הראשונה שלך ונעביר אותך לניהול העסק.',
   referralNote: 'אפשר להפעיל חבר מביא חבר בהגדרות העסק.',
   continue: 'פרסום וכניסה לניהול',
@@ -143,52 +153,54 @@ export default function PreviewCardScreen() {
     );
   };
 
-  const handleFinish = async () => {
-    if (!businessId || !programId || isFinishing) {
-      return;
-    }
+  const saveBeforeCheckout = async () => {
+    if (!businessId || !programId) throw new Error('ONBOARDING_DRAFT_REQUIRED');
+    await saveBusinessOnboardingSnapshot({
+      businessId,
+      discoverySource: businessOnboardingDraft.discoverySource ?? undefined,
+      reason: businessOnboardingDraft.reason ?? undefined,
+      usageAreas:
+        businessOnboardingDraft.usageAreas.length > 0
+          ? businessOnboardingDraft.usageAreas
+          : undefined,
+      ownerAgeRange: businessOnboardingDraft.ageRange ?? undefined,
+      businessExample: businessOnboardingDraft.businessExample ?? undefined,
+      cadenceBand: businessOnboardingDraft.cadenceBand ?? undefined,
+      birthdayCampaignRelevant:
+        businessOnboardingDraft.birthdayCampaignRelevant ?? undefined,
+      joinAnniversaryCampaignRelevant:
+        businessOnboardingDraft.joinAnniversaryCampaignRelevant ?? undefined,
+      weakTimePromosRelevant:
+        businessOnboardingDraft.weakTimePromosRelevant ?? undefined,
+    });
 
+    const normalizedTitle =
+      programDraft.title.trim() || programDraft.rewardName.trim();
+    const normalizedReward =
+      programDraft.rewardName.trim() || programDraft.title.trim();
+
+    await updateProgramForManagement({
+      businessId,
+      programId,
+      title: normalizedTitle,
+      description: undefined,
+      imageUrl: undefined,
+      imageStorageId: programDraft.imageStorageId ?? undefined,
+      rewardName: normalizedReward,
+      maxStamps: stampCount,
+      cardTerms: programDraft.cardTerms.trim() || undefined,
+      rewardConditions: programDraft.rewardConditions.trim() || undefined,
+      stampIcon: programDraft.stampIcon.trim() || 'star',
+      stampShape: programDraft.stampShape,
+      cardThemeId: programDraft.cardThemeId,
+    });
+  };
+
+  const handleFinish = async () => {
+    if (!businessId || !programId || isFinishing) return;
     setIsFinishing(true);
     try {
-      await saveBusinessOnboardingSnapshot({
-        businessId,
-        discoverySource: businessOnboardingDraft.discoverySource ?? undefined,
-        reason: businessOnboardingDraft.reason ?? undefined,
-        usageAreas:
-          businessOnboardingDraft.usageAreas.length > 0
-            ? businessOnboardingDraft.usageAreas
-            : undefined,
-        ownerAgeRange: businessOnboardingDraft.ageRange ?? undefined,
-        businessExample: businessOnboardingDraft.businessExample ?? undefined,
-        cadenceBand: businessOnboardingDraft.cadenceBand ?? undefined,
-        birthdayCampaignRelevant:
-          businessOnboardingDraft.birthdayCampaignRelevant ?? undefined,
-        joinAnniversaryCampaignRelevant:
-          businessOnboardingDraft.joinAnniversaryCampaignRelevant ?? undefined,
-        weakTimePromosRelevant:
-          businessOnboardingDraft.weakTimePromosRelevant ?? undefined,
-      });
-
-      const normalizedTitle =
-        programDraft.title.trim() || programDraft.rewardName.trim();
-      const normalizedReward =
-        programDraft.rewardName.trim() || programDraft.title.trim();
-
-      await updateProgramForManagement({
-        businessId,
-        programId,
-        title: normalizedTitle,
-        description: undefined,
-        imageUrl: undefined,
-        imageStorageId: programDraft.imageStorageId ?? undefined,
-        rewardName: normalizedReward,
-        maxStamps: stampCount,
-        cardTerms: programDraft.cardTerms.trim() || undefined,
-        rewardConditions: programDraft.rewardConditions.trim() || undefined,
-        stampIcon: programDraft.stampIcon.trim() || 'star',
-        stampShape: programDraft.stampShape,
-        cardThemeId: programDraft.cardThemeId,
-      });
+      await saveBeforeCheckout();
 
       await publishProgram({
         businessId,
@@ -199,6 +211,7 @@ export default function PreviewCardScreen() {
         businessId,
         programId,
         flow: resolveBusinessOnboardingFlow(flow),
+        ...webLegalAcceptanceArgs(Platform.OS),
       });
       await setAppMode('business');
       reset();
@@ -230,7 +243,9 @@ export default function PreviewCardScreen() {
         >
           <StickyScrollHeader
             topPadding={0}
-            backgroundColor="#F4F0E8"
+            backgroundColor={
+              Platform.OS === 'web' ? productPageBackground : '#F4F0E8'
+            }
             style={styles.titleContainer}
           >
             <StandaloneBackTitleHeader
@@ -253,7 +268,7 @@ export default function PreviewCardScreen() {
                   )}
                 />
               }
-              style={styles.header}
+              style={Platform.OS === 'web' ? undefined : styles.nativeHeader}
               titleStyle={styles.title}
               subtitleStyle={styles.subtitle}
             />
@@ -313,7 +328,7 @@ export default function PreviewCardScreen() {
 
           {isFinishing ? (
             <View style={styles.submittingRow}>
-              <ActivityIndicator color="#2563EB" />
+              <ActivityIndicator color={productAccent} />
               <Text style={styles.submittingText}>{TEXT.submitting}</Text>
             </View>
           ) : null}
@@ -330,13 +345,19 @@ export default function PreviewCardScreen() {
               </Text>
               .
             </Text>
-            <ContinueButton
-              onPress={() => {
-                void handleFinish();
-              }}
-              disabled={!businessId || !programId || isFinishing}
-              label={PREVIEW_COPY.continue}
-            />
+            <WebPaidBusinessActivation
+              businessId={businessId}
+              businessName={businessName}
+              onBeforeCheckout={saveBeforeCheckout}
+            >
+              <ContinueButton
+                onPress={() => {
+                  void handleFinish();
+                }}
+                disabled={!businessId || !programId || isFinishing}
+                label={PREVIEW_COPY.continue}
+              />
+            </WebPaidBusinessActivation>
           </View>
         </ScrollView>
       </View>
@@ -348,6 +369,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F4F0E8',
+    ...webPage,
   },
   content: {
     flex: 1,
@@ -358,7 +380,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 20,
   },
-  header: {
+  nativeHeader: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -377,6 +399,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#111827',
     textAlign: 'right',
+    ...webTitle,
   },
   subtitle: {
     fontSize: 14,
@@ -384,6 +407,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#57534E',
     textAlign: 'right',
+    ...webBody,
   },
   previewShell: {
     borderRadius: 28,
@@ -466,6 +490,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#2563EB',
+    ...webAccentText,
     textAlign: 'right',
   },
   footer: {

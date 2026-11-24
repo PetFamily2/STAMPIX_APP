@@ -83,9 +83,7 @@ export function sanitizeSmartManagerProviderTicketId(value: unknown) {
     return undefined;
   }
   const normalized = value.trim();
-  return /^[A-Za-z0-9_-]{1,160}$/.test(normalized)
-    ? normalized
-    : undefined;
+  return /^[A-Za-z0-9_-]{1,160}$/.test(normalized) ? normalized : undefined;
 }
 
 export function classifySmartManagerExpoTicket(ticket: {

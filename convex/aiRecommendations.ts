@@ -18,18 +18,19 @@ import {
   requireActorIsStaffForBusiness,
 } from './guards';
 import {
+  type AiJsonUsageMetadata,
+  generateOpenRouterJson,
+  OPENROUTER_JSON_MODEL,
+} from './lib/aiJsonGeneration';
+import {
   DAY_MS,
   hashString,
   monthKeyFromTimestamp,
   slugify,
   startOfUtcDay,
 } from './lib/recommendationUtils';
-import {
-  generateOpenRouterJson,
-  OPENROUTER_JSON_MODEL,
-  type AiJsonUsageMetadata,
-} from './lib/aiJsonGeneration';
 import { markSmartManagerDirty } from './lib/smartManagerDirty';
+import { resolveProgramLifecycle } from './loyaltyPrograms';
 
 const MODEL_NAME = OPENROUTER_JSON_MODEL;
 
@@ -1653,12 +1654,15 @@ export function toLegacyAiTokenCounts(usage: AiJsonUsageMetadata) {
   };
 }
 
-export function countsTowardLegacyDailyAiLimit(row: {
-  status?: string;
-  cacheHit?: boolean;
-  requestType?: string;
-  createdAt?: number;
-}, now: number) {
+export function countsTowardLegacyDailyAiLimit(
+  row: {
+    status?: string;
+    cacheHit?: boolean;
+    requestType?: string;
+    createdAt?: number;
+  },
+  now: number
+) {
   return (
     row.status === 'success' &&
     row.cacheHit !== true &&
@@ -2924,10 +2928,9 @@ export const evaluateBusinessRecommendationInternal = internalMutation({
     );
     const hasEverSentCampaign = sortedCampaignRuns.length > 0;
     const hasEverSentWelcomeCampaign = sentWelcomeRuns.length > 0;
-      const hasRecentWelcomeCampaign = sentWelcomeRuns.some(
-        (run) =>
-          run.sentAt >= now - WELCOME_CAMPAIGN_LOOKBACK_DAYS * DAY_MS
-      );
+    const hasRecentWelcomeCampaign = sentWelcomeRuns.some(
+      (run) => run.sentAt >= now - WELCOME_CAMPAIGN_LOOKBACK_DAYS * DAY_MS
+    );
     const latestRecommendation =
       [...aiHistory].sort(
         (left, right) => right.createdAt - left.createdAt
@@ -3754,6 +3757,13 @@ export const runRecommendationSweepInternal = internalAction({
   },
 });
 
+export function isStoredRecommendationCurrentForProgramState(input: {
+  stateKey: string;
+  hasActiveProgram: boolean;
+}) {
+  return !(input.stateKey === 'NO_ACTIVE_PROGRAM' && input.hasActiveProgram);
+}
+
 export const getLatestRecommendationForBusiness = query({
   args: {
     businessId: v.optional(v.id('businesses')),
@@ -3765,12 +3775,24 @@ export const getLatestRecommendationForBusiness = query({
     await requireActorIsStaffForBusiness(ctx, businessId);
 
     const now = Date.now();
-    const rows = await ctx.db
-      .query('aiRecommendations')
-      .withIndex('by_businessId_createdAt', (q: any) =>
-        q.eq('businessId', businessId)
-      )
-      .collect();
+    const [rows, programs] = await Promise.all([
+      ctx.db
+        .query('aiRecommendations')
+        .withIndex('by_businessId_createdAt', (q: any) =>
+          q.eq('businessId', businessId)
+        )
+        .collect(),
+      ctx.db
+        .query('loyaltyPrograms')
+        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+        .filter((q: any) => q.eq(q.field('isActive'), true))
+        .collect(),
+    ]);
+    const hasActiveProgram = programs.some(
+      (program) =>
+        program.isActive === true &&
+        resolveProgramLifecycle(program) === 'active'
+    );
 
     const sorted = rows
       .filter(
@@ -3778,7 +3800,11 @@ export const getLatestRecommendationForBusiness = query({
           row.action !== 'suppress' &&
           row.action !== 'defer' &&
           (row.expiresAt === undefined || row.expiresAt > now) &&
-          (row.consumedAt === undefined || row.ctaType === 'none')
+          (row.consumedAt === undefined || row.ctaType === 'none') &&
+          isStoredRecommendationCurrentForProgramState({
+            stateKey: row.stateKey,
+            hasActiveProgram,
+          })
       )
       .sort((left, right) => right.createdAt - left.createdAt);
 
@@ -3977,21 +4003,16 @@ export const getAiRecommendationAnalytics = query({
     ).length;
 
     const aiTokensInput = scopedUsage.reduce(
-      (sum, row) =>
-        sum + Math.max(0, toLegacyAiTokenCounts(row).inputTokens),
+      (sum, row) => sum + Math.max(0, toLegacyAiTokenCounts(row).inputTokens),
       0
     );
     const aiTokensOutput = scopedUsage.reduce(
-      (sum, row) =>
-        sum + Math.max(0, toLegacyAiTokenCounts(row).outputTokens),
+      (sum, row) => sum + Math.max(0, toLegacyAiTokenCounts(row).outputTokens),
       0
     );
     const aiCostEstimate = Number(
       scopedUsage
-        .reduce(
-          (sum, row) => sum + Math.max(0, row.costEstimate ?? 0),
-          0
-        )
+        .reduce((sum, row) => sum + Math.max(0, row.costEstimate ?? 0), 0)
         .toFixed(6)
     );
 

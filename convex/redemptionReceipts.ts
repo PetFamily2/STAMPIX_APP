@@ -1,5 +1,5 @@
-import { v } from 'convex/values';
 import { makeFunctionReference } from 'convex/server';
+import { v } from 'convex/values';
 import { internalMutation, mutation, query } from './_generated/server';
 import { requireCurrentUser } from './guards';
 import { generateOpaqueToken } from './lib/ids';
@@ -27,10 +27,7 @@ async function loadOwnedReceipt(ctx: any, userId: any, receiptToken: string) {
       q.eq('receiptToken', receiptToken)
     )
     .take(SINGLETON_LIMIT);
-  if (
-    rows.length !== 1 ||
-    String(rows[0].ownerUserId) !== String(userId)
-  ) {
+  if (rows.length !== 1 || String(rows[0].ownerUserId) !== String(userId)) {
     throw new Error('REDEMPTION_RECEIPT_NOT_FOUND');
   }
   return rows[0];
@@ -110,12 +107,11 @@ export const hasPendingRedemptionCelebration = query({
       (receipt: any) =>
         receipt.autoPresentUntil > now && receipt.expiresAt > now
     );
-    const newestConfirmedAt = [...available, ...eligibleReclaimable]
-      .reduce(
-        (latest: number, receipt: any) =>
-          Math.max(latest, Number(receipt.confirmedAt)),
-        Number.NEGATIVE_INFINITY
-      );
+    const newestConfirmedAt = [...available, ...eligibleReclaimable].reduce(
+      (latest: number, receipt: any) =>
+        Math.max(latest, Number(receipt.confirmedAt)),
+      Number.NEGATIVE_INFINITY
+    );
     if (!Number.isFinite(newestConfirmedAt)) {
       return { pending: false as const };
     }
@@ -151,9 +147,10 @@ export const claimPendingRedemptionReceipt = mutation({
       )
       .take(REDEMPTION_RECEIPT_CLAIM_SCAN_LIMIT);
     const candidates = [...available, ...reclaimable]
-      .filter((receipt, index, rows) =>
-        rows.findIndex((row) => String(row._id) === String(receipt._id)) ===
-        index
+      .filter(
+        (receipt, index, rows) =>
+          rows.findIndex((row) => String(row._id) === String(receipt._id)) ===
+          index
       )
       .sort(
         (left, right) =>
@@ -310,10 +307,7 @@ export const cleanupRedemptionReceiptsInternal = internalMutation({
     }
     const remainingAfterClaims =
       REDEMPTION_RECEIPT_CLEANUP_BATCH_SIZE - expiredClaims.length;
-    const perStatusLimit = Math.max(
-      1,
-      Math.floor(remainingAfterClaims / 4)
-    );
+    const perStatusLimit = Math.max(1, Math.floor(remainingAfterClaims / 4));
     const expirableStatusCounts: number[] = [];
     for (const status of expirableStatuses) {
       const rows = await db
@@ -335,12 +329,13 @@ export const cleanupRedemptionReceiptsInternal = internalMutation({
         expiredClaims.length -
         expiryExamined
     );
-    const purgeable = purgeLimit > 0
-      ? await db
-          .query('redemptionCelebrationReceipts')
-          .withIndex('by_purgeAfter', (q: any) => q.lte('purgeAfter', now))
-          .take(purgeLimit)
-      : [];
+    const purgeable =
+      purgeLimit > 0
+        ? await db
+            .query('redemptionCelebrationReceipts')
+            .withIndex('by_purgeAfter', (q: any) => q.lte('purgeAfter', now))
+            .take(purgeLimit)
+        : [];
     let purgedCount = 0;
     for (const receipt of purgeable) {
       if (receipt.status === 'available' || receipt.status === 'claimed') {

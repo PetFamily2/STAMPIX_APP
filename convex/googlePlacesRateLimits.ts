@@ -13,9 +13,30 @@ import { internalMutation } from './_generated/server';
 export type GooglePlacesOperation =
   | 'autocomplete'
   | 'placeDetails'
-  | 'addressResolution';
+  | 'addressResolution'
+  | 'discoverySearch';
 
 export const GOOGLE_PLACES_RATE_LIMIT_DEFINITIONS = {
+  placesDiscoveryUserSustainedV1: {
+    kind: 'token bucket',
+    rate: 6,
+    period: MINUTE,
+    capacity: 3,
+  },
+  placesDiscoveryUserDailyV1: { kind: 'fixed window', rate: 30, period: DAY },
+  placesDiscoveryGlobalSustainedV1: {
+    kind: 'token bucket',
+    rate: 60,
+    period: MINUTE,
+    capacity: 20,
+    shards: 5,
+  },
+  placesDiscoveryGlobalDailyV1: {
+    kind: 'fixed window',
+    rate: 1000,
+    period: DAY,
+    shards: 5,
+  },
   placesAutocompleteUserSustainedV1: {
     kind: 'token bucket',
     rate: 30,
@@ -91,6 +112,12 @@ export const GOOGLE_PLACES_RATE_LIMIT_DEFINITIONS = {
 } as const;
 
 export const GOOGLE_PLACES_LIMIT_NAMES_BY_OPERATION = {
+  discoverySearch: [
+    'placesDiscoveryUserSustainedV1',
+    'placesDiscoveryUserDailyV1',
+    'placesDiscoveryGlobalSustainedV1',
+    'placesDiscoveryGlobalDailyV1',
+  ],
   autocomplete: [
     'placesAutocompleteUserSustainedV1',
     'placesAutocompleteUserDailyV1',
@@ -150,11 +177,7 @@ function getErrorData(error: unknown): Record<string, unknown> | null {
 }
 
 export function sanitizePlacesRetryAfterMs(value: unknown): number | null {
-  if (
-    typeof value !== 'number' ||
-    !Number.isFinite(value) ||
-    value < 0
-  ) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
     return null;
   }
 
@@ -239,7 +262,8 @@ export const consume = internalMutation({
     operation: v.union(
       v.literal('autocomplete'),
       v.literal('placeDetails'),
-      v.literal('addressResolution')
+      v.literal('addressResolution'),
+      v.literal('discoverySearch')
     ),
     userKey: v.string(),
   },

@@ -1,5 +1,13 @@
 # AGENTS.md - AI Assistant Configuration for Mobile Template
 
+## StampAix launch source — binding user decision, 12 November 2026
+
+- Canonical launch integration branch: `integration/release-hardening-20261111`, Draft PR #16. Continue on this branch; do not create a competing QA branch or publish older launch/QA tips.
+- Canonical worktree: `C:/Users/Barak Perez/.codex/.chatgpt-projects/g-p-6915fa700f2881919d81d988ba93806d/STAMPIX_UI`.
+- `config/release-source.json` pins both the launch-hardening and latest reviewed Cursor scanner histories. Before QA export run `node scripts/verify-release-source.mjs`; require a clean committed tree and both ancestors. Publish only an exact CI-passing revision and record its SHA/immutable URL; never infer a source from a branch name or mutable alias alone.
+- Preserve original Cursor worktrees and unpublished changes. GAME-01/02 remain Cursor-owned Post-launch. Do not edit or integrate album/PaperSeal/stickerAlbum/paperSealVariant/listStickerAlbumBusinesses, customer wallet/navigation or shared memberships without explicit conflict review and authorization.
+- No merge to main, Production, Production DNS, real charge, database reset/import or game integration without explicit approval. See `docs/RELEASE_SOURCE.md`.
+
 This file configures AI assistants to help non-developers build high-quality React Native mobile applications with Expo, Convex Auth, and RevenueCat safely and effectively.
 
 ---

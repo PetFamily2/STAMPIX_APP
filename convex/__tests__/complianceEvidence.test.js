@@ -7,6 +7,7 @@ import {
   CANONICAL_TERMS_VERSION,
   MARKETING_CONSENT_VERSION,
 } from '../../lib/legalContract';
+import { WEB_LEGAL_VERSION } from '../../lib/legalWebContract';
 import {
   AI_AUDIT_RETENTION_MS,
   INACTIVE_ONBOARDING_DRAFT_RETENTION_MS,
@@ -20,7 +21,12 @@ import {
   TECHNICAL_LOG_RETENTION_MS,
 } from '../dataRetention';
 import { backfillComplianceEvidence } from '../migrations/backfillComplianceEvidence';
-import { acceptCurrentTerms, setMyMarketingProfile } from '../users';
+import {
+  acceptCurrentTerms,
+  setMyMarketingProfile,
+  setMyName,
+  setMyPhone,
+} from '../users';
 
 class FakeQuery {
   constructor(db, tableName, predicates = []) {
@@ -158,6 +164,23 @@ function makeCtx(seed = {}) {
 }
 
 describe('versioned legal and marketing evidence', () => {
+  test('Web acceptance records its displayed contract without replacing legacy evidence', async () => {
+    const { ctx, db } = makeCtx();
+    await acceptCurrentTerms._handler(ctx, { source: 'signup_email' });
+    await acceptCurrentTerms._handler(ctx, {
+      source: 'signup_email',
+      webLegalVersion: WEB_LEGAL_VERSION,
+    });
+    const repeated = await acceptCurrentTerms._handler(ctx, {
+      source: 'signup_email',
+      webLegalVersion: WEB_LEGAL_VERSION,
+    });
+    expect(db.rows('legalAcceptances').map((row) => row.version)).toEqual([
+      CANONICAL_TERMS_VERSION,
+      WEB_LEGAL_VERSION,
+    ]);
+    expect(repeated.created).toBe(false);
+  });
   test('current Terms acceptance is versioned, sourced, and idempotent', async () => {
     const { ctx, db } = makeCtx();
 
@@ -367,15 +390,15 @@ describe('bounded retention behavior', () => {
 });
 
 describe('compliance backfill safety', () => {
-  test('Terms evidence records the canonical 2026.09.21 version and URL', async () => {
+  test('Terms evidence records the canonical 2026.10.03 version and URL', async () => {
     expect(CANONICAL_TERMS_VERSION).toBe(CANONICAL_LEGAL_VERSION);
-    expect(CANONICAL_LEGAL_VERSION).toBe('2026.09.21');
-    expect(CANONICAL_LEGAL_UPDATED_AT).toBe('21.09.2026');
+    expect(CANONICAL_LEGAL_VERSION).toBe('2026.10.03');
+    expect(CANONICAL_LEGAL_UPDATED_AT).toBe('03.10.2026');
 
     const { ctx, db } = makeCtx();
     await acceptCurrentTerms._handler(ctx, { source: 'signup_email' });
     expect(db.rows('legalAcceptances')[0]).toMatchObject({
-      version: '2026.09.21',
+      version: '2026.10.03',
       canonicalUrl: CANONICAL_TERMS_URL,
     });
   });
@@ -474,5 +497,135 @@ describe('compliance backfill safety', () => {
         /const SMART_MANAGER_MIGRATION_AUDIT_RETENTION_MS =\s*90 \* 24 \* 60 \* 60 \* 1000/
       );
     }
+  });
+});
+
+test('marketing profile rejects stale edits and toggle preserves concurrently saved dates', async () => {
+  const { ctx, db } = makeCtx();
+  const original = {
+    marketingOptIn: false,
+    birthdayMonth: null,
+    birthdayDay: null,
+    anniversaryMonth: null,
+    anniversaryDay: null,
+  };
+  await setMyMarketingProfile._handler(ctx, {
+    source: 'account_details',
+    marketingOptIn: true,
+    birthdayMonth: 5,
+    birthdayDay: 14,
+    expectedMarketingSnapshot: original,
+  });
+  await expect(
+    setMyMarketingProfile._handler(ctx, {
+      source: 'account_details',
+      marketingOptIn: false,
+      birthdayMonth: 7,
+      birthdayDay: 20,
+      expectedMarketingSnapshot: original,
+    })
+  ).rejects.toMatchObject({
+    data: {
+      code: 'MARKETING_PROFILE_CONFLICT',
+      current: { marketingOptIn: true, birthdayMonth: 5, birthdayDay: 14 },
+    },
+  });
+  expect(db.rows('users')[0]).toMatchObject({
+    marketingOptIn: true,
+    birthdayMonth: 5,
+    birthdayDay: 14,
+  });
+  expect(db.rows('marketingConsentEvents')).toHaveLength(1);
+  await setMyMarketingProfile._handler(ctx, {
+    source: 'settings',
+    marketingOptIn: false,
+    preserveDates: true,
+    birthdayMonth: 7,
+    birthdayDay: 20,
+  });
+  expect(db.rows('users')[0]).toMatchObject({
+    marketingOptIn: false,
+    birthdayMonth: 5,
+    birthdayDay: 14,
+  });
+  expect(db.rows('marketingConsentEvents')).toHaveLength(2);
+});
+
+test('marketing toggle rejects a stale consent state without changing dates or evidence', async () => {
+  const { ctx, db } = makeCtx();
+  await setMyMarketingProfile._handler(ctx, {
+    source: 'account_details',
+    marketingOptIn: true,
+    birthdayMonth: 5,
+    birthdayDay: 14,
+  });
+  await expect(
+    setMyMarketingProfile._handler(ctx, {
+      source: 'settings',
+      marketingOptIn: true,
+      preserveDates: true,
+      expectedMarketingOptIn: false,
+    })
+  ).rejects.toMatchObject({
+    data: {
+      code: 'MARKETING_PROFILE_CONFLICT',
+      current: { marketingOptIn: true },
+    },
+  });
+  expect(db.rows('users')[0]).toMatchObject({
+    marketingOptIn: true,
+    birthdayMonth: 5,
+    birthdayDay: 14,
+  });
+  expect(db.rows('marketingConsentEvents')).toHaveLength(1);
+});
+
+test('stale account name and phone edits cannot overwrite another session', async () => {
+  const { ctx, db } = makeCtx({
+    users: [
+      {
+        _id: 'user_1',
+        isActive: true,
+        firstName: 'Alice',
+        lastName: 'Smith',
+        phone: '0501234567',
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ],
+  });
+  await setMyName._handler(ctx, {
+    firstName: 'Alice',
+    lastName: 'Cohen',
+    expectedName: { firstName: 'Alice', lastName: 'Smith' },
+  });
+  await expect(
+    setMyName._handler(ctx, {
+      firstName: 'Jane',
+      lastName: 'Smith',
+      expectedName: { firstName: 'Alice', lastName: 'Smith' },
+    })
+  ).rejects.toMatchObject({
+    data: {
+      code: 'ACCOUNT_NAME_CONFLICT',
+      current: { firstName: 'Alice', lastName: 'Cohen' },
+    },
+  });
+  await setMyPhone._handler(ctx, {
+    phone: '0521234567',
+    expectedPhone: '0501234567',
+  });
+  await expect(
+    setMyPhone._handler(ctx, {
+      phone: '0531234567',
+      expectedPhone: '0501234567',
+    })
+  ).rejects.toMatchObject({
+    data: { code: 'ACCOUNT_PHONE_CONFLICT', currentPhone: '0521234567' },
+  });
+  expect(db.rows('users')[0]).toMatchObject({
+    firstName: 'Alice',
+    lastName: 'Cohen',
+    phone: '0521234567',
   });
 });

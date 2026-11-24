@@ -1,11 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, usePreventRemove } from '@react-navigation/native';
-import { useMutation, useQuery } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -30,6 +29,8 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
+import { Alert } from '@/lib/alert';
+import { productPrimary, webClassName } from '@/lib/design/webProductChrome';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
   entitlementErrorToHebrewMessage,
@@ -37,6 +38,7 @@ import {
 } from '@/lib/entitlements/errors';
 import { getEditConflictError } from '@/lib/errors/editConflicts';
 import { safeBack } from '@/lib/navigation';
+import { businessHref } from '@/lib/navigation/businessHref';
 import { resolveCampaignDetailGuideTarget } from '@/lib/recommendations/guidance';
 import { tw } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
@@ -393,15 +395,64 @@ export default function CampaignDraftEditorScreen() {
   const campaignDraft = useQuery(
     api.campaigns.getManagementCampaignDraft,
     selectedBusinessId && campaignId
-      ? { businessId: selectedBusinessId, campaignId }
+      ? { businessId: selectedBusinessId, campaignId, deferStats: true }
       : 'skip'
   );
 
   const createCampaignDraft = useMutation(api.campaigns.createCampaignDraft);
   const updateCampaignDraft = useMutation(api.campaigns.updateCampaignDraft);
-  const estimateCampaignAudience = useMutation(
-    api.campaigns.estimateCampaignAudience
+  const estimateCampaignAudience = useAction(
+    api.campaigns.estimateCampaignAudiencePaged
   );
+  const loadHistory = useAction(
+    api.campaigns.getManagementCampaignHistoryPaged
+  );
+  const [pagedStats, setPagedStats] = useState<{
+    key: string;
+    eligibleAudienceNow: number;
+    reachedUniqueAllTime: number;
+    reachedMessagesAllTime: number;
+    lastSentAt: number | null;
+    missingBirthdayCount: number;
+  } | null>(null);
+  const statsRevision = campaignDraft?.updatedAt;
+  const statsKey = JSON.stringify([
+    selectedBusinessId,
+    campaignId,
+    statsRevision,
+  ]);
+  useEffect(() => {
+    if (!selectedBusinessId || !campaignId || statsRevision === undefined)
+      return;
+    let current = true;
+    const args = { businessId: selectedBusinessId, campaignId };
+    void Promise.all([
+      estimateCampaignAudience(args),
+      loadHistory({ ...args, revision: statsRevision }),
+    ])
+      .then(([audience, history]) => {
+        if (current)
+          setPagedStats({
+            key: statsKey,
+            ...history,
+            eligibleAudienceNow: audience.total,
+            missingBirthdayCount: audience.missingBirthdayCount,
+          });
+      })
+      .catch(() => {
+        if (current) setPagedStats(null);
+      });
+    return () => {
+      current = false;
+    };
+  }, [
+    campaignId,
+    estimateCampaignAudience,
+    loadHistory,
+    selectedBusinessId,
+    statsKey,
+    statsRevision,
+  ]);
   const sendCampaignNow = useMutation(api.campaigns.sendCampaignNow);
   const setCampaignAutomationEnabled = useMutation(
     api.campaigns.setCampaignAutomationEnabled
@@ -582,7 +633,9 @@ export default function CampaignDraftEditorScreen() {
   }, [baseUpdatedAt, campaignDraft]);
 
   const goBackToCampaignList = () => {
-    safeBack('/(authenticated)/(business)/campaigns');
+    safeBack(
+      businessHref(Platform.OS, '/(authenticated)/(business)/campaigns')
+    );
   };
 
   const openDraftEditor = (draftCampaignId: Id<'campaigns'>) => {
@@ -590,7 +643,10 @@ export default function CampaignDraftEditorScreen() {
       return;
     }
     router.replace({
-      pathname: '/(authenticated)/(business)/cards/campaign/[campaignId]',
+      pathname: businessHref(
+        Platform.OS,
+        '/(authenticated)/(business)/cards/campaign/[campaignId]'
+      ) as any,
       params: {
         campaignId: String(draftCampaignId),
         businessId: String(selectedBusinessId),
@@ -687,6 +743,7 @@ export default function CampaignDraftEditorScreen() {
           : `בשימוש ${campaignLimit.currentValue} מתוך ${campaignLimit.limitValue} הגדרות קמפיין`
       }
       canManageSubscription={canManageSubscription}
+      navigationReason={planLimitNotice?.navigationReason}
       onManageSubscription={
         planLimitNotice
           ? () => {
@@ -715,7 +772,12 @@ export default function CampaignDraftEditorScreen() {
       return;
     }
     if (type === 'referral') {
-      router.replace('/(authenticated)/(business)/settings-business-referrals');
+      router.replace(
+        businessHref(
+          Platform.OS,
+          '/(authenticated)/(business)/settings-business-referrals'
+        )
+      );
       return;
     }
     setIsCreatingDraft(type);
@@ -782,13 +844,17 @@ export default function CampaignDraftEditorScreen() {
 
   if (!selectedBusinessId) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF] px-6">
+      <SafeAreaView
+        className={webClassName(
+          'flex-1 items-center justify-center bg-[#E9F0FF] px-6'
+        )}
+      >
         <Text className="w-full text-right text-sm text-[#64748B]">
           חסרים פרטי עסק.
         </Text>
         <TouchableOpacity
           onPress={goBackToCampaignList}
-          className="mt-4 rounded-xl bg-[#2F6BFF] px-4 py-2"
+          className={webClassName('mt-4 rounded-xl bg-[#2F6BFF] px-4 py-2')}
         >
           <Text className="text-sm font-bold text-white">חזרה לרשימה</Text>
         </TouchableOpacity>
@@ -798,7 +864,7 @@ export default function CampaignDraftEditorScreen() {
 
   if (isCreateFlow) {
     return (
-      <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
+      <SafeAreaView className={webClassName('flex-1 bg-[#E9F0FF]')} edges={[]}>
         <ScrollView
           stickyHeaderIndices={[0]}
           className="flex-1"
@@ -846,7 +912,7 @@ export default function CampaignDraftEditorScreen() {
                   key={option.key}
                   onPress={() => setCreateMode(option.key)}
                   className={`flex-1 rounded-full py-2.5 ${
-                    isActive ? 'bg-[#2F6BFF]' : 'bg-transparent'
+                    isActive ? webClassName('bg-[#2F6BFF]') : 'bg-transparent'
                   }`}
                 >
                   <Text
@@ -941,7 +1007,7 @@ export default function CampaignDraftEditorScreen() {
                 className={`mt-4 rounded-2xl px-4 py-3 ${
                   !canCreateCampaigns || isCreatingDraft != null
                     ? 'bg-[#CBD5E1]'
-                    : 'bg-[#2F6BFF]'
+                    : webClassName('bg-[#2F6BFF]')
                 }`}
               >
                 {isCreatingDraft === 'custom' ? (
@@ -962,13 +1028,17 @@ export default function CampaignDraftEditorScreen() {
 
   if (!campaignId) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF] px-6">
+      <SafeAreaView
+        className={webClassName(
+          'flex-1 items-center justify-center bg-[#E9F0FF] px-6'
+        )}
+      >
         <Text className="w-full text-right text-sm text-[#64748B]">
           חסרים פרטי קמפיין לעריכה.
         </Text>
         <TouchableOpacity
           onPress={goBackToCampaignList}
-          className="mt-4 rounded-xl bg-[#2F6BFF] px-4 py-2"
+          className={webClassName('mt-4 rounded-xl bg-[#2F6BFF] px-4 py-2')}
         >
           <Text className="text-sm font-bold text-white">חזרה לרשימה</Text>
         </TouchableOpacity>
@@ -978,21 +1048,29 @@ export default function CampaignDraftEditorScreen() {
 
   if (campaignDraft === undefined) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF]">
-        <ActivityIndicator color="#2F6BFF" />
+      <SafeAreaView
+        className={webClassName(
+          'flex-1 items-center justify-center bg-[#E9F0FF]'
+        )}
+      >
+        <ActivityIndicator color={productPrimary} />
       </SafeAreaView>
     );
   }
 
   if (!campaignDraft) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-[#E9F0FF] px-6">
+      <SafeAreaView
+        className={webClassName(
+          'flex-1 items-center justify-center bg-[#E9F0FF] px-6'
+        )}
+      >
         <Text className="w-full text-right text-sm text-[#64748B]">
           לא נמצאה טיוטת קמפיין.
         </Text>
         <TouchableOpacity
           onPress={goBackToCampaignList}
-          className="mt-4 rounded-xl bg-[#2F6BFF] px-4 py-2"
+          className={webClassName('mt-4 rounded-xl bg-[#2F6BFF] px-4 py-2')}
         >
           <Text className="text-sm font-bold text-white">חזרה לרשימה</Text>
         </TouchableOpacity>
@@ -1013,10 +1091,12 @@ export default function CampaignDraftEditorScreen() {
   const canEditContent = canEditCampaigns;
   const canEditRules = canEditContent && !isRulesLocked;
 
-  const stats = campaignDraft.stats ?? {
-    eligibleAudienceNow: 0,
-    reachedUniqueAllTime: 0,
-    reachedMessagesAllTime: 0,
+  const stats = (pagedStats?.key === statsKey
+    ? pagedStats
+    : campaignDraft.stats) ?? {
+    eligibleAudienceNow: null,
+    reachedUniqueAllTime: null,
+    reachedMessagesAllTime: null,
     lastSentAt: null,
     missingBirthdayCount: null,
   };
@@ -1323,11 +1403,20 @@ export default function CampaignDraftEditorScreen() {
         businessId: selectedBusinessId,
         campaignId,
         expectedUpdatedAt: currentUpdatedAt,
+        acceptQueued: true,
       });
       if (typeof result?.updatedAt === 'number') {
         setBaseUpdatedAt(result.updatedAt);
       }
 
+      if (result.queued) {
+        Alert.alert(
+          'השליחה בתור',
+          'ההודעות יישלחו במנות. אפשר לחזור לרשימת הקמפיינים.',
+          [{ text: 'אישור', onPress: goBackToCampaignList }]
+        );
+        return;
+      }
       Alert.alert(
         'נשלח',
         `נשלחו ${result.sentCount} הודעות. דולגו ${result.skippedCount}.`,
@@ -1589,7 +1678,7 @@ export default function CampaignDraftEditorScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#E9F0FF]" edges={[]}>
+    <SafeAreaView className={webClassName('flex-1 bg-[#E9F0FF]')} edges={[]}>
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -1836,7 +1925,7 @@ export default function CampaignDraftEditorScreen() {
                 <Text
                   className={`text-xs font-semibold text-[#475569] ${tw.textStart}`}
                 >
-                  קהל זכאי עכשיו: {stats.eligibleAudienceNow}
+                  קהל זכאי עכשיו: {stats.eligibleAudienceNow ?? '—'}
                 </Text>
               </View>
             </EditorSection>
@@ -2104,13 +2193,13 @@ export default function CampaignDraftEditorScreen() {
                 </Text>
                 <View className="gap-2 rounded-2xl border border-[#E5EAF2] bg-[#F8FAFF] p-3">
                   <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
-                    קהל זכאי עכשיו: {stats.eligibleAudienceNow}
+                    קהל זכאי עכשיו: {stats.eligibleAudienceNow ?? '—'}
                   </Text>
                   <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
-                    הגיע לייחודיים: {stats.reachedUniqueAllTime}
+                    הגיע לייחודיים: {stats.reachedUniqueAllTime ?? '—'}
                   </Text>
                   <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
-                    סה"כ הודעות: {stats.reachedMessagesAllTime}
+                    סה"כ הודעות: {stats.reachedMessagesAllTime ?? '—'}
                   </Text>
                   <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
                     נשלח לאחרונה:{' '}

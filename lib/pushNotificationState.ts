@@ -292,10 +292,7 @@ export async function resolvePermissionForPushRegistration({
   }
 
   let permissions = await getPermissions();
-  let permissionStatus = normalizeNotificationPermission(
-    permissions,
-    platform
-  );
+  let permissionStatus = normalizeNotificationPermission(permissions, platform);
   const canRequest =
     permissionStatus === 'undetermined' ||
     (permissionStatus === 'denied' && permissions.canAskAgain !== false);

@@ -80,9 +80,7 @@ export function getRecommendationAnalyticsProps(
     placement: recommendation.placement,
     action_type: getSafeRecommendationActionType(recommendation.action),
     evidence_fingerprint: recommendation.evidenceFingerprint,
-    ...(recommendation.guideId
-      ? { guide_id: recommendation.guideId }
-      : {}),
+    ...(recommendation.guideId ? { guide_id: recommendation.guideId } : {}),
   };
 }
 

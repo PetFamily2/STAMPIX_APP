@@ -1,5 +1,5 @@
-import { REFERRAL_COPY, formatReferralCopy } from '@/lib/referrals/copy';
 import { buildCanonicalReferralUrl } from '@/lib/billing/productionContract';
+import { formatReferralCopy, REFERRAL_COPY } from '@/lib/referrals/copy';
 
 export const SHARE_CREATIVE_GENERAL = { width: 1080, height: 1350 };
 export const SHARE_CREATIVE_STORY = { width: 1080, height: 1920 };

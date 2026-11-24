@@ -1,25 +1,25 @@
 import { type Href, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import {
   BusinessSettingsSubpageHeader,
   ProfileFieldForm,
+  SETTINGS_TOKENS,
   SettingsPageShell,
   SettingsPrimaryButton,
-  SETTINGS_TOKENS,
   validateProfileFields,
 } from '@/components/business-settings';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useBusinessSettingsProfile } from '@/hooks/useBusinessSettingsProfile';
+import { Alert } from '@/lib/alert';
 import {
   buildCompletionSteps,
   formatCompletionProgressLabel,
 } from '@/lib/businessSettings/completion';
 import type { ProfileCompletionField } from '@/lib/businessSettings/profileFields';
-import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { safeBack } from '@/lib/navigation';
+import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 
 export default function BusinessSettingsProfileCompleteScreen() {
   const router = useRouter();
@@ -38,7 +38,8 @@ export default function BusinessSettingsProfileCompleteScreen() {
   }
 
   const steps = useMemo(
-    () => buildCompletionSteps(initialMissingRef.current ?? profile.missingFields),
+    () =>
+      buildCompletionSteps(initialMissingRef.current ?? profile.missingFields),
     [profile.missingFields]
   );
   const currentStep = steps[Math.min(stepIndex, Math.max(steps.length - 1, 0))];
@@ -139,7 +140,10 @@ export default function BusinessSettingsProfileCompleteScreen() {
 
     if (onboardingFields.length > 0) {
       const payload: Parameters<typeof profile.saveOnboardingFields>[0] = {};
-      if (onboardingFields.includes('discoverySource') && draft.discoverySource) {
+      if (
+        onboardingFields.includes('discoverySource') &&
+        draft.discoverySource
+      ) {
         payload.discoverySource = draft.discoverySource;
       }
       if (onboardingFields.includes('reason') && draft.reason) {
@@ -203,7 +207,13 @@ export default function BusinessSettingsProfileCompleteScreen() {
           paddingHorizontal: 24,
         }}
       >
-        <Text style={{ width: '100%', textAlign: 'right', color: SETTINGS_TOKENS.textSecondary }}>
+        <Text
+          style={{
+            width: '100%',
+            textAlign: 'right',
+            color: SETTINGS_TOKENS.textSecondary,
+          }}
+        >
           לא נמצא עסק פעיל.
         </Text>
       </SafeAreaView>

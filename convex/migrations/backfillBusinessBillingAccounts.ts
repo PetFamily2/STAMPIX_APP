@@ -19,7 +19,9 @@ export const backfillBusinessBillingAccounts = internalMutation({
     for (const business of businesses) {
       const subscriptions = await ctx.db
         .query('subscriptions')
-        .withIndex('by_businessId', (q: any) => q.eq('businessId', business._id))
+        .withIndex('by_businessId', (q: any) =>
+          q.eq('businessId', business._id)
+        )
         .collect();
       const hasProviderEvidence = subscriptions.some(
         (row: any) => row.provider === 'revenuecat'
@@ -52,7 +54,10 @@ export const backfillBusinessBillingAccounts = internalMutation({
       await ctx.db.patch(account._id, {
         plan: state.lastPlan ?? undefined,
         lastPlan: state.lastPlan ?? undefined,
-        status: hasProviderEvidence && state.operationalAccess ? state.status : 'inactive',
+        status:
+          hasProviderEvidence && state.operationalAccess
+            ? state.status
+            : 'inactive',
         billingPeriod: state.billingPeriod,
         hasProviderEvidence,
         currentPeriodEndAt: business.subscriptionEndAt ?? null,

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
+import { WEB_LEGAL_VERSION } from '../../lib/legalWebContract';
 import { mapRevenueCatToCanonicalEvent } from '../lib/billing/canonicalEvent';
 import { hasOperationalAccessFromStatus } from '../lib/billing/lifecycle';
 import { DIRECT_PROVIDER_RENEWAL_GRACE_MS } from '../lib/billing/productionContract';
@@ -17,6 +18,7 @@ import {
 } from '../lib/billing/sumit/config';
 import {
   compareSumitRecurringSnapshot,
+  completeSumitCheckoutPaymentEvidence,
   fetchSumitPayment,
   fetchSumitPayments,
   fetchSumitRecurringItems,
@@ -66,11 +68,30 @@ function createMockCtx(initial = {}) {
     'businessReferralRewards',
     'sumitCheckoutIntents',
     'sumitProviderEvents',
+    'legalAcceptances',
   ];
   const state = Object.fromEntries(
     tableNames.map((tableName) => [
       tableName,
-      new Map((initial[tableName] ?? []).map((row) => [row._id, { ...row }])),
+      new Map(
+        (
+          initial[tableName] ??
+          (tableName === 'legalAcceptances'
+            ? [
+                {
+                  _id: 'accepted_business_terms',
+                  userId: OWNER_ID,
+                  businessId: BUSINESS_ID,
+                  documentKind: 'business_terms',
+                  version: WEB_LEGAL_VERSION,
+                  source: 'business_activation',
+                  acceptedAt: OCCURRED_AT,
+                  createdAt: OCCURRED_AT,
+                },
+              ]
+            : [])
+        ).map((row) => [row._id, { ...row }])
+      ),
     ])
   );
   const rows = (tableName) => Array.from(state[tableName].values());
@@ -350,6 +371,56 @@ function verifiedPaymentArgs(overrides = {}) {
 }
 
 describe('SUMIT server authority and hosted checkout', () => {
+  test.each(
+    [
+      [],
+      [
+        {
+          documentKind: 'business_terms',
+          version: '2026.10.28-web',
+          userId: OWNER_ID,
+          businessId: BUSINESS_ID,
+        },
+      ],
+      [
+        {
+          documentKind: 'business_terms',
+          version: WEB_LEGAL_VERSION,
+          userId: OTHER_ID,
+          businessId: BUSINESS_ID,
+        },
+      ],
+      [
+        {
+          documentKind: 'business_terms',
+          version: WEB_LEGAL_VERSION,
+          userId: OWNER_ID,
+          businessId: 'another_business',
+        },
+      ],
+      [
+        {
+          documentKind: 'terms',
+          version: WEB_LEGAL_VERSION,
+          userId: OWNER_ID,
+          businessId: BUSINESS_ID,
+        },
+      ],
+    ].map((acceptances) => ({ acceptances }))
+  )('checkout rejects absent, stale, wrong-owner, wrong-business or signup-only consent (%#)', async ({
+    acceptances,
+  }) => {
+    const ctx = createMockCtx({
+      businesses: [business()],
+      legalAcceptances: acceptances.map((row) => ({ _id: 'consent', ...row })),
+    });
+    await expect(seedCheckout(ctx)).rejects.toThrow(
+      'SUMIT_BUSINESS_TERMS_REQUIRED'
+    );
+    expect(ctx.rows('sumitCheckoutIntents')).toHaveLength(0);
+    expect(ctx.rows('businessBillingAccounts')).toHaveLength(0);
+  });
+
   test('canonical price always comes from the frozen server contract', async () => {
     expect(canonicalSumitAmount('starter', 'monthly')).toBe(149);
     expect(canonicalSumitAmount('starter', 'yearly')).toBe(1490);
@@ -814,6 +885,58 @@ describe('SUMIT server-to-server verification', () => {
     ).rejects.toThrow('SUMIT_PAYMENT_PAGINATION_INVALID');
   });
 
+  test('hosted checkout uses the recurring ID from the exact provider payment and its billing dates', async () => {
+    const config = resolveSumitConfig(sumitEnv());
+    const details = payment({ recurringIds: [] });
+    const listed = paymentResponse().Data.Payment;
+    const lookup = (entries) =>
+      completeSumitCheckoutPaymentEvidence({
+        config,
+        payment: details,
+        transport: async () => ({
+          status: 200,
+          text: JSON.stringify({
+            Status: 0,
+            Data: { Payments: entries, HasNextPage: false },
+          }),
+        }),
+      });
+    expect(
+      (await lookup([{ ...listed, CustomerID: 51002 }])).recurringIds
+    ).toEqual([]);
+    expect((await lookup([listed, listed])).recurringIds).toEqual([]);
+    const corroborated = await lookup([listed]);
+    expect(corroborated.recurringIds).toEqual([RECURRING_ID]);
+    const response = recurringResponse({ durationMonths: 0 });
+    const raw = response.Data.RecurringItems[0];
+    raw.Item.Currency = null;
+    raw.Date_PreviousBilling = new Date(OCCURRED_AT).toISOString();
+    raw.Date_NextBilling = '2026-02-15T10:00:00Z';
+    const [linked] = parseSumitRecurringListResponse(response);
+    const evidence = {
+      payment: corroborated,
+      intent: {
+        checkoutId: CHECKOUT_ID,
+        amount: 149,
+        billingPeriod: 'monthly',
+      },
+      expectedProductId: PRODUCT_ID,
+      recurringItems: [linked],
+    };
+    expect(verifySumitPaymentEvidence(evidence).ok).toBe(true);
+    expect(
+      verifySumitPaymentEvidence({ ...evidence, payment: details }).ok
+    ).toBe(false);
+    expect(
+      verifySumitPaymentEvidence({
+        ...evidence,
+        recurringItems: [
+          { ...linked, dateNextBillingAt: Date.parse('2026-03-15T10:00:00Z') },
+        ],
+      })
+    ).toEqual({ ok: false, code: 'SUMIT_RECURRING_SCHEDULE_MISMATCH' });
+  });
+
   test('wrong provider amount, currency, reference, product, or schedule fails', () => {
     const base = {
       intent: {
@@ -964,6 +1087,20 @@ describe('SUMIT server-to-server verification', () => {
 });
 
 describe('SUMIT canonical application and lifecycle', () => {
+  test.each([
+    'in_progress',
+    'queued',
+    'running',
+    'failed',
+  ])('checkout cannot start while deletion is %s', async (permanentDeletionStatus) => {
+    const ctx = createMockCtx({
+      businesses: [business({ permanentDeletionStatus })],
+    });
+    await expect(seedCheckout(ctx)).rejects.toThrow(
+      'BUSINESS_PERMANENT_DELETION_IN_PROGRESS'
+    );
+    expect(ctx.rows('sumitCheckoutIntents')).toHaveLength(0);
+  });
   test('unknown checkout fails without granting access', async () => {
     const ctx = createMockCtx({ businesses: [business()] });
     const result = await applyVerifiedSUMITPaymentRecord(

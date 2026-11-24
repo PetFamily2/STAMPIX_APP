@@ -531,11 +531,11 @@ describe('AI recommendation monthly quota boundary', () => {
       inputTokens: 0,
       outputTokens: 0,
     });
-    expect(
-      toLegacyAiTokenCounts({ inputTokens: 12, outputTokens: 8 })
-    ).toEqual({
-      inputTokens: 12,
-      outputTokens: 8,
-    });
+    expect(toLegacyAiTokenCounts({ inputTokens: 12, outputTokens: 8 })).toEqual(
+      {
+        inputTokens: 12,
+        outputTokens: 8,
+      }
+    );
   });
 });

@@ -48,10 +48,7 @@ function parseBusinessScopedCacheKey(cacheKey: unknown) {
   }
 
   const parts = cacheKey.split('|');
-  if (
-    parts.length !== 6 ||
-    parts[0] !== 'v1'
-  ) {
+  if (parts.length !== 6 || parts[0] !== 'v1') {
     return undefined;
   }
 
@@ -82,50 +79,47 @@ export function getBusinessIdCandidateFromCacheKey(cacheKey: unknown) {
   return parseBusinessScopedCacheKey(cacheKey)?.businessIdCandidate;
 }
 
-export const backfillBusinessOnboardingDraftImageStorageIds =
-  internalMutation({
-    args: {
-      cursor: v.optional(v.union(v.string(), v.null())),
-      batchSize: v.optional(v.number()),
-    },
-    handler: async (ctx, { cursor, batchSize }) => {
-      const page = await ctx.db.query('businessOnboardingDrafts').paginate({
-        cursor: cursor ?? null,
-        numItems: normalizeBatchSize(batchSize),
-      });
-      let patched = 0;
-      let skipped = 0;
+export const backfillBusinessOnboardingDraftImageStorageIds = internalMutation({
+  args: {
+    cursor: v.optional(v.union(v.string(), v.null())),
+    batchSize: v.optional(v.number()),
+  },
+  handler: async (ctx, { cursor, batchSize }) => {
+    const page = await ctx.db.query('businessOnboardingDrafts').paginate({
+      cursor: cursor ?? null,
+      numItems: normalizeBatchSize(batchSize),
+    });
+    let patched = 0;
+    let skipped = 0;
 
-      for (const draft of page.page) {
-        const candidate = getProgramImageStorageIdCandidate(
-          draft.programDraft
-        );
-        const storageId = candidate
-          ? ctx.db.system.normalizeId('_storage', candidate)
-          : null;
-        if (!storageId) {
-          skipped += 1;
-          continue;
-        }
-        if (draft.programImageStorageId === storageId) {
-          continue;
-        }
-
-        await ctx.db.patch(draft._id, {
-          programImageStorageId: storageId,
-        });
-        patched += 1;
+    for (const draft of page.page) {
+      const candidate = getProgramImageStorageIdCandidate(draft.programDraft);
+      const storageId = candidate
+        ? ctx.db.system.normalizeId('_storage', candidate)
+        : null;
+      if (!storageId) {
+        skipped += 1;
+        continue;
+      }
+      if (draft.programImageStorageId === storageId) {
+        continue;
       }
 
-      return {
-        isDone: page.isDone,
-        continueCursor: page.continueCursor,
-        scanned: page.page.length,
-        patched,
-        skipped,
-      };
-    },
-  });
+      await ctx.db.patch(draft._id, {
+        programImageStorageId: storageId,
+      });
+      patched += 1;
+    }
+
+    return {
+      isDone: page.isDone,
+      continueCursor: page.continueCursor,
+      scanned: page.page.length,
+      patched,
+      skipped,
+    };
+  },
+});
 
 export const backfillAiGenerationCacheBusinessIds = internalMutation({
   args: {
@@ -153,10 +147,7 @@ export const backfillAiGenerationCacheBusinessIds = internalMutation({
         continue;
       }
       const businessId = parsedCacheKey.businessIdCandidate
-        ? ctx.db.normalizeId(
-            'businesses',
-            parsedCacheKey.businessIdCandidate
-          )
+        ? ctx.db.normalizeId('businesses', parsedCacheKey.businessIdCandidate)
         : null;
       const business = businessId ? await ctx.db.get(businessId) : null;
       if (!businessId || !business) {

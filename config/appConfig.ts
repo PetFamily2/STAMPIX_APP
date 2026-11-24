@@ -1,4 +1,4 @@
-import { resolveAppEnv, type AppEnv } from '@/config/appEnvironment';
+import { type AppEnv, resolveAppEnv } from '@/config/appEnvironment';
 import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '@/config/legalUrls';
 
 declare const __DEV__: boolean;
@@ -55,7 +55,8 @@ export const PRODUCTION_BILLING_FLAGS_AND_MAPPINGS_VALID =
   (!MOCK_PAYMENTS &&
     process.env.EXPO_PUBLIC_SERVER_AUTHORITATIVE_BILLING_ENABLED === 'true' &&
     REVENUECAT_PACKAGE_IDS.every(
-      (packageId) => typeof packageId === 'string' && packageId.trim().length > 0
+      (packageId) =>
+        typeof packageId === 'string' && packageId.trim().length > 0
     ));
 
 export const TERMS_URL = TERMS_OF_SERVICE_URL;

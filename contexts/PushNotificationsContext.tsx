@@ -102,7 +102,9 @@ async function loadNotificationsModule() {
   return notificationsModulePromise;
 }
 
-async function ensureAndroidNotificationChannel(Notifications: NotificationsApi) {
+async function ensureAndroidNotificationChannel(
+  Notifications: NotificationsApi
+) {
   if (Platform.OS !== 'android') {
     return;
   }
@@ -336,10 +338,7 @@ export function PushNotificationsProvider({
           operationSession.generation
             ? registeredTokenRef.current
             : null;
-        if (
-          previousRegisteredToken &&
-          previousRegisteredToken !== nextToken
-        ) {
+        if (previousRegisteredToken && previousRegisteredToken !== nextToken) {
           try {
             await disablePushToken({ token: previousRegisteredToken });
             if (!isCurrentGeneration()) {
@@ -465,8 +464,7 @@ export function PushNotificationsProvider({
         };
       }
 
-      const preferenceSnapshot =
-        notificationOperations.getPreferenceSnapshot();
+      const preferenceSnapshot = notificationOperations.getPreferenceSnapshot();
       pendingPushOperationCountRef.current += 1;
       setIsSyncing(true);
       try {
@@ -757,9 +755,7 @@ export function PushNotificationsProvider({
       isEnabled: notificationStateIsForActiveSession ? isEnabled : false,
       isLoading,
       isSyncing,
-      expoPushToken: notificationStateIsForActiveSession
-        ? expoPushToken
-        : null,
+      expoPushToken: notificationStateIsForActiveSession ? expoPushToken : null,
       permissionStatus: notificationStateIsForActiveSession
         ? permissionStatus
         : 'unavailable',

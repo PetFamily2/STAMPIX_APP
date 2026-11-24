@@ -9,6 +9,7 @@ const internalAccountDeletionApi = (internal as any).accountDeletionRequests;
 const internalSmartManagerApi = (internal as any).smartManager;
 const internalSmartManagerActionsApi = (internal as any).smartManagerActions;
 const internalRedemptionReceiptsApi = (internal as any).redemptionReceipts;
+const internalGeneralFreeTrialApi = (internal as any).generalFreeTrial;
 const smartManagerDeliverySweepRef = makeFunctionReference<
   'mutation',
   Record<string, never>,
@@ -19,10 +20,17 @@ const dataRetentionRef = (name: string) =>
     `dataRetention:${name}`
   );
 
+crons.interval(
+  'recover batched campaign deliveries',
+  { minutes: 1 },
+  internal.campaigns.recoverManagementDeliveries
+);
+
 crons.hourly(
   'campaign automation sweep hourly',
   { minuteUTC: 0 },
-  internal.campaigns.runAutomationSweepInternal
+  internal.campaigns.runAutomationSweepInternal,
+  {}
 );
 
 crons.interval(
@@ -52,7 +60,8 @@ crons.daily(
 crons.daily(
   'referral rewards expiration sweep daily',
   { hourUTC: 1, minuteUTC: 35 },
-  internal.referrals.expireReferralRewardsInternal
+  internal.referrals.expireReferralRewardsInternal,
+  {}
 );
 
 crons.hourly(
@@ -65,7 +74,8 @@ crons.hourly(
 crons.daily(
   'legacy business referral credit sweep daily',
   { hourUTC: 1, minuteUTC: 25 },
-  internal.referrals.processDueBusinessReferralCreditsInternal
+  internal.referrals.processDueBusinessReferralCreditsInternal,
+  {}
 );
 
 crons.daily(
@@ -84,6 +94,27 @@ crons.hourly(
   'provider revocation retry and receipt cleanup hourly',
   { minuteUTC: 40 },
   internalProviderCredentialsApi.sweepProviderRevocationJobsInternal
+);
+
+crons.hourly(
+  'sumit billing reconciliation sweep hourly',
+  { minuteUTC: 15 },
+  internal.sumitBilling.reconcileSUMITBillingSweepInternal,
+  { limit: 25 }
+);
+
+crons.hourly(
+  'general free trial expiry hourly',
+  { minuteUTC: 25 },
+  internalGeneralFreeTrialApi.expireGeneralFreeTrialsInternal,
+  { limit: 25 }
+);
+
+crons.hourly(
+  'SUMIT payment failure reminders hourly',
+  { minuteUTC: 35 },
+  internal.sumitBilling.sendSUMITBillingReminderSweepInternal,
+  { cursor: null }
 );
 
 crons.daily(
@@ -150,9 +181,25 @@ crons.interval(
 );
 
 crons.interval(
+  'push outbox recovery every 5 minutes',
+  { minutes: 5 },
+  internal.pushNotifications.recoverPendingPushOutbox,
+  {}
+);
+
+crons.interval(
   'smart manager delivery recovery every 5 minutes',
   { minutes: 5 },
   smartManagerDeliverySweepRef
+);
+
+crons.hourly(
+  'system team invitation and data retention',
+  { minuteUTC: 25 },
+  makeFunctionReference<'mutation', Record<string, never>, null>(
+    'systemTeam:cleanup'
+  ),
+  {}
 );
 
 export default crons;

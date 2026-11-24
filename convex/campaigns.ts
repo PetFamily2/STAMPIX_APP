@@ -1,6 +1,19 @@
-import { v } from 'convex/values';
+import {
+  paginationOptsValidator,
+  paginationResultValidator,
+} from 'convex/server';
+import { ConvexError, v } from 'convex/values';
+import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
-import { internalMutation, mutation, query } from './_generated/server';
+import {
+  action,
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+  mutation,
+  type QueryCtx,
+  query,
+} from './_generated/server';
 import {
   assertCampaignsNotOverLimit,
   assertEntitlement,
@@ -116,7 +129,8 @@ function assertCampaignIsNotImmutableSmartManagerExecution(
 async function attemptCampaignPushDelivery(
   ctx: unknown,
   campaign: CampaignPushCandidate,
-  userId: Id<'users'>
+  userId: Id<'users'>,
+  dedupeKey?: string
 ) {
   if (!campaignHasPushChannel(campaign)) {
     return;
@@ -135,6 +149,7 @@ async function attemptCampaignPushDelivery(
         campaign.messageBody,
         'Open StampAix to view the latest business update.'
       ),
+      dedupeKey,
     });
   } catch {
     // Push is best-effort; campaign inbox delivery remains authoritative.
@@ -433,15 +448,20 @@ async function loadAudienceRows(
 ) {
   const memberships = await ctx.db
     .query('memberships')
-    .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
-    .filter((q: any) => q.eq(q.field('isActive'), true))
-    .collect();
+    .withIndex(programId ? 'by_programId' : 'by_businessId', (q: any) =>
+      programId ? q.eq('programId', programId) : q.eq('businessId', businessId)
+    )
+    .take(DELIVERY_PAGE_SIZE + 1);
+  if (memberships.length > DELIVERY_PAGE_SIZE) return null;
 
+  // A program ID must never broaden the business scope, even if a legacy
+  // membership contains inconsistent references.
   const filteredMemberships = programId
     ? memberships.filter(
-        (membership: any) => String(membership.programId) === String(programId)
+        (membership: any) =>
+          membership.isActive === true && membership.businessId === businessId
       )
-    : memberships;
+    : memberships.filter((membership: any) => membership.isActive === true);
 
   const uniqueUserIds = [
     ...new Set(filteredMemberships.map((m: any) => String(m.userId))),
@@ -494,7 +514,7 @@ async function getCampaignLogs(ctx: any, campaignId: Id<'campaigns'>) {
   return await ctx.db
     .query('messageLog')
     .withIndex('by_campaignId', (q: any) => q.eq('campaignId', campaignId))
-    .collect();
+    .take(DELIVERY_PAGE_SIZE + 1);
 }
 
 async function hasPersistedCampaignRun(ctx: any, campaignId: Id<'campaigns'>) {
@@ -525,30 +545,46 @@ function buildCampaignDeliveryStats(
   };
 }
 
-async function countMissingBirthdayForCampaign(ctx: any, campaign: any) {
-  const rows = await loadAudienceRows(
-    ctx,
-    campaign.businessId,
-    campaign.programId
-  );
-  return countMissingBirthdayFromRows(rows);
+// Exact year boundaries in the same time zone used to classify historical sends.
+function israelYearStart(year: number) {
+  let low = Date.UTC(year - 1, 11, 28),
+    high = Date.UTC(year, 0, 3);
+  while (low + 1 < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (getIsraelYear(middle) < year) low = middle;
+    else high = middle;
+  }
+  return high;
 }
 
-function shouldSkipAutomationByHistory(
-  campaignType: ManagementCampaignType,
-  previousSentTimestamps: number[],
+async function hasAutomationHistory(
+  ctx: any,
+  campaignId: Id<'campaigns'>,
+  userId: Id<'users'>,
+  type: ManagementCampaignType,
   now: number
 ) {
-  if (previousSentTimestamps.length === 0) {
-    return false;
+  if (type === 'birthday' || type === 'anniversary') {
+    const year = getIsraelYear(now),
+      start = israelYearStart(year),
+      end = israelYearStart(year + 1);
+    return !!(await ctx.db
+      .query('messageLog')
+      .withIndex('by_campaignId_toUserId_createdAt', (q: any) =>
+        q
+          .eq('campaignId', campaignId)
+          .eq('toUserId', userId)
+          .gte('createdAt', start)
+          .lt('createdAt', end)
+      )
+      .first());
   }
-  if (campaignType === 'birthday' || campaignType === 'anniversary') {
-    const currentIsraelYear = getIsraelYear(now);
-    return previousSentTimestamps.some(
-      (sentAt) => getIsraelYear(sentAt) === currentIsraelYear
-    );
-  }
-  return true;
+  return !!(await ctx.db
+    .query('messageLog')
+    .withIndex('by_campaignId_toUserId', (q: any) =>
+      q.eq('campaignId', campaignId).eq('toUserId', userId)
+    )
+    .first());
 }
 
 function rowMatchesRule(rule: CampaignRules, row: AudienceRow, now: number) {
@@ -588,8 +624,14 @@ function rowMatchesRule(rule: CampaignRules, row: AudienceRow, now: number) {
 
 async function estimateAudienceForCampaign(
   ctx: any,
-  campaign: any
-): Promise<{ userIds: Id<'users'>[]; total: number; sample: string[] }> {
+  campaign: any,
+  referenceNow = Date.now()
+): Promise<{
+  userIds: Id<'users'>[];
+  total: number;
+  sample: string[];
+  missingBirthdayCount: number;
+} | null> {
   const normalizedType = normalizeManagementType(campaign.type);
   const rules = normalizeCampaignRules(normalizedType, campaign.rules);
   const rows = await loadAudienceRows(
@@ -597,7 +639,8 @@ async function estimateAudienceForCampaign(
     campaign.businessId,
     campaign.programId
   );
-  const now = Date.now();
+  if (!rows) return null;
+  const now = referenceNow;
 
   const userIdSet = new Set<string>();
   const sample: string[] = [];
@@ -620,6 +663,8 @@ async function estimateAudienceForCampaign(
   return {
     userIds: [...userIdSet].map((id) => id as Id<'users'>),
     total: userIdSet.size,
+    missingBirthdayCount:
+      normalizedType === 'birthday' ? countMissingBirthdayFromRows(rows) : 0,
     sample,
   };
 }
@@ -629,25 +674,17 @@ async function sendAutomationForCampaign(
   campaign: any,
   now: number
 ): Promise<{ sentCount: number; skippedCount: number }> {
-  const estimate = await estimateAudienceForCampaign(ctx, campaign);
+  const estimate = await estimateAudienceForCampaign(ctx, campaign, now);
+  if (!estimate) throw new Error('CAMPAIGN_CLIENT_UPDATE_REQUIRED');
   const campaignType = normalizeManagementType(campaign.type);
-  const logs = await getCampaignLogs(ctx, campaign._id);
-
-  const historyByUserId = new Map<string, number[]>();
-  for (const log of logs) {
-    const key = String(log.toUserId);
-    const values = historyByUserId.get(key) ?? [];
-    values.push(Number(log.createdAt));
-    historyByUserId.set(key, values);
-  }
 
   let sentCount = 0;
   let skippedCount = 0;
 
   for (const userId of estimate.userIds) {
-    const userKey = String(userId);
-    const userHistory = historyByUserId.get(userKey) ?? [];
-    if (shouldSkipAutomationByHistory(campaignType, userHistory, now)) {
+    if (
+      await hasAutomationHistory(ctx, campaign._id, userId, campaignType, now)
+    ) {
       skippedCount += 1;
       continue;
     }
@@ -660,10 +697,15 @@ async function sendAutomationForCampaign(
       status: 'sent',
       createdAt: now,
     });
-    await attemptCampaignPushDelivery(ctx, campaign, userId);
+    // The same recipient may legitimately receive a later recurring run.
+    // The fixed sweep time is stable across retries and cursor continuations.
+    await attemptCampaignPushDelivery(
+      ctx,
+      campaign,
+      userId,
+      `campaign_automation:${String(campaign._id)}:${now}`
+    );
 
-    userHistory.push(now);
-    historyByUserId.set(userKey, userHistory);
     sentCount += 1;
   }
 
@@ -695,7 +737,8 @@ async function sendCampaignDeliveryOnce(
   skippedCount: number;
   estimatedAudience: number;
 }> {
-  const estimate = await estimateAudienceForCampaign(ctx, campaign);
+  const estimate = await estimateAudienceForCampaign(ctx, campaign, now);
+  if (!estimate) throw new Error('CAMPAIGN_CLIENT_UPDATE_REQUIRED');
   let sentCount = 0;
   let skippedCount = 0;
 
@@ -876,6 +919,7 @@ export const createAiCampaign = mutation({
 export const listManagementCampaignsByBusiness = query({
   args: {
     businessId: v.optional(v.id('businesses')),
+    deferLargeStats: v.optional(v.boolean()),
   },
   handler: async (ctx, { businessId }) => {
     if (!businessId) {
@@ -893,6 +937,9 @@ export const listManagementCampaignsByBusiness = query({
       .collect();
     const now = Date.now();
 
+    // Bound total related reads on the legacy array endpoint. Current clients
+    // load deferred details through the paged campaign actions.
+    const includeStats = campaigns.length <= 20;
     const result = await Promise.all(
       campaigns.map(async (campaign) => {
         const automationEnabled = isAutomationEnabled(
@@ -910,21 +957,18 @@ export const listManagementCampaignsByBusiness = query({
                 campaign.type === 'ai_retention'
               ? 'ai'
               : 'management';
-        const [
-          logs,
-          hasPersistedCompletionEvidence,
-          managementEstimate,
-          missingBirthdayCount,
-        ] = await Promise.all([
-          getCampaignLogs(ctx, campaign._id),
-          hasPersistedCampaignRun(ctx, campaign._id),
-          isManagementType(campaign.type)
-            ? estimateAudienceForCampaign(ctx, campaign)
-            : Promise.resolve(null),
-          campaign.type === 'birthday'
-            ? countMissingBirthdayForCampaign(ctx, campaign)
-            : Promise.resolve(null),
-        ]);
+        const calculateAudience =
+          includeStats && isManagementType(campaign.type);
+        const [logs, hasPersistedCompletionEvidence, managementEstimate] =
+          await Promise.all([
+            includeStats
+              ? getCampaignLogs(ctx, campaign._id)
+              : Promise.resolve(null),
+            hasPersistedCampaignRun(ctx, campaign._id),
+            calculateAudience
+              ? estimateAudienceForCampaign(ctx, campaign)
+              : Promise.resolve(null),
+          ]);
         const productState = classifyCampaignState(campaign, {
           now,
           hasPersistedCompletionEvidence,
@@ -935,9 +979,12 @@ export const listManagementCampaignsByBusiness = query({
             : productState.isMeaningfullyActive
               ? 'active'
               : 'inactive';
-        const deliveryStats = buildCampaignDeliveryStats(logs);
+        const deliveryStats =
+          logs && logs.length <= DELIVERY_PAGE_SIZE
+            ? buildCampaignDeliveryStats(logs)
+            : null;
         const estimatedAudience = isManagementType(campaign.type)
-          ? (managementEstimate?.total ?? 0)
+          ? (managementEstimate?.total ?? null)
           : typeof campaign.rules?.audienceCount === 'number'
             ? Number(campaign.rules.audienceCount)
             : 0;
@@ -971,11 +1018,13 @@ export const listManagementCampaignsByBusiness = query({
           lifecycle,
           canArchive: lifecycle === 'inactive',
           estimatedAudience,
-          reachedUniqueAllTime: deliveryStats.reachedUniqueAllTime,
-          reachedMessagesAllTime: deliveryStats.reachedMessagesAllTime,
-          lastSentAt: deliveryStats.lastSentAt,
+          reachedUniqueAllTime: deliveryStats?.reachedUniqueAllTime ?? null,
+          reachedMessagesAllTime: deliveryStats?.reachedMessagesAllTime ?? null,
+          lastSentAt: deliveryStats?.lastSentAt ?? null,
           missingBirthdayCount:
-            campaign.type === 'birthday' ? (missingBirthdayCount ?? 0) : null,
+            campaign.type === 'birthday'
+              ? (managementEstimate?.missingBirthdayCount ?? null)
+              : null,
           isActive: campaign.isActive,
           archivedAt: campaign.archivedAt ?? null,
           createdAt: campaign.createdAt,
@@ -994,8 +1043,9 @@ export const getManagementCampaignDraft = query({
   args: {
     businessId: v.id('businesses'),
     campaignId: v.id('campaigns'),
+    deferStats: v.optional(v.boolean()),
   },
-  handler: async (ctx, { businessId, campaignId }) => {
+  handler: async (ctx, { businessId, campaignId, deferStats }) => {
     await requireActorHasBusinessCapability(
       ctx,
       businessId,
@@ -1011,14 +1061,16 @@ export const getManagementCampaignDraft = query({
     }
 
     const defaults = buildDefaultDraftByType(campaign.type);
-    const [estimate, logs, missingBirthdayCount] = await Promise.all([
-      estimateAudienceForCampaign(ctx, campaign),
-      getCampaignLogs(ctx, campaign._id),
-      campaign.type === 'birthday'
-        ? countMissingBirthdayForCampaign(ctx, campaign)
-        : Promise.resolve(null),
-    ]);
-    const deliveryStats = buildCampaignDeliveryStats(logs);
+    const [estimate, logs] = deferStats
+      ? [null, []]
+      : await Promise.all([
+          estimateAudienceForCampaign(ctx, campaign),
+          getCampaignLogs(ctx, campaign._id),
+        ]);
+    const deliveryStats =
+      logs.length <= DELIVERY_PAGE_SIZE
+        ? buildCampaignDeliveryStats(logs)
+        : null;
     const automationEnabled = isAutomationEnabled(campaign.automationEnabled);
     const scheduleMode = getScheduleModeFromCampaign(campaign);
 
@@ -1044,14 +1096,19 @@ export const getManagementCampaignDraft = query({
           : campaignConsumesQuota({ kind: 'management', campaign })
             ? 'active'
             : 'draft',
-      stats: {
-        eligibleAudienceNow: estimate.total,
-        reachedUniqueAllTime: deliveryStats.reachedUniqueAllTime,
-        reachedMessagesAllTime: deliveryStats.reachedMessagesAllTime,
-        lastSentAt: deliveryStats.lastSentAt,
-        missingBirthdayCount:
-          campaign.type === 'birthday' ? (missingBirthdayCount ?? 0) : null,
-      },
+      stats: deferStats
+        ? null
+        : {
+            eligibleAudienceNow: estimate?.total ?? null,
+            reachedUniqueAllTime: deliveryStats?.reachedUniqueAllTime ?? null,
+            reachedMessagesAllTime:
+              deliveryStats?.reachedMessagesAllTime ?? null,
+            lastSentAt: deliveryStats?.lastSentAt ?? null,
+            missingBirthdayCount:
+              campaign.type === 'birthday'
+                ? (estimate?.missingBirthdayCount ?? null)
+                : null,
+          },
       createdAt: campaign.createdAt,
       updatedAt: campaign.updatedAt,
     };
@@ -1561,10 +1618,506 @@ export const estimateCampaignAudience = mutation({
       throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
     }
     const estimate = await estimateAudienceForCampaign(ctx, campaign);
+    if (!estimate) throw new Error('CAMPAIGN_CLIENT_UPDATE_REQUIRED');
     return {
       total: estimate.total,
       sample: estimate.sample,
     };
+  },
+});
+
+type DeliveryJob = NonNullable<Doc<'campaigns'>['managementDelivery']>;
+const DELIVERY_PAGE_SIZE = 50;
+const DELIVERY_RETRY_MS = 60_000;
+
+function audienceIndex(ctx: QueryCtx, campaign: Doc<'campaigns'>) {
+  const programId = campaign.programId;
+  return programId
+    ? ctx.db
+        .query('memberships')
+        .withIndex('by_programId_userId', (q) => q.eq('programId', programId))
+    : ctx.db
+        .query('memberships')
+        .withIndex('by_businessId_userId', (q) =>
+          q.eq('businessId', campaign.businessId)
+        );
+}
+
+async function needsDeliveryJob(ctx: QueryCtx, campaign: Doc<'campaigns'>) {
+  return (
+    (await audienceIndex(ctx, campaign).take(DELIVERY_PAGE_SIZE + 1)).length >
+    DELIVERY_PAGE_SIZE
+  );
+}
+
+async function scheduleDeliveryPage(
+  ctx: MutationCtx,
+  campaignId: Id<'campaigns'>,
+  job: DeliveryJob
+) {
+  await ctx.scheduler.runAfter(
+    0,
+    internal.campaigns.processManagementDeliveryBatch,
+    {
+      campaignId,
+      referenceNow: job.referenceNow,
+      page: job.page,
+    }
+  );
+}
+
+async function queueDeliveryJob(
+  ctx: MutationCtx,
+  campaign: Doc<'campaigns'>,
+  mode: DeliveryJob['mode'],
+  now: number
+) {
+  if (campaign.managementDelivery) return;
+  const job: DeliveryJob = {
+    mode,
+    referenceNow: now,
+    revision: campaign.updatedAt,
+    cursor: null,
+    page: 0,
+    targeted: 0,
+    sent: 0,
+    nextAttemptAt: Date.now() + DELIVERY_RETRY_MS,
+  };
+  await ctx.db.patch(campaign._id, { managementDelivery: job });
+  await scheduleDeliveryPage(ctx, campaign._id, job);
+}
+
+const estimateBatchArgs = {
+  businessId: v.id('businesses'),
+  campaignId: v.id('campaigns'),
+  cursor: v.union(v.string(), v.null()),
+  referenceNow: v.number(),
+  revision: v.optional(v.number()),
+  lastMatched: v.optional(v.id('users')),
+  lastSeen: v.optional(v.id('users')),
+};
+
+export const estimateManagementAudienceBatch = internalQuery({
+  args: estimateBatchArgs,
+  returns: v.object({
+    total: v.number(),
+    sample: v.array(v.string()),
+    revision: v.number(),
+    cursor: v.union(v.string(), v.null()),
+    lastMatched: v.union(v.id('users'), v.null()),
+    lastSeen: v.union(v.id('users'), v.null()),
+    missingBirthdayCount: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    await requireActorHasBusinessCapability(
+      ctx,
+      args.businessId,
+      'access_campaigns'
+    );
+    const campaign = await getCampaignAnyStateOrThrow(
+      ctx,
+      args.businessId,
+      args.campaignId
+    );
+    assertExpectedUpdatedAt({
+      entity: 'campaign',
+      entityId: String(campaign._id),
+      expectedUpdatedAt: args.revision,
+      actualUpdatedAt: campaign.updatedAt,
+    });
+    if (!isManagementType(campaign.type))
+      throw new Error('CAMPAIGN_TYPE_NOT_SUPPORTED');
+    const rules = normalizeCampaignRules(campaign.type, campaign.rules);
+    const page = await audienceIndex(ctx, campaign).paginate({
+      cursor: args.cursor,
+      numItems: 100,
+    });
+    const sample: string[] = [];
+    let total = 0,
+      missingBirthdayCount = 0,
+      lastSeen = args.lastSeen ?? null,
+      lastMatched = args.lastMatched ?? null;
+    for (const membership of page.page) {
+      if (
+        membership.businessId !== args.businessId ||
+        !membership.isActive ||
+        membership._creationTime > args.referenceNow ||
+        membership.userId === lastMatched
+      )
+        continue;
+      const user = await ctx.db.get(membership.userId);
+      if (user && user._id !== lastSeen) {
+        lastSeen = user._id;
+        if (
+          !isValidBirthdayValue(user.birthdayMonth, 1, 12) ||
+          !isValidBirthdayValue(user.birthdayDay, 1, 31)
+        )
+          missingBirthdayCount++;
+      }
+      if (
+        !user ||
+        !rowMatchesRule(rules, { membership, user }, args.referenceNow)
+      )
+        continue;
+      lastMatched = user._id;
+      total++;
+      if (sample.length < 5)
+        sample.push(user.fullName ?? user.email ?? user.externalId ?? 'לקוח');
+    }
+    return {
+      total,
+      sample,
+      revision: campaign.updatedAt,
+      cursor: page.isDone ? null : page.continueCursor,
+      lastMatched,
+      lastSeen,
+      missingBirthdayCount,
+    };
+  },
+});
+
+type EstimateBatch = {
+  total: number;
+  sample: string[];
+  revision: number;
+  cursor: string | null;
+  lastMatched: Id<'users'> | null;
+  lastSeen: Id<'users'> | null;
+  missingBirthdayCount: number;
+};
+
+export const estimateCampaignAudiencePaged = action({
+  args: { businessId: v.id('businesses'), campaignId: v.id('campaigns') },
+  returns: v.object({
+    total: v.number(),
+    sample: v.array(v.string()),
+    missingBirthdayCount: v.number(),
+  }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    total: number;
+    sample: string[];
+    missingBirthdayCount: number;
+  }> => {
+    const referenceNow = Date.now(),
+      sample: string[] = [];
+    let cursor: string | null = null;
+    let revision: number | undefined,
+      lastMatched: Id<'users'> | undefined,
+      lastSeen: Id<'users'> | undefined;
+    let total = 0,
+      missingBirthdayCount = 0;
+    do {
+      const batch: EstimateBatch = await ctx.runQuery(
+        internal.campaigns.estimateManagementAudienceBatch,
+        {
+          ...args,
+          referenceNow,
+          cursor,
+          revision,
+          lastMatched,
+          lastSeen,
+        }
+      );
+      cursor = batch.cursor;
+      revision = batch.revision;
+      lastMatched = batch.lastMatched ?? undefined;
+      total += batch.total;
+      lastSeen = batch.lastSeen ?? undefined;
+      missingBirthdayCount += batch.missingBirthdayCount;
+      sample.push(...batch.sample.slice(0, 5 - sample.length));
+    } while (cursor !== null);
+    return { total, sample, missingBirthdayCount };
+  },
+});
+
+type CampaignHistoryPage = {
+  count: number;
+  unique: number;
+  last: number | null;
+  user: Id<'users'> | null;
+  cursor: string | null;
+};
+
+export const managementHistoryBatch = internalQuery({
+  args: {
+    businessId: v.id('businesses'),
+    campaignId: v.id('campaigns'),
+    revision: v.number(),
+    cursor: v.union(v.string(), v.null()),
+    previousUser: v.optional(v.id('users')),
+    cutoff: v.number(),
+  },
+  returns: v.object({
+    count: v.number(),
+    unique: v.number(),
+    last: v.union(v.number(), v.null()),
+    user: v.union(v.id('users'), v.null()),
+    cursor: v.union(v.string(), v.null()),
+  }),
+  handler: async (ctx, args): Promise<CampaignHistoryPage> => {
+    await requireActorHasBusinessCapability(
+      ctx,
+      args.businessId,
+      'access_campaigns'
+    );
+    const campaign = await getCampaignAnyStateOrThrow(
+      ctx,
+      args.businessId,
+      args.campaignId
+    );
+    assertExpectedUpdatedAt({
+      entity: 'campaign',
+      entityId: String(campaign._id),
+      expectedUpdatedAt: args.revision,
+      actualUpdatedAt: campaign.updatedAt,
+    });
+    const page = await ctx.db
+      .query('messageLog')
+      .withIndex('by_campaignId_toUserId', (q) =>
+        q.eq('campaignId', campaign._id)
+      )
+      .paginate({ cursor: args.cursor, numItems: 150 });
+    let count = 0,
+      unique = 0,
+      last: number | null = null;
+    let user = args.previousUser ?? null;
+    for (const entry of page.page) {
+      if (
+        entry.businessId !== args.businessId ||
+        entry._creationTime > args.cutoff
+      )
+        continue;
+      count++;
+      if (entry.toUserId !== user) {
+        unique++;
+        user = entry.toUserId;
+      }
+      last = last === null ? entry.createdAt : Math.max(last, entry.createdAt);
+    }
+    return {
+      count,
+      unique,
+      last,
+      user,
+      cursor: page.isDone ? null : page.continueCursor,
+    };
+  },
+});
+
+export const getManagementCampaignHistoryPaged = action({
+  args: {
+    businessId: v.id('businesses'),
+    campaignId: v.id('campaigns'),
+    revision: v.number(),
+  },
+  returns: v.object({
+    reachedUniqueAllTime: v.number(),
+    reachedMessagesAllTime: v.number(),
+    lastSentAt: v.union(v.number(), v.null()),
+  }),
+  handler: async (ctx, args): Promise<CampaignDeliveryStats> => {
+    const cutoff = Date.now();
+    let cursor: string | null = null;
+    let previousUser: Id<'users'> | undefined;
+    let reachedUniqueAllTime = 0,
+      reachedMessagesAllTime = 0,
+      lastSentAt: number | null = null;
+    do {
+      const batch: CampaignHistoryPage = await ctx.runQuery(
+        internal.campaigns.managementHistoryBatch,
+        { ...args, cursor, previousUser, cutoff }
+      );
+      cursor = batch.cursor;
+      previousUser = batch.user ?? undefined;
+      reachedUniqueAllTime += batch.unique;
+      reachedMessagesAllTime += batch.count;
+      if (batch.last !== null)
+        lastSentAt =
+          lastSentAt === null ? batch.last : Math.max(lastSentAt, batch.last);
+    } while (cursor !== null);
+    return { reachedUniqueAllTime, reachedMessagesAllTime, lastSentAt };
+  },
+});
+
+async function recordDeliveryProgress(
+  ctx: MutationCtx,
+  campaign: Doc<'campaigns'>,
+  job: DeliveryJob
+) {
+  if (job.sent > 0) {
+    await recordCampaignRun(ctx, {
+      businessId: campaign.businessId,
+      campaignId: campaign._id,
+      programId: campaign.programId,
+      campaignType: campaign.type,
+      sentAt: job.referenceNow,
+      targetedCount: job.targeted,
+      deliveredCount: job.sent,
+      lastDeliveryAt: job.referenceNow,
+    });
+  }
+}
+
+export const processManagementDeliveryBatch = internalMutation({
+  args: {
+    campaignId: v.id('campaigns'),
+    referenceNow: v.number(),
+    page: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const campaign = await ctx.db.get(args.campaignId);
+    const job = campaign?.managementDelivery;
+    if (
+      !campaign ||
+      !job ||
+      job.referenceNow !== args.referenceNow ||
+      job.page !== args.page
+    )
+      return null;
+    const business = await ctx.db.get(campaign.businessId);
+    if (
+      !business?.isActive ||
+      !campaign.isActive ||
+      (business.lastRestoredAt ?? 0) > job.referenceNow ||
+      campaign.updatedAt !== job.revision ||
+      campaign.source === 'smart_manager' ||
+      !isManagementType(campaign.type)
+    ) {
+      if (business) await recordDeliveryProgress(ctx, campaign, job);
+      await ctx.db.patch(campaign._id, { managementDelivery: undefined });
+      return null;
+    }
+    try {
+      await assertCampaignsNotOverLimit(ctx, campaign.businessId);
+    } catch (error) {
+      if (!isCampaignLimitReachedError(error)) throw error;
+      if (business) await recordDeliveryProgress(ctx, campaign, job);
+      await ctx.db.patch(campaign._id, { managementDelivery: undefined });
+      return null;
+    }
+    const audience = await audienceIndex(ctx, campaign).paginate({
+      cursor: job.cursor,
+      numItems: DELIVERY_PAGE_SIZE,
+    });
+    const type = normalizeManagementType(campaign.type);
+    const rules = normalizeCampaignRules(type, campaign.rules);
+    const next = { ...job };
+    for (const membership of audience.page) {
+      if (
+        membership.businessId !== campaign.businessId ||
+        !membership.isActive ||
+        membership._creationTime > job.referenceNow ||
+        membership.userId === next.lastMatchedUserId
+      )
+        continue;
+      const user = await ctx.db.get(membership.userId);
+      if (
+        !user ||
+        !rowMatchesRule(rules, { membership, user }, job.referenceNow)
+      )
+        continue;
+      // The index groups each user's memberships, including at page boundaries.
+      next.lastMatchedUserId = user._id;
+      next.targeted++;
+      const alreadySent =
+        job.mode === 'recurring'
+          ? await hasAutomationHistory(
+              ctx,
+              campaign._id,
+              user._id,
+              type,
+              job.referenceNow
+            )
+          : !!(await ctx.db
+              .query('messageLog')
+              .withIndex('by_campaignId_toUserId', (q) =>
+                q.eq('campaignId', campaign._id).eq('toUserId', user._id)
+              )
+              .first());
+      if (alreadySent) continue;
+      await ctx.db.insert('messageLog', {
+        businessId: campaign.businessId,
+        campaignId: campaign._id,
+        toUserId: user._id,
+        channel: 'in_app',
+        status: 'sent',
+        createdAt: job.referenceNow,
+      });
+      const key =
+        job.mode === 'recurring'
+          ? ['campaign_automation', campaign._id, job.referenceNow].join(':')
+          : undefined;
+      await attemptCampaignPushDelivery(ctx, campaign, user._id, key);
+      next.sent++;
+    }
+    if (!audience.isDone) {
+      next.cursor = audience.continueCursor;
+      next.page++;
+      next.nextAttemptAt = Date.now() + DELIVERY_RETRY_MS;
+      await ctx.db.patch(campaign._id, { managementDelivery: next });
+      await scheduleDeliveryPage(ctx, campaign._id, next);
+      return null;
+    }
+    const completedAt = Math.max(Date.now(), campaign.updatedAt + 1);
+    const completeOneTime =
+      getScheduleModeFromCampaign(campaign) === 'one_time';
+    await recordDeliveryProgress(ctx, campaign, next);
+    await ctx.db.patch(campaign._id, {
+      managementDelivery: undefined,
+      ...(next.sent > 0 || completeOneTime || job.mode === 'manual'
+        ? { updatedAt: completedAt }
+        : {}),
+      ...(completeOneTime
+        ? {
+            status: 'completed' as const,
+            activationStatus: 'completed' as const,
+            schedule: {
+              ...campaign.schedule,
+              mode: 'send_now' as const,
+              sendAt: undefined,
+              nextRunAt: undefined,
+            },
+          }
+        : {}),
+    });
+    if (next.sent > 0 || completeOneTime || job.mode === 'manual') {
+      await markCampaignFactsDirty(
+        ctx,
+        campaign.businessId,
+        'campaign_automation_transition',
+        completedAt
+      );
+    }
+    return null;
+  },
+});
+
+export const recoverManagementDeliveries = internalMutation({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    const now = Date.now();
+    const campaigns = await ctx.db
+      .query('campaigns')
+      .withIndex('by_managementDelivery_nextAttemptAt', (q) =>
+        q
+          .gte('managementDelivery.nextAttemptAt', 0)
+          .lte('managementDelivery.nextAttemptAt', now)
+      )
+      .take(25);
+    for (const campaign of campaigns) {
+      const job = campaign.managementDelivery;
+      if (!job) continue;
+      await ctx.db.patch(campaign._id, {
+        managementDelivery: { ...job, nextAttemptAt: now + DELIVERY_RETRY_MS },
+      });
+      await scheduleDeliveryPage(ctx, campaign._id, job);
+    }
+    return campaigns.length;
   },
 });
 
@@ -1573,8 +2126,12 @@ export const sendCampaignNow = mutation({
     businessId: v.id('businesses'),
     campaignId: v.id('campaigns'),
     expectedUpdatedAt: v.optional(v.number()),
+    acceptQueued: v.optional(v.boolean()),
   },
-  handler: async (ctx, { businessId, campaignId, expectedUpdatedAt }) => {
+  handler: async (
+    ctx,
+    { businessId, campaignId, expectedUpdatedAt, acceptQueued }
+  ) => {
     await requireActorHasBusinessCapability(
       ctx,
       businessId,
@@ -1593,6 +2150,16 @@ export const sendCampaignNow = mutation({
     }
 
     const now = Date.now();
+    if (
+      campaign.managementDelivery ||
+      (await needsDeliveryJob(ctx, campaign))
+    ) {
+      if (!acceptQueued) throw new Error('CAMPAIGN_CLIENT_UPDATE_REQUIRED');
+      if (!campaign.isActive) throw new Error('CAMPAIGN_NOT_FOUND');
+      await assertCampaignsNotOverLimit(ctx, businessId);
+      await queueDeliveryJob(ctx, campaign, 'manual', now);
+      return { queued: true as const, updatedAt: campaign.updatedAt };
+    }
     const result = await sendCampaignDeliveryOnce(ctx, campaign, now);
     const currentSchedule = isObject(campaign.schedule)
       ? campaign.schedule
@@ -1614,6 +2181,7 @@ export const sendCampaignNow = mutation({
     await markCampaignFactsDirty(ctx, businessId, 'campaign_sent', now);
 
     return {
+      queued: false as const,
       sentCount: result.sentCount,
       skippedCount: result.skippedCount,
       estimatedAudience: result.estimatedAudience,
@@ -1623,9 +2191,17 @@ export const sendCampaignNow = mutation({
 });
 
 export const runAutomationSweepInternal = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const now = Date.now();
+  args: {
+    phase: v.optional(v.union(v.literal('recurring'), v.literal('one_time'))),
+    cursor: v.optional(v.string()),
+    referenceNow: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const now = args.referenceNow ?? Date.now();
+    let continuation: {
+      phase: 'recurring' | 'one_time';
+      cursor?: string;
+    } | null = null;
     const israelHour = getIsraelHour(now);
     const shouldRunRecurring = israelHour === 9;
     let recurringProcessedCampaigns = 0;
@@ -1644,21 +2220,25 @@ export const runAutomationSweepInternal = internalMutation({
       return businessById.get(businessKey) ?? null;
     };
 
-    if (shouldRunRecurring) {
-      const recurringCampaigns = await ctx.db
+    if (shouldRunRecurring && args.phase !== 'one_time') {
+      const recurringPage = await ctx.db
         .query('campaigns')
         .withIndex('by_automationEnabled', (q: any) =>
           q.eq('automationEnabled', true)
         )
-        .filter((q: any) =>
-          q.and(
-            q.eq(q.field('isActive'), true),
-            q.neq(q.field('type'), 'ai_marketing')
-          )
-        )
-        .collect();
+        .paginate({ cursor: args.cursor ?? null, numItems: 10 });
+      continuation = recurringPage.isDone
+        ? { phase: 'one_time' }
+        : { phase: 'recurring', cursor: recurringPage.continueCursor };
+      await ctx.scheduler.runAfter(
+        0,
+        internal.campaigns.runAutomationSweepInternal,
+        { ...continuation, referenceNow: now }
+      );
 
-      for (const campaign of recurringCampaigns) {
+      for (const campaign of recurringPage.page) {
+        if (campaign.isActive !== true || campaign.type === 'ai_marketing')
+          continue;
         if (campaign.source === 'smart_manager') {
           continue;
         }
@@ -1687,6 +2267,13 @@ export const runAutomationSweepInternal = internalMutation({
           continue;
         }
         recurringProcessedCampaigns += 1;
+        if (
+          campaign.managementDelivery ||
+          (await needsDeliveryJob(ctx, campaign))
+        ) {
+          await queueDeliveryJob(ctx, campaign, 'recurring', now);
+          continue;
+        }
         const result = await sendAutomationForCampaign(ctx, campaign, now);
         sentCount += result.sentCount;
         skippedCount += result.skippedCount;
@@ -1699,85 +2286,107 @@ export const runAutomationSweepInternal = internalMutation({
       }
     }
 
-    const oneTimeCandidates = await ctx.db
-      .query('campaigns')
-      .withIndex('by_activationStatus', (q: any) =>
-        q.eq('activationStatus', 'active')
-      )
-      .filter((q: any) =>
-        q.and(
-          q.eq(q.field('isActive'), true),
-          q.eq(q.field('automationEnabled'), false),
-          q.neq(q.field('type'), 'ai_marketing'),
-          q.neq(q.field('type'), 'ai_retention'),
-          q.neq(q.field('type'), 'retention_action')
+    if (!continuation) {
+      const oneTimePage = await ctx.db
+        .query('campaigns')
+        .withIndex('by_activationStatus', (q: any) =>
+          q.eq('activationStatus', 'active')
         )
-      )
-      .collect();
+        .paginate({
+          cursor: args.phase === 'one_time' ? (args.cursor ?? null) : null,
+          numItems: 10,
+        });
+      if (!oneTimePage.isDone)
+        continuation = {
+          phase: 'one_time',
+          cursor: oneTimePage.continueCursor,
+        };
+      if (continuation)
+        await ctx.scheduler.runAfter(
+          0,
+          internal.campaigns.runAutomationSweepInternal,
+          { ...continuation, referenceNow: now }
+        );
 
-    for (const campaign of oneTimeCandidates) {
-      if (campaign.source === 'smart_manager') {
-        continue;
-      }
-      if (!isManagementType(campaign.type)) {
-        continue;
-      }
-      if (getScheduleModeFromCampaign(campaign) !== 'one_time') {
-        continue;
-      }
-      const sendAt = Number(campaign.schedule?.sendAt ?? 0);
-      if (!Number.isFinite(sendAt) || sendAt <= 0 || sendAt > now) {
-        continue;
-      }
-
-      const business = await getBusiness(campaign.businessId);
-      if (!business || business.isActive !== true) {
-        continue;
-      }
-      if (
-        typeof business.lastRestoredAt === 'number' &&
-        sendAt <= business.lastRestoredAt
-      ) {
-        continue;
-      }
-
-      const businessKey = String(campaign.businessId);
-      let isBlocked = overLimitByBusiness.get(businessKey);
-      if (isBlocked === undefined) {
-        try {
-          await assertCampaignsNotOverLimit(ctx, campaign.businessId);
-          isBlocked = false;
-        } catch (error) {
-          if (!isCampaignLimitReachedError(error)) {
-            throw error;
-          }
-          isBlocked = true;
+      for (const campaign of oneTimePage.page) {
+        if (
+          campaign.isActive !== true ||
+          campaign.automationEnabled !== false ||
+          ['ai_marketing', 'ai_retention', 'retention_action'].includes(
+            campaign.type
+          )
+        )
+          continue;
+        if (campaign.source === 'smart_manager') {
+          continue;
         }
-        overLimitByBusiness.set(businessKey, isBlocked);
-      }
-      if (isBlocked) {
-        continue;
-      }
+        if (!isManagementType(campaign.type)) {
+          continue;
+        }
+        if (getScheduleModeFromCampaign(campaign) !== 'one_time') {
+          continue;
+        }
+        const sendAt = Number(campaign.schedule?.sendAt ?? 0);
+        if (!Number.isFinite(sendAt) || sendAt <= 0 || sendAt > now) {
+          continue;
+        }
 
-      oneTimeProcessedCampaigns += 1;
-      const result = await sendCampaignDeliveryOnce(ctx, campaign, now);
-      sentCount += result.sentCount;
-      skippedCount += result.skippedCount;
-      const currentSchedule = isObject(campaign.schedule)
-        ? campaign.schedule
-        : {};
-      await ctx.db.patch(campaign._id, {
-        status: 'completed',
-        activationStatus: 'completed',
-        schedule: {
-          ...currentSchedule,
-          mode: 'send_now',
-          sendAt: undefined,
-          nextRunAt: undefined,
-        },
-        updatedAt: now,
-      });
-      dirtyBusinessIds.set(String(campaign.businessId), campaign.businessId);
+        const business = await getBusiness(campaign.businessId);
+        if (!business || business.isActive !== true) {
+          continue;
+        }
+        if (
+          typeof business.lastRestoredAt === 'number' &&
+          sendAt <= business.lastRestoredAt
+        ) {
+          continue;
+        }
+
+        const businessKey = String(campaign.businessId);
+        let isBlocked = overLimitByBusiness.get(businessKey);
+        if (isBlocked === undefined) {
+          try {
+            await assertCampaignsNotOverLimit(ctx, campaign.businessId);
+            isBlocked = false;
+          } catch (error) {
+            if (!isCampaignLimitReachedError(error)) {
+              throw error;
+            }
+            isBlocked = true;
+          }
+          overLimitByBusiness.set(businessKey, isBlocked);
+        }
+        if (isBlocked) {
+          continue;
+        }
+
+        oneTimeProcessedCampaigns += 1;
+        if (
+          campaign.managementDelivery ||
+          (await needsDeliveryJob(ctx, campaign))
+        ) {
+          await queueDeliveryJob(ctx, campaign, 'one_time', now);
+          continue;
+        }
+        const result = await sendCampaignDeliveryOnce(ctx, campaign, now);
+        sentCount += result.sentCount;
+        skippedCount += result.skippedCount;
+        const currentSchedule = isObject(campaign.schedule)
+          ? campaign.schedule
+          : {};
+        await ctx.db.patch(campaign._id, {
+          status: 'completed',
+          activationStatus: 'completed',
+          schedule: {
+            ...currentSchedule,
+            mode: 'send_now',
+            sendAt: undefined,
+            nextRunAt: undefined,
+          },
+          updatedAt: now,
+        });
+        dirtyBusinessIds.set(String(campaign.businessId), campaign.businessId);
+      }
     }
 
     for (const businessId of dirtyBusinessIds.values()) {
@@ -1801,6 +2410,55 @@ export const runAutomationSweepInternal = internalMutation({
   },
 });
 
+async function inboxItems(ctx: QueryCtx, logs: Doc<'messageLog'>[]) {
+  return await Promise.all(
+    logs.map(async (log) => {
+      const [business, campaign] = await Promise.all([
+        ctx.db.get(log.businessId),
+        log.campaignId ? ctx.db.get(log.campaignId) : Promise.resolve(null),
+      ]);
+      const inboxPayload =
+        log.inboxPayload && typeof log.inboxPayload === 'object'
+          ? (log.inboxPayload as Record<string, unknown>)
+          : null;
+      const payloadTitle =
+        inboxPayload && typeof inboxPayload.title === 'string'
+          ? inboxPayload.title
+          : null;
+      const payloadBody =
+        inboxPayload && typeof inboxPayload.body === 'string'
+          ? inboxPayload.body
+          : null;
+      const destinationHref =
+        inboxPayload && typeof inboxPayload.destinationHref === 'string'
+          ? inboxPayload.destinationHref
+          : null;
+
+      return {
+        messageId: log._id,
+        campaignId: log.campaignId ?? null,
+        businessId: log.businessId,
+        businessName: business?.name ?? 'העסק',
+        campaignType: campaign?.type ?? 'promo',
+        title:
+          payloadTitle ??
+          campaign?.messageTitle ??
+          campaign?.title ??
+          'עדכון חדש מהעסק',
+        body:
+          payloadBody ??
+          campaign?.messageBody ??
+          'יש לכם עדכון חדש. היכנסו לצפות בפרטים.',
+        destinationHref,
+        notificationType: log.notificationType ?? null,
+        createdAt: log.createdAt,
+        readAt: log.readAt ?? null,
+        status: log.status,
+      };
+    })
+  );
+}
+
 export const listInboxForCustomer = query({
   args: {},
   handler: async (ctx) => {
@@ -1812,56 +2470,47 @@ export const listInboxForCustomer = query({
     const logs = await ctx.db
       .query('messageLog')
       .withIndex('by_toUserId', (q: any) => q.eq('toUserId', user._id))
-      .collect();
+      .take(501);
+    // This array API promises full history. Never give a partial array to an
+    // installed client that cannot represent a continuation.
+    if (logs.length > 500) {
+      throw new ConvexError({ code: 'CUSTOMER_INBOX_PAGINATION_REQUIRED' });
+    }
 
     const sorted = logs.sort((a, b) => b.createdAt - a.createdAt);
-    const inbox = await Promise.all(
-      sorted.map(async (log) => {
-        const [business, campaign] = await Promise.all([
-          ctx.db.get(log.businessId),
-          log.campaignId ? ctx.db.get(log.campaignId) : Promise.resolve(null),
-        ]);
-        const inboxPayload =
-          log.inboxPayload && typeof log.inboxPayload === 'object'
-            ? (log.inboxPayload as Record<string, unknown>)
-            : null;
-        const payloadTitle =
-          inboxPayload && typeof inboxPayload.title === 'string'
-            ? inboxPayload.title
-            : null;
-        const payloadBody =
-          inboxPayload && typeof inboxPayload.body === 'string'
-            ? inboxPayload.body
-            : null;
-        const destinationHref =
-          inboxPayload && typeof inboxPayload.destinationHref === 'string'
-            ? inboxPayload.destinationHref
-            : null;
+    return await inboxItems(ctx, sorted);
+  },
+});
 
-        return {
-          messageId: log._id,
-          campaignId: log.campaignId ?? null,
-          businessId: log.businessId,
-          businessName: business?.name ?? 'העסק',
-          campaignType: campaign?.type ?? 'promo',
-          title:
-            payloadTitle ??
-            campaign?.messageTitle ??
-            campaign?.title ??
-            'עדכון חדש מהעסק',
-          body:
-            payloadBody ??
-            campaign?.messageBody ??
-            'יש לכם עדכון חדש. היכנסו לצפות בפרטים.',
-          destinationHref,
-          notificationType: log.notificationType ?? null,
-          createdAt: log.createdAt,
-          readAt: log.readAt ?? null,
-          status: log.status,
-        };
-      })
-    );
-
-    return inbox;
+export const listInboxForCustomerPage = query({
+  args: { paginationOpts: paginationOptsValidator },
+  returns: paginationResultValidator(
+    v.object({
+      messageId: v.id('messageLog'),
+      campaignId: v.union(v.id('campaigns'), v.null()),
+      businessId: v.id('businesses'),
+      businessName: v.string(),
+      campaignType: v.string(),
+      title: v.string(),
+      body: v.string(),
+      destinationHref: v.union(v.string(), v.null()),
+      notificationType: v.union(v.string(), v.null()),
+      createdAt: v.number(),
+      readAt: v.union(v.number(), v.null()),
+      status: v.string(),
+    })
+  ),
+  handler: async (ctx, { paginationOpts }) => {
+    const user = await getCurrentUserOrNull(ctx);
+    if (!user) return { page: [], isDone: true, continueCursor: '' };
+    const page = await ctx.db
+      .query('messageLog')
+      .withIndex('by_toUserId_createdAt', (q) => q.eq('toUserId', user._id))
+      .order('desc')
+      .paginate({
+        ...paginationOpts,
+        numItems: Math.min(25, Math.max(1, paginationOpts.numItems)),
+      });
+    return { ...page, page: await inboxItems(ctx, page.page) };
   },
 });

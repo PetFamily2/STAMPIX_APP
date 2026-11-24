@@ -31,9 +31,9 @@ class FakeQuery {
     ]);
   }
   rows() {
-    return this.db.rows(this.table).filter((row) =>
-      this.predicates.every((predicate) => predicate(row))
-    );
+    return this.db
+      .rows(this.table)
+      .filter((row) => this.predicates.every((predicate) => predicate(row)));
   }
   async first() {
     return this.rows()[0] ?? null;
@@ -61,7 +61,11 @@ class FakeDb {
     return new FakeQuery(this, table);
   }
   async get(id) {
-    return Object.values(this.tables).flat().find((row) => row._id === id) ?? null;
+    return (
+      Object.values(this.tables)
+        .flat()
+        .find((row) => row._id === id) ?? null
+    );
   }
   async insert(table, value) {
     const row = { _id: `${table}_${this.nextId++}`, ...structuredClone(value) };
@@ -82,56 +86,69 @@ class FakeDb {
 
 function buildContext(programMode) {
   const now = Date.now();
-  const program = programMode === 'missing'
-    ? []
-    : [{
-        _id: 'program_1',
-        businessId: 'business_1',
-        isActive: programMode === 'active',
-        title: 'Referral Card',
-        rewardName: 'Referral Benefit',
-      }];
+  const program =
+    programMode === 'missing'
+      ? []
+      : [
+          {
+            _id: 'program_1',
+            businessId: 'business_1',
+            isActive: programMode === 'active',
+            title: 'Referral Card',
+            rewardName: 'Referral Benefit',
+          },
+        ];
   const db = new FakeDb({
     users: [{ _id: 'staff_1' }, { _id: 'customer_1' }],
-    businesses: [{
-      _id: 'business_1',
-      ownerUserId: 'staff_1',
-      name: 'Business One',
-      isActive: true,
-    }],
-    businessStaff: [{
-      _id: 'staff_link_1',
-      businessId: 'business_1',
-      userId: 'staff_1',
-      staffRole: 'owner',
-      status: 'active',
-      isActive: true,
-    }],
+    businesses: [
+      {
+        _id: 'business_1',
+        ownerUserId: 'staff_1',
+        name: 'Business One',
+        isActive: true,
+      },
+    ],
+    businessStaff: [
+      {
+        _id: 'staff_link_1',
+        businessId: 'business_1',
+        userId: 'staff_1',
+        staffRole: 'owner',
+        status: 'active',
+        isActive: true,
+      },
+    ],
     loyaltyPrograms: program,
-    customerReferrals: [{
-      _id: 'referral_1',
-      businessId: 'business_1',
-      originProgramId: 'program_1',
-    }],
-    referralRewards: [{
-      _id: 'reward_1',
-      businessId: 'business_1',
-      customerReferralId: 'referral_1',
-      recipientUserId: 'customer_1',
-      actualRewardType: 'BENEFIT',
-      status: 'granted',
-      benefitTitle: 'Free Item',
-      targetProgramId: 'program_1',
-    }],
+    customerReferrals: [
+      {
+        _id: 'referral_1',
+        businessId: 'business_1',
+        originProgramId: 'program_1',
+      },
+    ],
+    referralRewards: [
+      {
+        _id: 'reward_1',
+        businessId: 'business_1',
+        customerReferralId: 'referral_1',
+        recipientUserId: 'customer_1',
+        actualRewardType: 'BENEFIT',
+        status: 'granted',
+        benefitTitle: 'Free Item',
+        targetProgramId: 'program_1',
+      },
+    ],
     events: [],
     redemptionCelebrationReceipts: [],
-    smartManagerRecipientOutcomes: [{
-      _id: 'outcome_waiting',
-      businessId: 'business_1',
-      userId: 'customer_1',
-      state: 'awaiting_return',
-      contactEvidenceAt: now - 1_000,
-    }],
+    smartManagerRecipientOutcomes: [
+      {
+        _id: 'outcome_waiting',
+        businessId: 'business_1',
+        userId: 'customer_1',
+        state: 'awaiting_return',
+        contactEvidenceAt: now - 1_000,
+      },
+    ],
     smartManagerOutcomeDirtyMarkers: [],
     messageLog: [],
     pushTokens: [],

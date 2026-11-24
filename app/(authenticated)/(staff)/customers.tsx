@@ -17,10 +17,10 @@ import {
 
 import BusinessScreenHeader from '@/components/BusinessScreenHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
-import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { useAppMode } from '@/contexts/AppModeContext';
 import { api } from '@/convex/_generated/api';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import { tw } from '@/lib/rtl';
 
 type CustomerState =
@@ -186,7 +186,9 @@ export default function StaffCustomersScreen() {
         </View>
 
         {customerList ? (
-          <Text className={`mt-4 text-xs font-semibold text-[#64748B] ${tw.textStart}`}>
+          <Text
+            className={`mt-4 text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+          >
             {search.trim()
               ? `${formatNumber(filteredCustomers.length)} מתוך ${formatNumber(customerList.length)} לקוחות`
               : `${formatNumber(customerList.length)} לקוחות`}
@@ -255,10 +257,14 @@ export default function StaffCustomersScreen() {
                     </View>
 
                     <View className="shrink-0">
-                      <Text className={`text-[11px] text-[#94A3B8] ${tw.textEnd}`}>
+                      <Text
+                        className={`text-[11px] text-[#94A3B8] ${tw.textEnd}`}
+                      >
                         ביקור אחרון
                       </Text>
-                      <Text className={`mt-1 text-xs font-bold text-[#0F172A] ${tw.textEnd}`}>
+                      <Text
+                        className={`mt-1 text-xs font-bold text-[#0F172A] ${tw.textEnd}`}
+                      >
                         {formatLastVisit(customer.lastVisitDaysAgo)}
                       </Text>
                     </View>

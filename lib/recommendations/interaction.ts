@@ -1,7 +1,7 @@
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import {
-  safelyTrackRecommendationEvent,
   type RecommendationTrackFunction,
+  safelyTrackRecommendationEvent,
 } from './analytics';
 import {
   getRecommendationNavigationTarget,
@@ -107,19 +107,15 @@ export function isRecommendationInteractionRequestCurrent(
   );
 }
 
-export async function executeCurrentRecommendationInteraction<TResult>(
-  input: {
-    request: RecommendationInteractionRequest;
-    getCurrentState: () => CurrentRecommendationInteractionState;
-    mutate: (
-      request: RecommendationInteractionRequest
-    ) => Promise<TResult>;
-    onSuccess?: (result: TResult) => void;
-    onStale?: () => void;
-    onError?: () => void;
-    onSettled?: () => void;
-  }
-) {
+export async function executeCurrentRecommendationInteraction<TResult>(input: {
+  request: RecommendationInteractionRequest;
+  getCurrentState: () => CurrentRecommendationInteractionState;
+  mutate: (request: RecommendationInteractionRequest) => Promise<TResult>;
+  onSuccess?: (result: TResult) => void;
+  onStale?: () => void;
+  onError?: () => void;
+  onSettled?: () => void;
+}) {
   try {
     if (
       !isRecommendationInteractionRequestCurrent(

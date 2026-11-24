@@ -458,9 +458,7 @@ describe('business customer card readiness safety', () => {
       expect(program.canRedeem).toBe(scenario.expectedCanRedeem);
       expect(program.targetIsValid).toBe(scenario.expectedTargetIsValid);
       expect(program.maxStamps).toBe(scenario.expectedExposedTarget);
-      expect(redeemableProgramsCount).toBe(
-        scenario.expectedCanRedeem ? 1 : 0
-      );
+      expect(redeemableProgramsCount).toBe(scenario.expectedCanRedeem ? 1 : 0);
     }
   });
 });
