@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { STAMP_SHAPE_OPTIONS, type StampShape } from '@/constants/stampOptions';
 import { flexDirection } from '@/lib/rtl';
-import { StampIcon } from './StampIcon';
+import { ClassicStampGlyph } from './ClassicStampGlyph';
 import {
   VISUAL_PICKER_COLUMNS,
   VISUAL_PICKER_GAP,
@@ -21,24 +21,36 @@ export function StampShapePicker({
   disabled?: boolean;
 }) {
   const [width, setWidth] = useState(0);
-  const tileWidth = Math.max(
-    44,
-    (width - VISUAL_PICKER_GAP * (VISUAL_PICKER_COLUMNS - 1)) /
-      VISUAL_PICKER_COLUMNS
-  );
+  const tileWidth =
+    width > 0
+      ? Math.floor(
+          (width - VISUAL_PICKER_GAP * (VISUAL_PICKER_COLUMNS - 1)) /
+            VISUAL_PICKER_COLUMNS
+        )
+      : 0;
   return (
-    <View style={styles.grid} onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
+    <View
+      style={styles.grid}
+      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+    >
       {STAMP_SHAPE_OPTIONS.map((option) => (
         <VisualSelectionTile
           key={option.id}
-          width={tileWidth}
+          width={tileWidth > 0 ? tileWidth : '18%'}
           label={`צורת חותמת ${option.label}`}
           selected={value === option.id}
           disabled={disabled}
           onPress={() => onChange(option.id)}
         >
           {option.id === 'icon' ? (
-            <StampIcon value={stampIcon} size={28} color="#1E3A8A" />
+            <View style={styles.iconSample}>
+              <ClassicStampGlyph
+                color="#1E3A8A"
+                earned={false}
+                icon={stampIcon}
+                paper="#F8FAFC"
+              />
+            </View>
           ) : (
             <View style={[styles.shape, SHAPE_STYLES[option.id]]} />
           )}
@@ -63,9 +75,15 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: VISUAL_PICKER_GAP,
   },
-  shape: {
+  iconSample: {
     width: 28,
     height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shape: {
+    width: 18,
+    height: 18,
     borderWidth: 2,
     borderColor: '#1E3A8A',
     backgroundColor: '#DBEAFE',

@@ -1,5 +1,11 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import {
+  type StyleProp,
+  StyleSheet,
+  Text,
+  View,
+  type ViewStyle,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/ui/ActionButton';
@@ -9,13 +15,15 @@ export function EditorSection({
   title,
   subtitle,
   children,
+  style,
 }: {
   title: string;
   subtitle?: string;
   children: ReactNode;
+  style?: StyleProp<ViewStyle>;
 }) {
   return (
-    <View style={styles.section}>
+    <View style={[styles.section, style]}>
       <View style={styles.sectionHeading}>
         <Text style={styles.sectionTitle}>{title}</Text>
         {subtitle ? (
@@ -30,12 +38,14 @@ export function EditorSection({
 export function EditorPreviewSurface({
   title = 'כך הלקוחות יראו את זה',
   children,
+  style,
 }: {
   title?: string;
   children: ReactNode;
+  style?: StyleProp<ViewStyle>;
 }) {
   return (
-    <View style={styles.preview}>
+    <View style={[styles.preview, style]}>
       <Text style={styles.previewLabel}>{title}</Text>
       {children}
     </View>
@@ -106,7 +116,15 @@ export function EditorPrimaryActions({
   );
 }
 
-export function EditorStickyFooter({ children }: { children: ReactNode }) {
+export function EditorStickyFooter({
+  children,
+  contentStyle,
+  dense = false,
+}: {
+  children: ReactNode;
+  contentStyle?: StyleProp<ViewStyle>;
+  dense?: boolean;
+}) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -114,10 +132,11 @@ export function EditorStickyFooter({ children }: { children: ReactNode }) {
       testID="editor-sticky-footer"
       style={[
         styles.stickyFooter,
+        dense ? styles.stickyFooterDense : null,
         { paddingBottom: Math.max(insets.bottom, 12) },
       ]}
     >
-      <View style={styles.stickyFooterContent}>{children}</View>
+      <View style={[styles.stickyFooterContent, contentStyle]}>{children}</View>
     </View>
   );
 }
@@ -191,6 +210,10 @@ const styles = StyleSheet.create({
     overflow: 'visible',
     zIndex: 20,
     elevation: 20,
+  },
+  stickyFooterDense: {
+    paddingHorizontal: 8,
+    paddingTop: 8,
   },
   stickyFooterContent: {
     width: '100%',

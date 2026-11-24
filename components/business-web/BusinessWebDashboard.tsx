@@ -1,4 +1,5 @@
 import { useQuery } from 'convex/react';
+import { useRouter } from 'expo-router';
 import { Building2, CircleAlert, Gift, Stamp } from 'lucide-react-native';
 import { Component, type ReactNode, useState } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
@@ -7,6 +8,7 @@ import { BusinessWebRecommendation } from '@/components/business-web/BusinessWeb
 import { AppText as Text } from '@/components/ui/AppText';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import {
   readHomeAchievements,
   readStampsToday,
@@ -74,6 +76,14 @@ function BusinessWebDashboardContent({
   isInteractionCurrent,
   isSwitchingBusiness,
 }: BusinessWebDashboardProps) {
+  const router = useRouter();
+  const { activeBusiness } = useActiveBusiness();
+  const isOwner = activeBusiness?.staffRole === 'owner';
+  const billing = useQuery(
+    api.businessBilling.getBusinessBillingOverview,
+    isOwner ? { businessId: activeBusinessId } : 'skip'
+  );
+  const subscriptionInactive = billing?.status === 'inactive';
   const { width } = useWindowDimensions();
   const layout = getBusinessWebResponsiveLayout(width);
   const isDesktop = layout.composition === 'desktop';
@@ -174,6 +184,33 @@ function BusinessWebDashboardContent({
 
   return (
     <View style={[styles.page, bleed]}>
+      {subscriptionInactive ? (
+        <View
+          accessibilityLiveRegion="assertive"
+          accessibilityRole="alert"
+          style={[
+            styles.inactiveAlert,
+            isDesktop ? styles.inactiveAlertDesktop : null,
+            narrow ? styles.inactiveAlertNarrow : null,
+          ]}
+        >
+          <Text style={styles.inactiveTitle}>המנוי לא פעיל</Text>
+          <Text style={styles.inactiveBody}>
+            לקוח חדש לא מצטרף ולא מקבל חותמת. מבצע חדש לא נפתח.
+          </Text>
+          <Pressable
+            accessibilityLabel="חידוש המנוי"
+            accessibilityRole="button"
+            onPress={() => router.push('/business/billing')}
+            style={({ pressed }) => [
+              styles.inactiveButton,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <Text style={styles.inactiveButtonText}>חידוש המנוי</Text>
+          </Pressable>
+        </View>
+      ) : null}
       <View
         style={[
           styles.hero,
@@ -321,6 +358,49 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4F6FA',
     paddingBottom: 28,
   },
+  inactiveAlert: {
+    backgroundColor: '#B91C1C',
+    gap: 6,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    width: '100%',
+  },
+  inactiveAlertDesktop: {
+    borderRadius: 18,
+    marginHorizontal: 20,
+    marginTop: 16,
+    width: 'auto',
+  },
+  inactiveAlertNarrow: { paddingHorizontal: 16 },
+  inactiveTitle: {
+    ...rtlBaseText,
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    lineHeight: 24,
+  },
+  inactiveBody: {
+    ...rtlBaseText,
+    color: '#FFFFFF',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  inactiveButton: {
+    alignSelf: selfStart,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    justifyContent: 'center',
+    marginTop: 4,
+    minHeight: 40,
+    paddingHorizontal: 14,
+  },
+  inactiveButtonText: {
+    ...rtlBaseText,
+    color: '#B91C1C',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  pressed: { opacity: 0.82 },
   hero: {
     alignSelf: 'stretch',
     backgroundColor: '#101936',

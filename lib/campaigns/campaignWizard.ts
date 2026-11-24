@@ -24,6 +24,11 @@ export const CAMPAIGN_WIZARD_GOALS = [
     label: 'יום נישואין',
     audience: 'לקוחות שחוגגים היום יום נישואין',
   },
+  {
+    type: 'referral',
+    label: 'חבר מביא חבר',
+    audience: 'כל חברי המועדון הפעילים',
+  },
 ] as const;
 
 export type WizardCampaignType = (typeof CAMPAIGN_WIZARD_GOALS)[number]['type'];
@@ -37,6 +42,14 @@ export type CampaignWizardInput = {
 
 export function wizardInitialCopy(type: WizardCampaignType) {
   const goal = CAMPAIGN_WIZARD_GOALS.find((entry) => entry.type === type);
+  if (type === 'referral') {
+    return {
+      title: 'חבר מביא חבר',
+      messageTitle: 'יש לכם חבר שמגיע לו להכיר אותנו',
+      messageBody:
+        'הביאו חבר למועדון. בביקור הראשון שלו נרשמת ההטבה שהעסק הגדיר, לכם, לו, או לשניכם.',
+    };
+  }
   return {
     title: goal?.label ?? 'קמפיין חדש',
     messageTitle: type === 'winback' ? 'מתגעגעים אליכם' : 'עדכון מהמועדון שלנו',
@@ -91,7 +104,7 @@ export function buildWizardCampaignDraft(input: CampaignWizardInput) {
             ? { audience: 'anniversary_today' as const }
             : { audience: 'all_active_members' as const };
   return {
-    type: input.type,
+    type: input.type === 'referral' ? 'promo' : input.type,
     title: input.title.trim(),
     messageTitle: input.messageTitle.trim(),
     messageBody: input.messageBody.trim(),

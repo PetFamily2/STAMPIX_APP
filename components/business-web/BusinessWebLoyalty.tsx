@@ -1,5 +1,5 @@
 import { useQuery } from 'convex/react';
-import { type Href, useRouter } from 'expo-router';
+import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { LoyaltyManagementEntry } from '@/components/business-web/LoyaltyManagementEntry';
@@ -25,7 +25,7 @@ const LIFECYCLE_LABEL: Record<string, string> = {
   inactive: 'טיוטה',
 };
 
-type ClubSegment = 'cards' | 'campaigns' | 'friends';
+type ClubSegment = 'cards' | 'campaigns';
 
 export function BusinessWebLoyalty({
   activeBusinessId,
@@ -35,9 +35,14 @@ export function BusinessWebLoyalty({
   const router = useRouter();
   const { width } = useWindowDimensions();
   const wide = width >= 768;
+  const { segment: segmentParam } = useLocalSearchParams<{
+    segment?: string;
+  }>();
   const { activeBusiness } = useActiveBusiness();
   const canEdit = activeBusiness?.capabilities?.edit_loyalty_cards === true;
-  const [segment, setSegment] = useState<ClubSegment>('cards');
+  const initialSegment: ClubSegment =
+    segmentParam === 'campaigns' ? 'campaigns' : 'cards';
+  const [segment, setSegment] = useState<ClubSegment>(initialSegment);
   const data = useQuery(api.loyaltyPrograms.listManagementByBusiness, {
     businessId: activeBusinessId,
   });
@@ -63,7 +68,6 @@ export function BusinessWebLoyalty({
           [
             ['cards', 'כרטיסיות'],
             ['campaigns', 'קמפיינים'],
-            ['friends', 'חברים'],
           ] as const
         ).map(([key, label]) => (
           <Pressable
@@ -134,7 +138,6 @@ export function BusinessWebLoyalty({
                   <LoyaltyManagementEntry
                     key={String(program.loyaltyProgramId)}
                     businessName={activeBusiness?.name ?? 'העסק'}
-                    canEdit={canEdit}
                     lifecycle={program.lifecycle}
                     lifecycleLabel={
                       LIFECYCLE_LABEL[program.lifecycle] ?? program.lifecycle
@@ -143,7 +146,6 @@ export function BusinessWebLoyalty({
                     maxStamps={program.maxStamps}
                     memberCount={program.metrics.activeMembers}
                     onDetails={openProgram}
-                    onEdit={openProgram}
                     progress={{ kind: 'none' }}
                     themeId={program.cardThemeId}
                     title={program.title}
@@ -205,20 +207,6 @@ export function BusinessWebLoyalty({
             ))
           )}
         </View>
-      ) : null}
-
-      {segment === 'friends' ? (
-        <PwaEmptyState
-          action={
-            <PwaButton
-              label="הגדרת הטבת חברים"
-              onPress={() => router.push('/business/referrals' as Href)}
-              variant="secondary"
-            />
-          }
-          body="זו הגדרה נפרדת מקמפיין. ההטבה נרשמת אחרי החותמת הראשונה של החבר."
-          title="הטבת חברים"
-        />
       ) : null}
     </View>
   );

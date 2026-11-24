@@ -1,5 +1,5 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery } from 'convex/react';
+import { Gift } from 'lucide-react-native';
 import { Redirect } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
@@ -178,7 +178,7 @@ function BusinessInviteContent({
     <>
       <View style={styles.heroCard}>
         <View style={styles.heroIcon}>
-          <Ionicons name="gift-outline" size={24} color="#1D4ED8" />
+          <Gift color="#1230A8" size={22} strokeWidth={2} />
         </View>
         <Text style={styles.heroTitle}>{REFERRAL_COPY.hubHeading}</Text>
         <Text style={styles.heroBody}>{REFERRAL_COPY.shareBenefit}</Text>

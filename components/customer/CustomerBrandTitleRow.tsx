@@ -1,3 +1,4 @@
+import { StampAixBrand } from '@/components/StampAixBrand';
 import type { ReactNode } from 'react';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 import { Platform, StyleSheet, Text, View } from 'react-native';
@@ -5,7 +6,6 @@ import { UserAvatar } from '@/components/UserAvatar';
 import {
   alignItems,
   flexDirection,
-  ltrBaseText,
   rtlAutoText,
   rtlBaseText,
   rtlBaseView,
@@ -72,12 +72,7 @@ export default function CustomerBrandTitleRow({
           />
         ) : null}
         {brandAccessory}
-        <Text style={styles.brand}>
-          <Text style={styles.brandAccent}>S</Text>
-          tamp
-          <Text style={styles.brandAccent}>A</Text>
-          ix
-        </Text>
+        <StampAixBrand showMark={false} />
       </View>
     </View>
   );
@@ -99,19 +94,6 @@ const styles = StyleSheet.create({
     gap: 8,
     direction: 'ltr',
     flexShrink: 0,
-  },
-  brand: {
-    fontSize: Platform.OS === 'web' ? 18 : 22,
-    lineHeight: Platform.OS === 'web' ? 24 : 26,
-    color: Platform.OS === 'web' ? '#1230A8' : '#2F6BFF',
-    fontWeight: Platform.OS === 'web' ? '700' : '900',
-    ...ltrBaseText,
-  },
-  brandAccent: {
-    fontSize: Platform.OS === 'web' ? 20 : 26,
-    lineHeight: Platform.OS === 'web' ? 24 : 26,
-    fontWeight: Platform.OS === 'web' ? '700' : '900',
-    color: Platform.OS === 'web' ? '#1230A8' : '#2F6BFF',
   },
   titleZone: {
     flex: 1,

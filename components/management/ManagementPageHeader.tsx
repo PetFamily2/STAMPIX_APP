@@ -13,6 +13,7 @@ export function ManagementPageHeader({
   onBackPress,
   leftAccessory,
   backgroundColor = '#E9F0FF',
+  compact = false,
 }: {
   title: string;
   subtitle?: string;
@@ -20,14 +21,15 @@ export function ManagementPageHeader({
   onBackPress?: () => void;
   leftAccessory?: ReactNode;
   backgroundColor?: string;
+  compact?: boolean;
 }) {
   const insets = useSafeAreaInsets();
 
   return (
     <StickyScrollHeader
-      topPadding={(insets.top || 0) + 8}
+      topPadding={compact ? 0 : (insets.top || 0) + 8}
       backgroundColor={backgroundColor}
-      style={styles.sticky}
+      style={compact ? styles.stickyCompact : styles.sticky}
     >
       <View style={styles.header}>
         <StandaloneBackTitleHeader
@@ -46,6 +48,9 @@ export function ManagementPageHeader({
 const styles = StyleSheet.create({
   sticky: {
     paddingBottom: 10,
+  },
+  stickyCompact: {
+    paddingBottom: 4,
   },
   header: {
     width: '100%',

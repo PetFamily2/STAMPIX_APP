@@ -44,7 +44,10 @@ export function PwaButton({
       accessibilityRole="button"
       accessibilityState={{ busy: loading, disabled: isDisabled }}
       disabled={isDisabled}
-      onPress={onPress}
+      onPress={(event) => {
+        event.stopPropagation?.();
+        onPress();
+      }}
       style={({ pressed }) => [
         styles.base,
         variant === 'primary' ? styles.primary : null,

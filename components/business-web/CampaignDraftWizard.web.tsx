@@ -24,8 +24,10 @@ const STEPS = [
 
 export function CampaignDraftWizard({
   requestedBusinessId,
+  initialGoal,
 }: {
   requestedBusinessId?: string;
+  initialGoal?: string;
 }) {
   const { activeBusiness, activeBusinessId } = useActiveBusiness();
   const router = useRouter();
@@ -38,10 +40,15 @@ export function CampaignDraftWizard({
     scopeMatches && activeBusinessId ? { businessId: activeBusinessId } : 'skip'
   );
   const [step, setStep] = useState(1);
+  const startingGoal = CAMPAIGN_WIZARD_GOALS.some(
+    (goal) => goal.type === initialGoal
+  )
+    ? (initialGoal as CampaignWizardInput['type'])
+    : 'promo';
   const [input, setInput] = useState<CampaignWizardInput>({
-    type: 'promo',
+    type: startingGoal,
     days: '30',
-    ...wizardInitialCopy('promo'),
+    ...wizardInitialCopy(startingGoal),
   });
   const [programId, setProgramId] = useState('');
   const [error, setError] = useState('');

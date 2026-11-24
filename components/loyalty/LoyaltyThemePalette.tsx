@@ -22,11 +22,13 @@ export function LoyaltyThemePalette({
   disabled?: boolean;
 }) {
   const [width, setWidth] = useState(0);
-  const tileWidth = Math.max(
-    44,
-    (width - VISUAL_PICKER_GAP * (VISUAL_PICKER_COLUMNS - 1)) /
-      VISUAL_PICKER_COLUMNS
-  );
+  const tileWidth =
+    width > 0
+      ? Math.floor(
+          (width - VISUAL_PICKER_GAP * (VISUAL_PICKER_COLUMNS - 1)) /
+            VISUAL_PICKER_COLUMNS
+        )
+      : 0;
   const unavailable = new Set(disabledThemeIds);
 
   return (
@@ -41,7 +43,7 @@ export function LoyaltyThemePalette({
         return (
           <VisualSelectionTile
             key={theme.id}
-            width={tileWidth}
+            width={tileWidth > 0 ? tileWidth : '18%'}
             label={`ערכת נושא ${theme.name}`}
             selected={selected}
             disabled={disabled || inUse}
@@ -91,5 +93,5 @@ const styles = StyleSheet.create({
   },
   swatch: { width: '100%', height: '100%' },
   paperSwatch: { alignItems: 'center', justifyContent: 'center' },
-  inkMark: { borderRadius: 999, height: 18, width: 18 },
+  inkMark: { borderRadius: 999, height: 12, width: 12 },
 });

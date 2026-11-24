@@ -1,9 +1,20 @@
-import { Ionicons } from '@expo/vector-icons';
+import {
+  ChartNoAxesCombined,
+  Gift,
+  type LucideIcon,
+  Users,
+} from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
 import { ActionButton } from '@/components/ui/ActionButton';
 
+const ICONS = {
+  'gift-outline': Gift,
+  'people-outline': Users,
+  'stats-chart-outline': ChartNoAxesCombined,
+} as const satisfies Record<string, LucideIcon>;
+
 type ReferralEmptyStateProps = {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: keyof typeof ICONS;
   title: string;
   body: string;
   actionLabel?: string;
@@ -17,10 +28,11 @@ export function ReferralEmptyState({
   actionLabel,
   onActionPress,
 }: ReferralEmptyStateProps) {
+  const Icon = ICONS[icon];
   return (
     <View style={styles.card}>
       <View style={styles.iconCanvas}>
-        <Ionicons name={icon} size={21} color="#1D4ED8" />
+        <Icon color="#1230A8" size={20} strokeWidth={2} />
       </View>
       <View style={styles.copy}>
         <Text style={styles.title}>{title}</Text>

@@ -3,8 +3,8 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 export const VISUAL_PICKER_COLUMNS = 5;
-export const VISUAL_PICKER_GAP = 8;
-export const VISUAL_PICKER_BORDER_WIDTH = 3;
+export const VISUAL_PICKER_GAP = 6;
+export const VISUAL_PICKER_BORDER_WIDTH = 2;
 
 export function VisualSelectionTile({
   label,
@@ -19,7 +19,7 @@ export function VisualSelectionTile({
   selected: boolean;
   disabled?: boolean;
   inUse?: boolean;
-  width: number;
+  width: number | `${number}%`;
   onPress: () => void;
   children: ReactNode;
 }) {
@@ -58,8 +58,8 @@ export function VisualSelectionTile({
 
 const styles = StyleSheet.create({
   tile: {
-    height: 68,
-    borderRadius: 14,
+    height: 44,
+    borderRadius: 10,
     borderWidth: VISUAL_PICKER_BORDER_WIDTH,
     overflow: 'hidden',
     backgroundColor: '#F8FAFC',
@@ -73,9 +73,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 3,
     right: 3,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#DC2626',

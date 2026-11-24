@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { STAMP_ICON_CATALOG } from '@/constants/stampIcons';
 import { flexDirection } from '@/lib/rtl';
-import { StampIcon } from './StampIcon';
+import { ClassicStampGlyph } from './ClassicStampGlyph';
 import {
   VISUAL_PICKER_COLUMNS,
   VISUAL_PICKER_GAP,
@@ -19,11 +19,13 @@ export function StampIconPicker({
   disabled?: boolean;
 }) {
   const [width, setWidth] = useState(0);
-  const tileWidth = Math.max(
-    44,
-    (width - VISUAL_PICKER_GAP * (VISUAL_PICKER_COLUMNS - 1)) /
-      VISUAL_PICKER_COLUMNS
-  );
+  const tileWidth =
+    width > 0
+      ? Math.floor(
+          (width - VISUAL_PICKER_GAP * (VISUAL_PICKER_COLUMNS - 1)) /
+            VISUAL_PICKER_COLUMNS
+        )
+      : 0;
 
   return (
     <View
@@ -34,14 +36,19 @@ export function StampIconPicker({
       {STAMP_ICON_CATALOG.map((definition) => (
         <VisualSelectionTile
           key={definition.id}
-          width={tileWidth}
+          width={tileWidth > 0 ? tileWidth : '18%'}
           label={`אייקון חותמת ${definition.label}`}
           selected={value === definition.id}
           disabled={disabled}
           onPress={() => onChange(definition.id)}
         >
           <View style={styles.iconCanvas}>
-            <StampIcon value={definition.id} size={30} color="#1E3A8A" />
+            <ClassicStampGlyph
+              color="#1E3A8A"
+              earned={false}
+              icon={definition.id}
+              paper="#F8FAFC"
+            />
           </View>
         </VisualSelectionTile>
       ))}
@@ -57,8 +64,8 @@ const styles = StyleSheet.create({
     gap: VISUAL_PICKER_GAP,
   },
   iconCanvas: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },

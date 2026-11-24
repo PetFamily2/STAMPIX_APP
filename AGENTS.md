@@ -1,3 +1,7 @@
+## Current canonical integration — 13 November 2026
+
+User confirmed Cursor finished. All 36 pending business UI/test files were reverified unchanged and reviewed for Web-only integration in commit 83c2109 on integration/release-hardening-20261111 (Draft PR #16). The authoritative worktree is C:/Users/Barak Perez/.codex/.chatgpt-projects/g-p-6915fa700f2881919d81d988ba93806d/STAMPIX_UI. Continue launch edits there on that branch. This original dirty folder remains a preserved historical source: do not reset, switch or publish it as current QA. See canonical docs/audits/CURSOR_UI_INTEGRATION_20261113.md for dispositions. Native and game sources remain unchanged; GAME-01/02 stay Cursor-owned in the game worktree and Post-launch. Older pending-review notes below are historical.
+
 # AGENTS.md - AI Assistant Configuration for Mobile Template
 
 This file configures AI assistants to help non-developers build high-quality React Native mobile applications with Expo, Convex Auth, and RevenueCat safely and effectively.
@@ -156,3 +160,13 @@ All agents should reference these project files:
 - `app.json` - Expo configuration (RTL, permissions)
 
 **Remember**: Always encourage checking the `docs/` folder when users are stuck.
+
+## StampAix canonical launch source — 12 November 2026
+
+Binding user instruction: keep all non-game launch work on one source branch/worktree.
+- Canonical branch: integration/release-hardening-20261111, Draft PR #16.
+- Canonical worktree: C:/Users/Barak Perez/.codex/.chatgpt-projects/g-p-6915fa700f2881919d81d988ba93806d/STAMPIX_UI.
+- Commit 8c257cd contains Work hardening 715594c and all committed Cursor scanner QA through 2579919. Do not publish this older QA branch as the latest release candidate.
+- This original worktree has unpublished business UI changes. A read-only snapshot of 35 tracked changes plus BusinessWebReferrals is retained in the canonical worktree's .tmp/cursor-uncommitted-ui-20261112.json; its inventory is docs/audits/CURSOR_PENDING_UI_20261112.md. These pending changes require review before incorporation. Preserve this worktree; do not switch branches, reset, discard or overwrite its dirty files. Continue launch integration in the canonical worktree only after reviewing that snapshot and current source differences.
+- Before QA export use scripts/verify-release-source.mjs in the canonical worktree. Require its exact commit CI and record the immutable deployment URL. No main merge, Production/DNS/real charge/database reset is authorized.
+- This instruction does not relocate GAME-01/02: Cursor's agent/game-album-001 worktree remains separate, unpublished and Post-launch. Do not merge/cherry-pick it or edit protected game, wallet, customer navigation or memberships as part of launch consolidation.

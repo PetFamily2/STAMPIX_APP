@@ -1,4 +1,3 @@
-import type { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMutation, useQuery } from 'convex/react';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -110,7 +109,7 @@ function EmptyReferralActionState({
   action,
   onPress,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: 'people-outline' | 'gift-outline' | 'stats-chart-outline';
   title: string;
   body: string;
   action: string;

@@ -3,6 +3,7 @@ import {
   ChartNoAxesCombined,
   Ellipsis,
   Gift,
+  Handshake,
   LayoutDashboard,
   type LucideIcon,
   QrCode,
@@ -32,7 +33,7 @@ export const businessWebNavIcons: Record<BusinessWebNavKey, LucideIcon> = {
   analytics: ChartNoAxesCombined,
   billing: ReceiptText,
   campaigns: Gift,
-  referrals: Users,
+  referrals: Handshake,
   inbox: ReceiptText,
   scanner: QrCode,
   settings: Settings,
@@ -98,10 +99,10 @@ export function BusinessWebBottomNav({
             >
               <Icon
                 color={
-                  isActive ? TOKENS.colors.primary : TOKENS.colors.textMuted
+                  isActive ? TOKENS.colors.primary : TOKENS.colors.textPrimary
                 }
                 size={22}
-                strokeWidth={TOKENS.icons.strokeWidth}
+                strokeWidth={2}
               />
             </View>
             <Text
@@ -133,10 +134,10 @@ export function BusinessWebBottomNav({
           >
             <Ellipsis
               color={
-                moreSelected ? TOKENS.colors.primary : TOKENS.colors.textMuted
+                moreSelected ? TOKENS.colors.primary : TOKENS.colors.textPrimary
               }
               size={22}
-              strokeWidth={TOKENS.icons.strokeWidth}
+              strokeWidth={2}
             />
           </View>
           <Text

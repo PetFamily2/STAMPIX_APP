@@ -6,6 +6,7 @@ import {
   AccessibilityInfo,
   ActivityIndicator,
   Animated,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -50,6 +51,7 @@ import {
   getDashboardLayoutMode,
 } from '@/lib/design/dashboardTokens';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
+import { businessHref } from '@/lib/navigation/businessHref';
 import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { resolvePreviewModeFromParams } from '@/lib/previewMode';
 import {
@@ -830,8 +832,11 @@ export default function BusinessDashboardScreen() {
             isSwitchingBusiness={isSwitchingBusiness}
             layoutMode={layoutMode}
             onOpen={() =>
-              openRoute(
-                '/(authenticated)/(business)/settings-business-invite-businesses'
+              router.push(
+                businessHref(
+                  Platform.OS,
+                  '/(authenticated)/(business)/settings-business-invite-businesses'
+                )
               )
             }
           />

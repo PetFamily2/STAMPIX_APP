@@ -1,9 +1,5 @@
-import Editor from '@/app/(authenticated)/(business)/settings-business-referrals';
-import { WebManagementSurface } from '@/components/business-web/WebManagementSurface';
+import { BusinessWebReferrals } from '@/components/business-web/BusinessWebReferrals';
+
 export default function Referrals() {
-  return (
-    <WebManagementSurface>
-      <Editor />
-    </WebManagementSurface>
-  );
+  return <BusinessWebReferrals />;
 }

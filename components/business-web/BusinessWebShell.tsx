@@ -1,4 +1,4 @@
-import type { Href } from 'expo-router';
+import { type Href, usePathname } from 'expo-router';
 import { ChevronDown, LogOut, Menu, X } from 'lucide-react-native';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
@@ -16,6 +16,7 @@ import {
   BusinessWebBottomNav,
   businessWebNavIcons,
 } from '@/components/business-web/BusinessWebBottomNav';
+import { StampAixBrand } from '@/components/StampAixBrand';
 import { AppText as Text } from '@/components/ui/AppText';
 
 import type { Id } from '@/convex/_generated/dataModel';
@@ -154,9 +155,9 @@ function NavItemButton({
       ]}
     >
       <Icon
-        color={isActive ? TOKENS.colors.primary : TOKENS.colors.textMuted}
-        size={TOKENS.icons.navigation}
-        strokeWidth={TOKENS.icons.strokeWidth}
+        color={isActive ? TOKENS.colors.primary : TOKENS.colors.textPrimary}
+        size={TOKENS.icons.prominent}
+        strokeWidth={2}
       />
       <Text style={[styles.navLabel, isActive ? styles.navLabelActive : null]}>
         {item.label}
@@ -453,6 +454,9 @@ function AccountBlock({
 
 export function BusinessWebShell(props: BusinessWebShellProps) {
   const { width, height } = useWindowDimensions();
+  const pathname = usePathname();
+  const wideCardEditor =
+    pathname.includes('/cards/') && !pathname.endsWith('/cards/new');
   const responsiveLayout = getBusinessWebResponsiveLayout(width);
   const navigationMode = useBusinessNavigationMode(width, height);
   const showSidebar = navigationMode === 'sidebar';
@@ -550,13 +554,7 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
             ]}
           >
             <View style={styles.brandArea}>
-              <View style={styles.brandMark}>
-                <Text style={styles.brandMarkText}>S</Text>
-              </View>
-              <View style={styles.brandCopy}>
-                <Text style={styles.brandName}>StampAix</Text>
-                <Text style={styles.brandProduct}>Business</Text>
-              </View>
+              <StampAixBrand product="Business" size="compact" />
             </View>
             <View style={styles.sidebarBusiness}>
               <BusinessIdentityMark
@@ -763,7 +761,12 @@ export function BusinessWebShell(props: BusinessWebShellProps) {
             contentContainerStyle={[
               styles.content,
               isCompact ? styles.contentCompact : null,
-              { paddingTop: responsiveLayout.pageTopPadding },
+              wideCardEditor ? styles.contentCardEditor : null,
+              {
+                paddingTop: wideCardEditor
+                  ? 8
+                  : responsiveLayout.pageTopPadding,
+              },
             ]}
             keyboardShouldPersistTaps="handled"
             role="main"
@@ -864,26 +867,6 @@ const styles = StyleSheet.create({
     gap: TOKENS.space.md,
     paddingHorizontal: TOKENS.space.sm,
   },
-  brandMark: {
-    width: 26,
-    height: 26,
-    borderRadius: TOKENS.radii.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: TOKENS.colors.primary,
-  },
-  brandMarkText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
-  brandCopy: { alignItems: alignItems.start },
-  brandName: {
-    color: TOKENS.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  brandProduct: {
-    color: TOKENS.colors.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
-  },
   sidebarBusiness: {
     alignItems: 'center',
     flexDirection: flexDirection.row,
@@ -939,7 +922,6 @@ const styles = StyleSheet.create({
     gap: TOKENS.space.sm,
     borderRadius: TOKENS.radii.md,
     paddingHorizontal: TOKENS.space.sm,
-    opacity: 0.78,
   },
   navItemActive: {
     backgroundColor: TOKENS.colors.primarySubtle,
@@ -1312,6 +1294,11 @@ const styles = StyleSheet.create({
   },
   contentCompact: {
     paddingHorizontal: TOKENS.space.lg,
+  },
+  contentCardEditor: {
+    maxWidth: 1280,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
   },
   controlPressed: { opacity: 0.72 },
 });

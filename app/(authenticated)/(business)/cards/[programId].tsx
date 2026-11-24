@@ -11,6 +11,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import {
@@ -157,6 +158,9 @@ export default function ProgramDetailsScreen() {
   const guideTargetRef = useGuidedTargetRef();
   const guideScrollRef = useRef<ScrollView | null>(null);
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const isWeb = Platform.OS === 'web';
+  const wideEditor = isWeb && width >= 960;
   const router = useRouter();
   const navigation = useNavigation();
   const params = useLocalSearchParams<{
@@ -875,65 +879,127 @@ export default function ProgramDetailsScreen() {
           automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           contentInsetAdjustmentBehavior="never"
           contentContainerStyle={{
-            paddingHorizontal: 20,
-            paddingBottom: (insets.bottom || 0) + footerHeight + 24,
+            paddingHorizontal: isWeb ? 0 : 20,
+            paddingBottom: (insets.bottom || 0) + footerHeight + (isWeb ? 8 : 24),
             width: '100%',
-            maxWidth: 960,
+            maxWidth: isWeb ? undefined : 960,
             alignSelf: 'center',
           }}
         >
           <View className={webClassName('bg-[#E9F0FF]')}>
             <ManagementPageHeader
+              compact={isWeb}
               title="עריכת כרטיסייה"
               fallbackHref="/(authenticated)/(business)/programs"
             />
-
-            {details === undefined ? (
-              <View className="mt-6 items-center justify-center">
-                <ActivityIndicator color={productPrimary} />
-              </View>
-            ) : (
-              <View className={webClassName('mt-2 bg-[#E9F0FF] pb-3')}>
-                <EditorPreviewSurface title="תצוגה חיה">
-                  {Platform.OS === 'web' ? (
-                    <View className="gap-2">
-                      <View className={`${tw.flexRow} gap-2`}>
-                        <TouchableOpacity
-                          accessibilityRole="button"
-                          accessibilityState={{ selected: !customerPreview }}
-                          className={`min-h-[44px] flex-1 items-center justify-center rounded-xl border px-2 ${
-                            customerPreview
-                              ? 'border-[#D5DBE6] bg-white'
-                              : 'border-[#1230A8] bg-[#EEF4FF]'
-                          }`}
-                          onPress={() => setCustomerPreview(false)}
-                        >
-                          <Text className="text-sm font-semibold text-[#101936]">
-                            כרטיסייה
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          accessibilityRole="button"
-                          accessibilityState={{ selected: customerPreview }}
-                          className={`min-h-[44px] flex-1 items-center justify-center rounded-xl border px-2 ${
-                            customerPreview
-                              ? 'border-[#1230A8] bg-[#EEF4FF]'
-                              : 'border-[#D5DBE6] bg-white'
-                          }`}
-                          onPress={() => setCustomerPreview(true)}
-                        >
-                          <Text className="text-sm font-semibold text-[#101936]">
-                            כפי שהלקוח רואה
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                      {customerPreview ? (
-                        <View className="gap-2 rounded-2xl border border-[#E6EAF2] bg-[#F3F5F9] p-3">
-                          <Text
-                            className={`text-xs text-[#475569] ${tw.textStart}`}
+          </View>
+          <View
+            style={
+              wideEditor
+                ? {
+                    alignItems: 'flex-start',
+                    flexDirection: 'row-reverse',
+                    gap: 12,
+                    width: '100%',
+                  }
+                : undefined
+            }
+          >
+            <View style={wideEditor ? { width: 340 } : { width: '100%' }}>
+              {details === undefined ? (
+                <View className="mt-2 items-center justify-center">
+                  <ActivityIndicator color={productPrimary} />
+                </View>
+              ) : (
+                <View
+                  className={
+                    isWeb ? undefined : webClassName('mt-2 bg-[#E9F0FF] pb-3')
+                  }
+                >
+                  <EditorPreviewSurface
+                    style={
+                      isWeb
+                        ? {
+                            borderRadius: 14,
+                            gap: 6,
+                            paddingHorizontal: 8,
+                            paddingVertical: 8,
+                          }
+                        : undefined
+                    }
+                    title="תצוגה חיה"
+                  >
+                    {Platform.OS === 'web' ? (
+                      <View className="gap-2">
+                        <View className={`${tw.flexRow} gap-2`}>
+                          <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: !customerPreview }}
+                            className={`min-h-[36px] flex-1 items-center justify-center rounded-xl border px-2 ${
+                              customerPreview
+                                ? 'border-[#D5DBE6] bg-white'
+                                : 'border-[#1230A8] bg-[#EEF4FF]'
+                            }`}
+                            onPress={() => setCustomerPreview(false)}
                           >
-                            תצוגת הדגמה בארנק. אין כאן חברות אמיתית.
-                          </Text>
+                            <Text className="text-sm font-semibold text-[#101936]">
+                              כרטיסייה
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: customerPreview }}
+                            className={`min-h-[36px] flex-1 items-center justify-center rounded-xl border px-2 ${
+                              customerPreview
+                                ? 'border-[#1230A8] bg-[#EEF4FF]'
+                                : 'border-[#D5DBE6] bg-white'
+                            }`}
+                            onPress={() => setCustomerPreview(true)}
+                          >
+                            <Text className="text-sm font-semibold text-[#101936]">
+                              כפי שהלקוח רואה
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                        {customerPreview ? (
+                          <View className="gap-2 rounded-2xl border border-[#E6EAF2] bg-[#F3F5F9] p-3">
+                            <Text
+                              className={`text-xs text-[#475569] ${tw.textStart}`}
+                            >
+                              תצוגת הדגמה בארנק. אין כאן חברות אמיתית.
+                            </Text>
+                            <LoyaltyCardClassic
+                              businessLogoUrl={
+                                selectedBusiness?.logoUrl ?? null
+                              }
+                              businessName={
+                                selectedBusiness?.name ?? 'העסק שלך'
+                              }
+                              cardThemeId={cardThemeId}
+                              density="compact"
+                              lifecycle={lifecycle}
+                              maxStamps={parsedMaxStamps || details.maxStamps}
+                              programTitle={title || details.title}
+                              progress={{
+                                kind: 'sample',
+                                currentStamps: Math.min(
+                                  3,
+                                  Math.max(
+                                    1,
+                                    parsedMaxStamps || details.maxStamps
+                                  )
+                                ),
+                              }}
+                              rewardName={rewardName || details.rewardName}
+                              stampIcon={stampIcon || details.stampIcon}
+                              stampShape={stampShape}
+                              variant="preview"
+                            />
+                            <Text className="text-center text-xs text-[#64748B]">
+                              הצגת QR · הדגמה בלבד
+                            </Text>
+                          </View>
+                        ) : (
                           <LoyaltyCardClassic
                             businessLogoUrl={selectedBusiness?.logoUrl ?? null}
                             businessName={selectedBusiness?.name ?? 'העסק שלך'}
@@ -942,438 +1008,468 @@ export default function ProgramDetailsScreen() {
                             lifecycle={lifecycle}
                             maxStamps={parsedMaxStamps || details.maxStamps}
                             programTitle={title || details.title}
-                            progress={{
-                              kind: 'sample',
-                              currentStamps: Math.min(
-                                3,
-                                Math.max(
-                                  1,
-                                  parsedMaxStamps || details.maxStamps
-                                )
-                              ),
-                            }}
+                            progress={{ kind: 'none' }}
                             rewardName={rewardName || details.rewardName}
                             stampIcon={stampIcon || details.stampIcon}
                             stampShape={stampShape}
                             variant="preview"
                           />
-                          <Text className="text-center text-xs text-[#64748B]">
-                            הצגת QR · הדגמה בלבד
-                          </Text>
-                        </View>
-                      ) : (
-                        <LoyaltyCardClassic
-                          businessLogoUrl={selectedBusiness?.logoUrl ?? null}
-                          businessName={selectedBusiness?.name ?? 'העסק שלך'}
-                          cardThemeId={cardThemeId}
-                          density="compact"
-                          lifecycle={lifecycle}
-                          maxStamps={parsedMaxStamps || details.maxStamps}
-                          programTitle={title || details.title}
-                          progress={{ kind: 'none' }}
-                          rewardName={rewardName || details.rewardName}
-                          stampIcon={stampIcon || details.stampIcon}
-                          stampShape={stampShape}
-                          variant="preview"
-                        />
-                      )}
-                    </View>
-                  ) : (
-                    <LoyaltyCard
-                      variant={isPreviewExpanded ? 'preview' : 'management'}
-                      businessName={selectedBusiness?.name ?? 'העסק שלך'}
-                      businessLogoUrl={selectedBusiness?.logoUrl ?? null}
-                      programImageUrl={previewImageUrl}
-                      programTitle={title || details.title}
-                      rewardName={rewardName || details.rewardName}
-                      maxStamps={parsedMaxStamps || details.maxStamps}
-                      progress={{
-                        kind: 'sample',
-                        currentStamps: Math.min(
-                          3,
-                          Math.max(1, parsedMaxStamps || details.maxStamps)
-                        ),
-                      }}
-                      lifecycle={lifecycle}
-                      cardThemeId={cardThemeId}
-                      stampShape={stampShape}
-                      stampIcon={stampIcon || details.stampIcon}
-                    />
-                  )}
-                  {Platform.OS === 'web' ? null : (
-                    <TouchableOpacity
-                      accessibilityRole="button"
-                      onPress={() =>
-                        setIsPreviewExpanded((current) => !current)
-                      }
-                      className="mt-2 min-h-[44px] items-center justify-center rounded-xl border border-[#B8C8E8] bg-white px-3"
-                    >
-                      <Text className="text-sm font-bold text-[#1D4ED8]">
-                        {isPreviewExpanded ? 'סגור תצוגת לקוח' : 'תצוגת לקוח'}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </EditorPreviewSurface>
-              </View>
-            )}
-          </View>
-
-          {details !== undefined ? (
-            <View className="mt-2 gap-4">
-              <EditorSection title={TEXT.groupBasic}>
-                <View className="gap-2">
-                  <Text
-                    className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
-                  >
-                    {TEXT.sectionTitle}
-                  </Text>
-                  <TextInput
-                    value={title}
-                    onChangeText={setTitle}
-                    editable={canEditGeneralFields}
-                    placeholder="למשל: כרטיס הבוקר"
-                    placeholderTextColor="#94A3B8"
-                    className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
-                  />
-                  <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-                    שם הכרטיסייה, למשל כרטיס הבוקר. זה לא חייב להיות שם ההטבה.
-                  </Text>
+                        )}
+                      </View>
+                    ) : (
+                      <LoyaltyCard
+                        variant={isPreviewExpanded ? 'preview' : 'management'}
+                        businessName={selectedBusiness?.name ?? 'העסק שלך'}
+                        businessLogoUrl={selectedBusiness?.logoUrl ?? null}
+                        programImageUrl={previewImageUrl}
+                        programTitle={title || details.title}
+                        rewardName={rewardName || details.rewardName}
+                        maxStamps={parsedMaxStamps || details.maxStamps}
+                        progress={{
+                          kind: 'sample',
+                          currentStamps: Math.min(
+                            3,
+                            Math.max(1, parsedMaxStamps || details.maxStamps)
+                          ),
+                        }}
+                        lifecycle={lifecycle}
+                        cardThemeId={cardThemeId}
+                        stampShape={stampShape}
+                        stampIcon={stampIcon || details.stampIcon}
+                      />
+                    )}
+                    {Platform.OS === 'web' ? null : (
+                      <TouchableOpacity
+                        accessibilityRole="button"
+                        onPress={() =>
+                          setIsPreviewExpanded((current) => !current)
+                        }
+                        className="mt-2 min-h-[44px] items-center justify-center rounded-xl border border-[#B8C8E8] bg-white px-3"
+                      >
+                        <Text className="text-sm font-bold text-[#1D4ED8]">
+                          {isPreviewExpanded ? 'סגור תצוגת לקוח' : 'תצוגת לקוח'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </EditorPreviewSurface>
                 </View>
-              </EditorSection>
+              )}
+            </View>
 
-              <EditorSection title={TEXT.groupDesign}>
-                {Platform.OS === 'web' ? null : (
+            {details !== undefined ? (
+              <View
+                className={isWeb ? 'gap-2' : 'mt-2 gap-4'}
+                style={
+                  wideEditor
+                    ? { flex: 1, minWidth: 0 }
+                    : { marginTop: isWeb ? 8 : 0, width: '100%' }
+                }
+              >
+                <EditorSection
+                  style={
+                    isWeb
+                      ? {
+                          borderRadius: 14,
+                          gap: 8,
+                          paddingHorizontal: 12,
+                          paddingVertical: 10,
+                        }
+                      : undefined
+                  }
+                  title={TEXT.groupBasic}
+                >
                   <View className="gap-2">
                     <Text
                       className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
                     >
-                      תמונה
+                      {TEXT.sectionTitle}
                     </Text>
-                    <TouchableOpacity
-                      disabled={!canEditGeneralFields || isUploadingImage}
-                      onPress={() => {
-                        void handlePickAndUploadImage();
-                      }}
-                      className={`min-h-[48px] items-center justify-center rounded-2xl border px-4 py-3 ${
-                        canEditGeneralFields
-                          ? 'border-[#DCE6F7] bg-[#F8FAFF]'
-                          : 'border-[#E2E8F0] bg-[#F1F5F9]'
-                      }`}
-                    >
+                    <TextInput
+                      value={title}
+                      onChangeText={setTitle}
+                      editable={canEditGeneralFields}
+                      placeholder="למשל: כרטיס הבוקר"
+                      placeholderTextColor="#94A3B8"
+                      className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
+                    />
+                    <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+                      שם הכרטיסייה, למשל כרטיס הבוקר. זה לא חייב להיות שם ההטבה.
+                    </Text>
+                  </View>
+                </EditorSection>
+
+                <EditorSection
+                  style={
+                    isWeb
+                      ? {
+                          borderRadius: 14,
+                          gap: 8,
+                          paddingHorizontal: 12,
+                          paddingVertical: 10,
+                        }
+                      : undefined
+                  }
+                  title={TEXT.groupDesign}
+                >
+                  {Platform.OS === 'web' ? null : (
+                    <View className="gap-2">
+                      <Text
+                        className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+                      >
+                        תמונה
+                      </Text>
+                      <TouchableOpacity
+                        disabled={!canEditGeneralFields || isUploadingImage}
+                        onPress={() => {
+                          void handlePickAndUploadImage();
+                        }}
+                        className={`min-h-[48px] items-center justify-center rounded-2xl border px-4 py-3 ${
+                          canEditGeneralFields
+                            ? 'border-[#DCE6F7] bg-[#F8FAFF]'
+                            : 'border-[#E2E8F0] bg-[#F1F5F9]'
+                        }`}
+                      >
+                        {isUploadingImage ? (
+                          <ActivityIndicator color={productPrimary} />
+                        ) : (
+                          <Text
+                            className={`text-sm font-semibold text-[#1A2B4A] ${tw.textStart}`}
+                          >
+                            {previewImageUrl ? 'החלף תמונה' : TEXT.uploadImage}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
                       {isUploadingImage ? (
-                        <ActivityIndicator color={productPrimary} />
-                      ) : (
                         <Text
-                          className={`text-sm font-semibold text-[#1A2B4A] ${tw.textStart}`}
+                          className={`text-xs text-[#64748B] ${tw.textStart}`}
                         >
-                          {previewImageUrl ? 'החלף תמונה' : TEXT.uploadImage}
+                          {TEXT.uploadingImage}
                         </Text>
-                      )}
-                    </TouchableOpacity>
-                    {isUploadingImage ? (
+                      ) : null}
+                    </View>
+                  )}
+
+                  <View className="gap-2">
+                    <Text
+                      className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+                    >
+                      {TEXT.sectionStampShape}
+                    </Text>
+                    <StampShapePicker
+                      value={stampShape}
+                      stampIcon={stampIcon}
+                      onChange={setStampShape}
+                      disabled={!canEditGeneralFields}
+                    />
+                    <Text
+                      className={`mt-2 text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+                    >
+                      {TEXT.iconInput}
+                    </Text>
+                    <StampIconPicker
+                      value={stampIcon}
+                      onChange={setStampIcon}
+                      disabled={!canEditGeneralFields}
+                    />
+                  </View>
+
+                  <View className="gap-2">
+                    <Text
+                      className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+                    >
+                      {TEXT.sectionTheme}
+                    </Text>
+                    <LoyaltyThemePalette
+                      value={cardThemeId}
+                      onChange={setCardThemeId}
+                      disabledThemeIds={
+                        lifecycle === 'active' ? usedThemeIds : []
+                      }
+                      disabled={!canEditGeneralFields}
+                    />
+                  </View>
+                </EditorSection>
+
+                <EditorSection
+                  style={
+                    isWeb
+                      ? {
+                          borderRadius: 14,
+                          gap: 8,
+                          paddingHorizontal: 12,
+                          paddingVertical: 10,
+                        }
+                      : undefined
+                  }
+                  title={TEXT.groupRewardRules}
+                >
+                  <View className="gap-2">
+                    <Text
+                      className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+                    >
+                      {TEXT.sectionReward}
+                    </Text>
+                    <TextInput
+                      value={rewardName}
+                      onChangeText={setRewardName}
+                      editable={canEditRuleFields}
+                      placeholder="למשל: קפה עשירי במתנה"
+                      placeholderTextColor="#94A3B8"
+                      className={`rounded-2xl border px-4 py-3 text-right text-sm font-semibold ${
+                        canEditRuleFields
+                          ? 'border-[#E3E9FF] bg-[#F8FAFF] text-[#0F172A]'
+                          : 'border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]'
+                      }`}
+                    />
+                    <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
+                      ההטבה עצמה, למשל קפה עשירי במתנה. אם היא זהה לשם, הכרטיס
+                      המודפס מציג אותה פעם אחת.
+                    </Text>
+                  </View>
+
+                  <View className="gap-2">
+                    <Text
+                      className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+                    >
+                      {TEXT.sectionMaxStamps}
+                    </Text>
+                    <Text className={`text-xs text-[#94A3B8] ${tw.textStart}`}>
+                      {TEXT.sectionMaxStampsHint}
+                    </Text>
+                    <View className={`${tw.flexRow} flex-wrap gap-2`}>
+                      {MAX_STAMP_OPTIONS.map((option) => {
+                        const selected = parsedMaxStamps === option;
+                        return (
+                          <TouchableOpacity
+                            key={String(option)}
+                            disabled={!canEditRuleFields}
+                            onPress={() => setMaxStamps(String(option))}
+                            className={`rounded-full border px-3 py-2 ${
+                              selected
+                                ? 'border-[#2F6BFF] bg-[#EAF1FF]'
+                                : 'border-[#DCE6F7] bg-[#F8FAFF]'
+                            }`}
+                          >
+                            <Text className="text-xs font-bold text-[#1A2B4A]">
+                              {option}
+                              {option === 10 ? ` (${TEXT.recommended})` : ''}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                </EditorSection>
+
+                <EditorSection
+                  style={
+                    isWeb
+                      ? {
+                          borderRadius: 14,
+                          gap: 8,
+                          paddingHorizontal: 12,
+                          paddingVertical: 10,
+                        }
+                      : undefined
+                  }
+                  title={TEXT.groupAdvanced}
+                >
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: isAdvancedOpen }}
+                    onPress={() => setIsAdvancedOpen((current) => !current)}
+                    className={`min-h-[48px] ${tw.flexRow} items-center justify-between rounded-2xl border border-[#CBD5E1] bg-[#F8FAFC] px-4 py-3`}
+                    style={rtlBaseView}
+                  >
+                    <View className="min-w-0 flex-1">
+                      <Text
+                        className={`text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}
+                      >
+                        {isAdvancedOpen ? 'הסתר תנאים' : 'הצג תנאים'}
+                      </Text>
                       <Text
                         className={`text-xs text-[#64748B] ${tw.textStart}`}
                       >
-                        {TEXT.uploadingImage}
+                        {cardTerms || rewardConditions
+                          ? 'הוגדרו תנאים'
+                          : 'לא הוגדר'}
                       </Text>
-                    ) : null}
-                  </View>
-                )}
+                    </View>
+                    <Text className="text-lg font-black text-[#1D4ED8]">
+                      {isAdvancedOpen ? '−' : '+'}
+                    </Text>
+                  </TouchableOpacity>
 
-                <View className="gap-2">
-                  <Text
-                    className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
-                  >
-                    {TEXT.sectionStampShape}
-                  </Text>
-                  <StampShapePicker
-                    value={stampShape}
-                    stampIcon={stampIcon}
-                    onChange={setStampShape}
-                    disabled={!canEditGeneralFields}
-                  />
-                  <Text
-                    className={`mt-2 text-xs font-semibold text-[#64748B] ${tw.textStart}`}
-                  >
-                    {TEXT.iconInput}
-                  </Text>
-                  <StampIconPicker
-                    value={stampIcon}
-                    onChange={setStampIcon}
-                    disabled={!canEditGeneralFields}
-                  />
-                </View>
-
-                <View className="gap-2">
-                  <Text
-                    className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
-                  >
-                    {TEXT.sectionTheme}
-                  </Text>
-                  <LoyaltyThemePalette
-                    value={cardThemeId}
-                    onChange={setCardThemeId}
-                    disabledThemeIds={
-                      lifecycle === 'active' ? usedThemeIds : []
-                    }
-                    disabled={!canEditGeneralFields}
-                  />
-                </View>
-              </EditorSection>
-
-              <EditorSection title={TEXT.groupRewardRules}>
-                <View className="gap-2">
-                  <Text
-                    className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
-                  >
-                    {TEXT.sectionReward}
-                  </Text>
-                  <TextInput
-                    value={rewardName}
-                    onChangeText={setRewardName}
-                    editable={canEditRuleFields}
-                    placeholder="למשל: קפה עשירי במתנה"
-                    placeholderTextColor="#94A3B8"
-                    className={`rounded-2xl border px-4 py-3 text-right text-sm font-semibold ${
-                      canEditRuleFields
-                        ? 'border-[#E3E9FF] bg-[#F8FAFF] text-[#0F172A]'
-                        : 'border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]'
-                    }`}
-                  />
-                  <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-                    ההטבה עצמה, למשל קפה עשירי במתנה. אם היא זהה לשם, הכרטיס
-                    המודפס מציג אותה פעם אחת.
-                  </Text>
-                </View>
-
-                <View className="gap-2">
-                  <Text
-                    className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
-                  >
-                    {TEXT.sectionMaxStamps}
-                  </Text>
-                  <Text className={`text-xs text-[#94A3B8] ${tw.textStart}`}>
-                    {TEXT.sectionMaxStampsHint}
-                  </Text>
-                  <View className={`${tw.flexRow} flex-wrap gap-2`}>
-                    {MAX_STAMP_OPTIONS.map((option) => {
-                      const selected = parsedMaxStamps === option;
-                      return (
-                        <TouchableOpacity
-                          key={String(option)}
-                          disabled={!canEditRuleFields}
-                          onPress={() => setMaxStamps(String(option))}
-                          className={`rounded-full border px-3 py-2 ${
-                            selected
-                              ? 'border-[#2F6BFF] bg-[#EAF1FF]'
-                              : 'border-[#DCE6F7] bg-[#F8FAFF]'
-                          }`}
+                  {isAdvancedOpen ? (
+                    <View className="gap-4">
+                      <View className="gap-2">
+                        <Text
+                          className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
                         >
-                          <Text className="text-xs font-bold text-[#1A2B4A]">
-                            {option}
-                            {option === 10 ? ` (${TEXT.recommended})` : ''}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-              </EditorSection>
+                          {TEXT.sectionCardTerms}
+                        </Text>
+                        <TextInput
+                          accessibilityLabel={TEXT.sectionCardTerms}
+                          value={cardTerms}
+                          onChangeText={setCardTerms}
+                          editable={canEditRuleFields}
+                          placeholder={DEFAULT_LOYALTY_CARD_TERMS}
+                          placeholderTextColor="#94A3B8"
+                          multiline={true}
+                          textAlignVertical="top"
+                          className={`min-h-[88px] rounded-2xl border px-4 py-3 text-right text-sm font-semibold ${
+                            canEditRuleFields
+                              ? 'border-[#CBD5E1] bg-white text-[#0F172A]'
+                              : 'border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]'
+                          }`}
+                        />
+                      </View>
+                      <View className="gap-2">
+                        <Text
+                          className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
+                        >
+                          {TEXT.sectionRewardTerms}
+                        </Text>
+                        <TextInput
+                          accessibilityLabel={TEXT.sectionRewardTerms}
+                          value={rewardConditions}
+                          onChangeText={setRewardConditions}
+                          editable={canEditRuleFields}
+                          placeholder={DEFAULT_LOYALTY_REWARD_CONDITIONS}
+                          placeholderTextColor="#94A3B8"
+                          multiline={true}
+                          textAlignVertical="top"
+                          className={`min-h-[88px] rounded-2xl border px-4 py-3 text-right text-sm font-semibold ${
+                            canEditRuleFields
+                              ? 'border-[#CBD5E1] bg-white text-[#0F172A]'
+                              : 'border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]'
+                          }`}
+                        />
+                      </View>
+                    </View>
+                  ) : null}
+                </EditorSection>
 
-              <EditorSection title={TEXT.groupAdvanced}>
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded: isAdvancedOpen }}
-                  onPress={() => setIsAdvancedOpen((current) => !current)}
-                  className={`min-h-[48px] ${tw.flexRow} items-center justify-between rounded-2xl border border-[#CBD5E1] bg-[#F8FAFC] px-4 py-3`}
-                  style={rtlBaseView}
-                >
-                  <View className="min-w-0 flex-1">
-                    <Text
-                      className={`text-sm font-bold text-[#1A2B4A] ${tw.textStart}`}
-                    >
-                      {isAdvancedOpen ? 'הסתר תנאים' : 'הצג תנאים'}
-                    </Text>
-                    <Text className={`text-xs text-[#64748B] ${tw.textStart}`}>
-                      {cardTerms || rewardConditions
-                        ? 'הוגדרו תנאים'
-                        : 'לא הוגדר'}
-                    </Text>
-                  </View>
-                  <Text className="text-lg font-black text-[#1D4ED8]">
-                    {isAdvancedOpen ? '−' : '+'}
+                <View className="gap-3">
+                  {conflictLocked ? (
+                    <View className="rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] px-4 py-3">
+                      <Text className="text-right text-xs text-[#92400E]">
+                        נמצאה גרסה חדשה של הכרטיס. השמירה נעולה עד לטעינת הגרסה
+                        העדכנית.
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => {
+                          applyProgramSnapshot(details);
+                        }}
+                        className={`mt-2 ${tw.selfStart} rounded-full bg-[#F59E0B] px-3 py-1.5`}
+                      >
+                        <Text className="text-xs font-bold text-white">
+                          טען גרסה עדכנית
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : null}
+
+                  <Text
+                    accessibilityLiveRegion="polite"
+                    className={`text-xs font-bold ${tw.textStart} ${
+                      isDirty ? 'text-[#B45309]' : 'text-[#15803C]'
+                    }`}
+                  >
+                    {isDirty ? 'יש שינויים שלא נשמרו' : 'כל השינויים נשמרו'}
                   </Text>
-                </TouchableOpacity>
 
-                {isAdvancedOpen ? (
-                  <View className="gap-4">
-                    <View className="gap-2">
-                      <Text
-                        className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
-                      >
-                        {TEXT.sectionCardTerms}
-                      </Text>
-                      <TextInput
-                        accessibilityLabel={TEXT.sectionCardTerms}
-                        value={cardTerms}
-                        onChangeText={setCardTerms}
-                        editable={canEditRuleFields}
-                        placeholder={DEFAULT_LOYALTY_CARD_TERMS}
-                        placeholderTextColor="#94A3B8"
-                        multiline={true}
-                        textAlignVertical="top"
-                        className={`min-h-[88px] rounded-2xl border px-4 py-3 text-right text-sm font-semibold ${
-                          canEditRuleFields
-                            ? 'border-[#CBD5E1] bg-white text-[#0F172A]'
-                            : 'border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]'
+                  {lifecycle === 'draft' ? (
+                    <View ref={guideTargetRef} collapsable={false}>
+                      <TouchableOpacity
+                        disabled={!canManage || isSubmitting || conflictLocked}
+                        onPress={() => {
+                          void handlePublish();
+                        }}
+                        accessibilityRole={
+                          Platform.OS === 'web' ? 'button' : undefined
+                        }
+                        className={`rounded-2xl border px-4 py-3 ${
+                          canManage && !isSubmitting && !conflictLocked
+                            ? 'border-[#2563EB] bg-white'
+                            : 'border-[#CBD5E1] bg-[#F1F5F9]'
                         }`}
-                      />
-                    </View>
-                    <View className="gap-2">
-                      <Text
-                        className={`text-xs font-semibold text-[#64748B] ${tw.textStart}`}
                       >
-                        {TEXT.sectionRewardTerms}
-                      </Text>
-                      <TextInput
-                        accessibilityLabel={TEXT.sectionRewardTerms}
-                        value={rewardConditions}
-                        onChangeText={setRewardConditions}
-                        editable={canEditRuleFields}
-                        placeholder={DEFAULT_LOYALTY_REWARD_CONDITIONS}
-                        placeholderTextColor="#94A3B8"
-                        multiline={true}
-                        textAlignVertical="top"
-                        className={`min-h-[88px] rounded-2xl border px-4 py-3 text-right text-sm font-semibold ${
-                          canEditRuleFields
-                            ? 'border-[#CBD5E1] bg-white text-[#0F172A]'
-                            : 'border-[#E2E8F0] bg-[#F1F5F9] text-[#64748B]'
-                        }`}
-                      />
+                        <Text className="text-center text-sm font-bold text-[#1D4ED8]">
+                          {TEXT.publish}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
-                  </View>
-                ) : null}
-              </EditorSection>
+                  ) : null}
 
-              <View className="gap-3">
-                {conflictLocked ? (
-                  <View className="rounded-2xl border border-[#FCD34D] bg-[#FFFBEB] px-4 py-3">
-                    <Text className="text-right text-xs text-[#92400E]">
-                      נמצאה גרסה חדשה של הכרטיס. השמירה נעולה עד לטעינת הגרסה
-                      העדכנית.
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => {
-                        applyProgramSnapshot(details);
-                      }}
-                      className={`mt-2 ${tw.selfStart} rounded-full bg-[#F59E0B] px-3 py-1.5`}
-                    >
-                      <Text className="text-xs font-bold text-white">
-                        טען גרסה עדכנית
+                  {lifecycle === 'active' ? (
+                    <View className="mt-3 gap-2 border-t border-[#DCE6F7] pt-4">
+                      <Text
+                        className={`text-sm font-black text-[#334155] ${tw.textStart}`}
+                      >
+                        אפשרויות נוספות
                       </Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
+                      <TouchableOpacity
+                        disabled={!canManage || isSubmitting || conflictLocked}
+                        onPress={handleArchive}
+                        accessibilityRole={
+                          Platform.OS === 'web' ? 'button' : undefined
+                        }
+                        className="min-h-[48px] items-center justify-center rounded-2xl border border-[#FCA5A5] bg-white px-4 py-3"
+                      >
+                        <Text className="text-center text-sm font-bold text-[#B91C1C]">
+                          {TEXT.archive}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : null}
 
-                <Text
-                  accessibilityLiveRegion="polite"
-                  className={`text-xs font-bold ${tw.textStart} ${
-                    isDirty ? 'text-[#B45309]' : 'text-[#15803C]'
-                  }`}
-                >
-                  {isDirty ? 'יש שינויים שלא נשמרו' : 'כל השינויים נשמרו'}
-                </Text>
+                  {lifecycle === 'archived' ? (
+                    <View className="mt-3 gap-2 border-t border-[#DCE6F7] pt-4">
+                      <Text
+                        className={`text-sm font-black text-[#334155] ${tw.textStart}`}
+                      >
+                        כרטיסייה בארכיון
+                      </Text>
+                      <TouchableOpacity
+                        disabled={!canManage || isSubmitting || conflictLocked}
+                        onPress={handleReactivate}
+                        className={`min-h-[48px] items-center justify-center rounded-2xl px-4 py-3 ${
+                          canManage && !isSubmitting && !conflictLocked
+                            ? webClassName('bg-[#2F6BFF]')
+                            : 'bg-[#CBD5E1]'
+                        }`}
+                      >
+                        {isSubmitting ? (
+                          <ActivityIndicator color="#FFFFFF" />
+                        ) : (
+                          <Text className="text-center text-sm font-bold text-white">
+                            {TEXT.reactivate}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  ) : null}
 
-                {lifecycle === 'draft' ? (
-                  <View ref={guideTargetRef} collapsable={false}>
+                  {details.canDelete ? (
                     <TouchableOpacity
                       disabled={!canManage || isSubmitting || conflictLocked}
-                      onPress={() => {
-                        void handlePublish();
-                      }}
-                      accessibilityRole={
-                        Platform.OS === 'web' ? 'button' : undefined
-                      }
-                      className={`rounded-2xl border px-4 py-3 ${
+                      onPress={handleDelete}
+                      className={`rounded-2xl px-4 py-3 ${
                         canManage && !isSubmitting && !conflictLocked
-                          ? 'border-[#2563EB] bg-white'
-                          : 'border-[#CBD5E1] bg-[#F1F5F9]'
-                      }`}
-                    >
-                      <Text className="text-center text-sm font-bold text-[#1D4ED8]">
-                        {TEXT.publish}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
-
-                {lifecycle === 'active' ? (
-                  <View className="mt-3 gap-2 border-t border-[#DCE6F7] pt-4">
-                    <Text
-                      className={`text-sm font-black text-[#334155] ${tw.textStart}`}
-                    >
-                      אפשרויות נוספות
-                    </Text>
-                    <TouchableOpacity
-                      disabled={!canManage || isSubmitting || conflictLocked}
-                      onPress={handleArchive}
-                      accessibilityRole={
-                        Platform.OS === 'web' ? 'button' : undefined
-                      }
-                      className="min-h-[48px] items-center justify-center rounded-2xl border border-[#FCA5A5] bg-white px-4 py-3"
-                    >
-                      <Text className="text-center text-sm font-bold text-[#B91C1C]">
-                        {TEXT.archive}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
-
-                {lifecycle === 'archived' ? (
-                  <View className="mt-3 gap-2 border-t border-[#DCE6F7] pt-4">
-                    <Text
-                      className={`text-sm font-black text-[#334155] ${tw.textStart}`}
-                    >
-                      כרטיסייה בארכיון
-                    </Text>
-                    <TouchableOpacity
-                      disabled={!canManage || isSubmitting || conflictLocked}
-                      onPress={handleReactivate}
-                      className={`min-h-[48px] items-center justify-center rounded-2xl px-4 py-3 ${
-                        canManage && !isSubmitting && !conflictLocked
-                          ? webClassName('bg-[#2F6BFF]')
+                          ? 'bg-[#DC2626]'
                           : 'bg-[#CBD5E1]'
                       }`}
                     >
-                      {isSubmitting ? (
-                        <ActivityIndicator color="#FFFFFF" />
-                      ) : (
-                        <Text className="text-center text-sm font-bold text-white">
-                          {TEXT.reactivate}
-                        </Text>
-                      )}
+                      <Text className="text-center text-sm font-bold text-white">
+                        {TEXT.delete}
+                      </Text>
                     </TouchableOpacity>
-                  </View>
-                ) : null}
-
-                {details.canDelete ? (
-                  <TouchableOpacity
-                    disabled={!canManage || isSubmitting || conflictLocked}
-                    onPress={handleDelete}
-                    className={`rounded-2xl px-4 py-3 ${
-                      canManage && !isSubmitting && !conflictLocked
-                        ? 'bg-[#DC2626]'
-                        : 'bg-[#CBD5E1]'
-                    }`}
-                  >
-                    <Text className="text-center text-sm font-bold text-white">
-                      {TEXT.delete}
-                    </Text>
-                  </TouchableOpacity>
-                ) : null}
+                  ) : null}
+                </View>
               </View>
-            </View>
-          ) : null}
+            ) : null}
+          </View>
         </ScrollView>
         <View
           onLayout={(event) => {
@@ -1390,7 +1486,10 @@ export default function ProgramDetailsScreen() {
             bottom: 0,
           }}
         >
-          <EditorStickyFooter>
+          <EditorStickyFooter
+            contentStyle={isWeb ? { maxWidth: '100%' } : undefined}
+            dense={isWeb}
+          >
             <TouchableOpacity
               accessibilityRole="button"
               accessibilityState={{ disabled: !canSave, busy: isSubmitting }}
