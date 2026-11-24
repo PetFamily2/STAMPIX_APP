@@ -92,10 +92,12 @@ function openDocumentUrl(url: string | null) {
 export function BusinessWebBilling({
   businessIdOverride,
   businessNameOverride,
+  mode = 'management',
   onBeforeCheckout,
 }: {
   businessIdOverride?: Id<'businesses'>;
   businessNameOverride?: string;
+  mode?: 'management' | 'onboarding';
   onBeforeCheckout?: () => Promise<void>;
 } = {}) {
   const active = useActiveBusiness();
@@ -290,88 +292,90 @@ export function BusinessWebBilling({
 
   return (
     <View style={styles.page}>
-      <View
-        accessibilityRole="summary"
-        style={[
-          styles.statusBanner,
-          bannerTone === 'success'
-            ? styles.statusBannerSuccess
-            : bannerTone === 'warning'
-              ? styles.statusBannerWarning
-              : bannerTone === 'neutral'
-                ? styles.statusBannerNeutral
-                : styles.statusBannerDanger,
-        ]}
-      >
-        <Text
+      {mode === 'management' ? (
+        <View
+          accessibilityRole="summary"
           style={[
-            styles.statusLabel,
+            styles.statusBanner,
             bannerTone === 'success'
-              ? styles.statusLabelSuccess
+              ? styles.statusBannerSuccess
               : bannerTone === 'warning'
-                ? styles.statusLabelWarning
+                ? styles.statusBannerWarning
                 : bannerTone === 'neutral'
-                  ? styles.statusLabelNeutral
-                  : styles.statusLabelDanger,
+                  ? styles.statusBannerNeutral
+                  : styles.statusBannerDanger,
           ]}
         >
-          {STATUS_LABELS[status] ?? 'לא פעיל'}
-        </Text>
-        <Text
-          style={[
-            styles.statusMeta,
-            bannerTone === 'danger' ? styles.statusOnDanger : null,
-          ]}
-        >
-          {statusSummary || 'אין מסלול פעיל'}
-        </Text>
-        {bannerTone === 'danger' ? (
-          <Text style={styles.statusImpact}>
-            לקוח חדש לא מצטרף ולא מקבל חותמת. מבצע חדש לא נפתח.
-          </Text>
-        ) : null}
-        {typeof periodEndAt === 'number' ? (
           <Text
             style={[
-              styles.statusNote,
+              styles.statusLabel,
+              bannerTone === 'success'
+                ? styles.statusLabelSuccess
+                : bannerTone === 'warning'
+                  ? styles.statusLabelWarning
+                  : bannerTone === 'neutral'
+                    ? styles.statusLabelNeutral
+                    : styles.statusLabelDanger,
+            ]}
+          >
+            {STATUS_LABELS[status] ?? 'לא פעיל'}
+          </Text>
+          <Text
+            style={[
+              styles.statusMeta,
               bannerTone === 'danger' ? styles.statusOnDanger : null,
             ]}
           >
-            {isTrialing ? 'ניסיון עד' : 'פעיל עד'} {formatDate(periodEndAt)}
+            {statusSummary || 'אין מסלול פעיל'}
           </Text>
-        ) : null}
-        {overview?.canceledAt ? (
-          <Text style={styles.statusNote}>
-            החידוש בוטל ב-{formatDate(overview.canceledAt)}.
-          </Text>
-        ) : null}
-        {overview?.canCancel ? (
-          <Pressable
-            accessibilityLabel="ביטול חידוש המנוי"
-            accessibilityRole="button"
-            onPress={() => setShowCancelDialog(true)}
-            style={({ pressed }) => [
-              styles.dangerOutlineButton,
-              pressed ? styles.pressed : null,
-            ]}
-          >
-            <Text style={styles.dangerOutlineText}>ביטול חידוש</Text>
-          </Pressable>
-        ) : null}
-        {bannerTone === 'danger' ? (
-          <Pressable
-            accessibilityLabel="חידוש המנוי"
-            accessibilityRole="button"
-            onPress={focusRenewalPlans}
-            style={({ pressed }) => [
-              styles.renewButton,
-              pressed ? styles.pressed : null,
-            ]}
-          >
-            <Text style={styles.renewButtonText}>חידוש המנוי</Text>
-          </Pressable>
-        ) : null}
-      </View>
+          {bannerTone === 'danger' ? (
+            <Text style={styles.statusImpact}>
+              לקוח חדש לא מצטרף ולא מקבל חותמת. מבצע חדש לא נפתח.
+            </Text>
+          ) : null}
+          {typeof periodEndAt === 'number' ? (
+            <Text
+              style={[
+                styles.statusNote,
+                bannerTone === 'danger' ? styles.statusOnDanger : null,
+              ]}
+            >
+              {isTrialing ? 'ניסיון עד' : 'פעיל עד'} {formatDate(periodEndAt)}
+            </Text>
+          ) : null}
+          {overview?.canceledAt ? (
+            <Text style={styles.statusNote}>
+              החידוש בוטל ב-{formatDate(overview.canceledAt)}.
+            </Text>
+          ) : null}
+          {overview?.canCancel ? (
+            <Pressable
+              accessibilityLabel="ביטול חידוש המנוי"
+              accessibilityRole="button"
+              onPress={() => setShowCancelDialog(true)}
+              style={({ pressed }) => [
+                styles.dangerOutlineButton,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              <Text style={styles.dangerOutlineText}>ביטול חידוש</Text>
+            </Pressable>
+          ) : null}
+          {bannerTone === 'danger' ? (
+            <Pressable
+              accessibilityLabel="חידוש המנוי"
+              accessibilityRole="button"
+              onPress={focusRenewalPlans}
+              style={({ pressed }) => [
+                styles.renewButton,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              <Text style={styles.renewButtonText}>חידוש המנוי</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
 
       {actionError ? (
         <View accessibilityLiveRegion="assertive" style={styles.errorBanner}>
