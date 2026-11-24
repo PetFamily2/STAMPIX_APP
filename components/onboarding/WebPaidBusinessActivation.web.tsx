@@ -1,8 +1,9 @@
 import { useQuery } from 'convex/react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { BusinessWebBilling } from '@/components/business-web/BusinessWebBilling';
 import { AppText } from '@/components/ui/AppText';
 import { api } from '@/convex/_generated/api';
+import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
 import type { WebPaidBusinessActivationProps } from './WebPaidBusinessActivation';
 
 export function WebPaidBusinessActivation({
@@ -26,16 +27,33 @@ export function WebPaidBusinessActivation({
   }
   return (
     <View>
-      <AppText>
-        לפני פרסום העסק בוחרים מסלול ומשלמים. הטיוטה נשמרת לפני המעבר לתשלום.
-        לאחר אימות התשלום תוכלו להשלים את הפרסום.
+      <AppText accessibilityRole="header" style={styles.title}>
+        בחירת מסלול והפעלת העסק
+      </AppText>
+      <AppText style={styles.description}>
+        בחרו מסלול כדי להפעיל את העסק. הטיוטה נשמרת, ואחרי אימות התשלום תוכלו
+        לפרסם את הכרטיסייה.
       </AppText>
       <BusinessWebBilling
         key={businessId}
         businessIdOverride={businessId}
         businessNameOverride={businessName}
+        mode="onboarding"
         onBeforeCheckout={onBeforeCheckout}
       />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  title: {
+    ...TOKENS.typography.sectionTitle,
+    color: TOKENS.colors.textPrimary,
+    marginBottom: 6,
+  },
+  description: {
+    ...TOKENS.typography.body,
+    color: TOKENS.colors.textSecondary,
+    marginBottom: 12,
+  },
+});

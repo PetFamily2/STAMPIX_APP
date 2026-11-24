@@ -13,11 +13,10 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from 'react-native';
-
+import { AppText as Text } from '@/components/ui/AppText';
 import { useGoogleAddressResolution } from '@/hooks/useGoogleAddressResolution';
 import { useGooglePlaceAutocomplete } from '@/hooks/useGooglePlaceAutocomplete';
 import {
@@ -37,6 +36,7 @@ import {
   selectBusinessAddressStreet,
   shouldAcceptAddressResolutionResponse,
 } from '@/lib/businessAddressSelection';
+import { webInputTypography } from '@/lib/design/webProductChrome';
 import type { PlaceSuggestion } from '@/lib/googlePlaces';
 import { flexDirection, ltrIslandText } from '@/lib/rtl';
 
@@ -722,6 +722,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   input: {
+    ...webInputTypography,
     width: '100%',
     minHeight: 52,
     backgroundColor: '#FFFFFF',

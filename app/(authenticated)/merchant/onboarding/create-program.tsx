@@ -11,10 +11,10 @@ import {
 } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
   View,
@@ -27,6 +27,7 @@ import { StampIconPicker } from '@/components/loyalty/StampIconPicker';
 import { StampShapePicker } from '@/components/loyalty/StampShapePicker';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
+import { AppText as Text } from '@/components/ui/AppText';
 import { MAX_STAMP_OPTIONS } from '@/constants/stampOptions';
 import { type ProgramDraft, useOnboarding } from '@/contexts/OnboardingContext';
 import { useUser } from '@/contexts/UserContext';
@@ -40,6 +41,9 @@ import {
   webAccentSoft,
   webAccentText,
   webBody,
+  webField,
+  webInputTypography,
+  webLabel,
   webPage,
   webTitle,
 } from '@/lib/design/webProductChrome';
@@ -61,8 +65,9 @@ const TEXT = {
   submitting: 'שומרים כרטיסיה',
   missingBusiness: 'נדרש עסק פעיל קודם',
   errorFallback: 'שגיאה ביצירת הכרטיסיה',
-  imageUploadFailed: 'העלאת התמונה נכשלה. נסו שוב.',
-  uploadImage: 'העלה תמונה',
+  imageUploadFailed: 'לא הצלחנו לשמור את התמונה. נסו שוב עם קובץ JPG או PNG.',
+  imagePickFailed: 'לא הצלחנו לפתוח את התמונה. בחרו קובץ JPG או PNG תקין.',
+  uploadImage: 'בחירת תמונה',
   uploadingImage: 'מעלה תמונה...',
   recommended: 'מומלץ',
 };
@@ -76,8 +81,8 @@ function toErrorMessage(error: unknown, fallback: string) {
 
 const CREATE_PROGRAM_COPY = {
   title: 'הכרטיסייה הראשונה שלך',
-  subtitle: 'בחרו תגמול, מספר חותמות ועיצוב ראשוני. אפשר לשנות אחר כך',
-  continue: 'שמירה והמשך לפרסום',
+  subtitle: 'בחרו הטבה, כמה חותמות צריך כדי לקבל אותה ואיך הכרטיסייה תיראה.',
+  continue: 'שמירה ותצוגה מקדימה',
 };
 
 export default function CreateProgramScreen() {
@@ -112,6 +117,7 @@ export default function CreateProgramScreen() {
     .map((reservation) => reservation.themeId);
 
   const [error, setError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -248,31 +254,44 @@ export default function CreateProgramScreen() {
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.8,
-    });
-    if (result.canceled || result.assets.length === 0) {
-      return;
-    }
-
-    const asset = result.assets[0];
-    if (!asset.uri || currentScope.current !== scope) {
-      return;
-    }
-
-    setError(null);
-    setIsUploadingImage(true);
+    setImageError(null);
     try {
-      const { uploadUrl } = await generateProgramImageUploadUrl({ businessId });
-      const fileResponse = await fetch(asset.uri);
-      const blob = await fileResponse.blob();
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: Platform.OS !== 'web',
+        quality: 0.8,
+      }).catch(() => null);
+      if (result === null) {
+        setImageError(TEXT.imagePickFailed);
+        return;
+      }
+      if (result.canceled) {
+        return;
+      }
+      const asset = result.assets[0];
+      if (!asset?.uri || currentScope.current !== scope) {
+        return;
+      }
+      setIsUploadingImage(true);
 
+      // Expo provides the actual File on Web. Fetching its blob URL would
+      // require relaxing the site's connect-src policy.
+      const file =
+        Platform.OS === 'web'
+          ? asset.file
+          : await (await fetch(asset.uri)).blob();
+      if (!file || (Platform.OS === 'web' && file.size === 0)) {
+        setImageError(TEXT.imagePickFailed);
+        return;
+      }
+
+      const { uploadUrl } = await generateProgramImageUploadUrl({ businessId });
       const uploadResponse = await fetch(uploadUrl, {
         method: 'POST',
-        headers: { 'Content-Type': asset.mimeType ?? 'image/jpeg' },
-        body: blob,
+        headers: {
+          'Content-Type': asset.mimeType || file.type || 'image/jpeg',
+        },
+        body: file,
       });
       if (!uploadResponse.ok) {
         throw new Error('UPLOAD_FAILED');
@@ -291,7 +310,7 @@ export default function CreateProgramScreen() {
         imagePreviewUri: asset.uri,
       }));
     } catch {
-      setError(TEXT.imageUploadFailed);
+      setImageError(TEXT.imageUploadFailed);
     } finally {
       setIsUploadingImage(false);
     }
@@ -408,8 +427,8 @@ export default function CreateProgramScreen() {
               onChangeText={(text) =>
                 setProgramDraft((prev) => ({ ...prev, title: text }))
               }
-              placeholder="שם הכרטיסיה"
-              placeholderTextColor="#9CA3AF"
+              placeholder="לדוגמה: מועדון הפיצה"
+              placeholderTextColor="#64748B"
               style={styles.input}
               accessibilityLabel="שם הכרטיסיה"
             />
@@ -422,8 +441,8 @@ export default function CreateProgramScreen() {
               onChangeText={(text) =>
                 setProgramDraft((prev) => ({ ...prev, rewardName: text }))
               }
-              placeholder="מה הלקוח מקבל"
-              placeholderTextColor="#9CA3AF"
+              placeholder="לדוגמה: משולש פיצה חינם"
+              placeholderTextColor="#64748B"
               style={styles.input}
               accessibilityLabel="הטבה"
             />
@@ -431,7 +450,9 @@ export default function CreateProgramScreen() {
 
           <View style={styles.field}>
             <Text style={styles.label}>חותמות עד ההטבה</Text>
-            <Text style={styles.helper}>כמה ביקורים לקבלת פרס?</Text>
+            <Text style={styles.helper}>
+              לדוגמה, בחרו 8 כדי לתת את ההטבה אחרי 8 חותמות.
+            </Text>
             <View style={styles.optionsWrap}>
               {MAX_STAMP_OPTIONS.map((option) => {
                 const selected = Number(programDraft.maxStamps) === option;
@@ -460,7 +481,17 @@ export default function CreateProgramScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>תמונה</Text>
+            <Text style={styles.label}>תמונת הכרטיסייה (לא חובה)</Text>
+            <Text style={styles.helper}>
+              לדוגמה, תמונה של הפיצה או של ההטבה.
+            </Text>
+            {programDraft.imagePreviewUri ? (
+              <Image
+                accessibilityLabel="תמונת הכרטיסייה שנבחרה"
+                source={{ uri: programDraft.imagePreviewUri }}
+                style={styles.imagePreview}
+              />
+            ) : null}
             <TouchableOpacity
               onPress={() => {
                 void handlePickAndUploadImage();
@@ -473,22 +504,31 @@ export default function CreateProgramScreen() {
               ) : (
                 <Text style={styles.inputButtonText}>
                   {programDraft.imagePreviewUri
-                    ? 'החלף תמונה'
+                    ? 'החלפת תמונה'
                     : TEXT.uploadImage}
                 </Text>
               )}
             </TouchableOpacity>
+            {imageError ? (
+              <Text accessibilityRole="alert" style={styles.errorText}>
+                {imageError}
+              </Text>
+            ) : null}
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>תנאי הכרטיסייה</Text>
+            <Text style={styles.label}>תנאי צבירת חותמות (לא חובה)</Text>
+            <Text style={styles.helper}>
+              כתבו מה צריך לעשות כדי לקבל חותמת.
+            </Text>
             <TextInput
               value={programDraft.cardTerms}
               onChangeText={(text) =>
                 setProgramDraft((prev) => ({ ...prev, cardTerms: text }))
               }
-              placeholder="תנאי הכרטיס"
-              placeholderTextColor="#9CA3AF"
+              accessibilityLabel="תנאי צבירת חותמות"
+              placeholder="לדוגמה: חותמת אחת בקנייה של משולש פיצה"
+              placeholderTextColor="#64748B"
               style={[styles.input, styles.multilineInput]}
               multiline={true}
               textAlignVertical="top"
@@ -496,14 +536,18 @@ export default function CreateProgramScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>תנאי מימוש ההטבה</Text>
+            <Text style={styles.label}>תנאי מימוש ההטבה (לא חובה)</Text>
+            <Text style={styles.helper}>
+              כתבו איך מקבלים את ההטבה אחרי שצוברים מספיק חותמות.
+            </Text>
             <TextInput
               value={programDraft.rewardConditions}
               onChangeText={(text) =>
                 setProgramDraft((prev) => ({ ...prev, rewardConditions: text }))
               }
-              placeholder="תנאי מימוש"
-              placeholderTextColor="#9CA3AF"
+              accessibilityLabel="תנאי מימוש ההטבה"
+              placeholder="לדוגמה: בוחרים משולש פיצה אחד בקופה, ללא כפל מבצעים"
+              placeholderTextColor="#64748B"
               style={[styles.input, styles.multilineInput]}
               multiline={true}
               textAlignVertical="top"
@@ -612,6 +656,7 @@ const styles = StyleSheet.create({
     color: '#334155',
     textAlign: 'right',
     writingDirection: 'rtl',
+    ...webLabel,
   },
   helper: {
     fontSize: 11,
@@ -619,6 +664,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'right',
     writingDirection: 'rtl',
+    ...webBody,
   },
   input: {
     borderWidth: 1,
@@ -631,9 +677,16 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
     fontWeight: '600',
+    ...webField,
+    ...webInputTypography,
   },
   multilineInput: {
     minHeight: 78,
+  },
+  imagePreview: {
+    width: 112,
+    height: 72,
+    borderRadius: 10,
   },
   inputButton: {
     borderWidth: 1,

@@ -51,6 +51,7 @@ import {
 import {
   buildSumitCancelRecurringBody,
   compareSumitRecurringSnapshot,
+  completeSumitCheckoutPaymentEvidence,
   fetchSumitDocumentMetadata,
   fetchSumitPayment,
   fetchSumitPayments,
@@ -86,6 +87,12 @@ const AUTH_ERRORS = new Set([
   'BUSINESS_CLOSED',
   'BUSINESS_PERMANENT_DELETION_IN_PROGRESS',
 ]);
+
+const MINUTE_MS = 60_000;
+const SUMIT_CHECKOUT_RETRY_DELAYS = [1, 4, 10, 30, 75].map(
+  (minutes) => minutes * MINUTE_MS
+);
+const SUMIT_CHECKOUT_LOOKUP_WINDOW = 24 * 60 * MINUTE_MS;
 
 function rethrowAuth(error: unknown): void {
   if (error instanceof Error && AUTH_ERRORS.has(error.message)) {
@@ -734,6 +741,13 @@ export const markSUMITCheckoutHosted = internalMutation({
       status: 'hosted_checkout_created',
       updatedAt: now,
     });
+    if (intent.status === 'pending') {
+      await ctx.scheduler.runAfter(
+        SUMIT_CHECKOUT_RETRY_DELAYS[0],
+        internal.sumitBilling.recoverPendingSUMITCheckout,
+        { checkoutId: intent.checkoutId, attempt: 0 }
+      );
+    }
     return { ok: true as const };
   },
 });
@@ -1079,12 +1093,120 @@ export const createSUMITCheckout = action({
   },
 });
 
+export const getPendingSUMITCheckoutForRecovery = internalQuery({
+  args: { checkoutId: v.string() },
+  returns: v.union(
+    v.null(),
+    v.object({
+      checkoutId: v.string(),
+      plan: v.union(
+        v.literal('starter'),
+        v.literal('pro'),
+        v.literal('premium')
+      ),
+      amount: v.number(),
+      billingPeriod: v.union(v.literal('monthly'), v.literal('yearly')),
+      logicalProductId: v.string(),
+      sumitCustomerId: v.union(v.string(), v.null()),
+      sumitRecurringId: v.union(v.string(), v.null()),
+      createdAt: v.number(),
+    })
+  ),
+  handler: async (ctx, { checkoutId }) => {
+    const intent = await getCheckoutIntent(ctx, checkoutId);
+    if (!intent || intent.status !== 'hosted_checkout_created') {
+      return null;
+    }
+    const business = await ctx.db.get(intent.businessId as Id<'businesses'>);
+    if (
+      !business?.isActive ||
+      business.ownerUserId !== intent.ownerUserId ||
+      isBusinessPermanentDeletionInProgress(business)
+    ) {
+      return null;
+    }
+    return toSUMITCheckoutContext(intent);
+  },
+});
+
+async function findInitialSUMITPayment(
+  config: SumitConfig,
+  context: { checkoutId: string; createdAt: number }
+) {
+  const payments = await fetchSumitPayments({
+    config,
+    dateFrom: context.createdAt - MINUTE_MS,
+    dateTo: Math.min(
+      Date.now() + MINUTE_MS,
+      context.createdAt + SUMIT_CHECKOUT_LOOKUP_WINDOW
+    ),
+    maxPages: 5,
+  });
+  const matches = payments.filter(
+    (payment) =>
+      payment.validPayment && payment.externalIdentifier === context.checkoutId
+  );
+  if (matches.length > 1) {
+    throw new Error('SUMIT_MULTIPLE_MATCHING_PAYMENTS');
+  }
+  return matches[0] ?? null;
+}
+
+export const recoverPendingSUMITCheckout = internalAction({
+  args: { checkoutId: v.string(), attempt: v.number() },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const context = await ctx.runQuery(
+      internal.sumitBilling.getPendingSUMITCheckoutForRecovery,
+      { checkoutId: args.checkoutId }
+    );
+    if (!context) {
+      return null;
+    }
+    try {
+      const config = resolveSumitConfig(process.env);
+      if (!config.liveApiEnabled) {
+        return null;
+      }
+      const payment = await findInitialSUMITPayment(config, context);
+      if (payment) {
+        const result = await verifyAndApplyPayment(ctx, {
+          config,
+          context,
+          payment,
+        });
+        if (result.ok) {
+          return null;
+        }
+        console.warn('SUMIT checkout recovery:', result.code);
+      }
+    } catch (error) {
+      console.warn('SUMIT checkout recovery:', sumitErrorCode(error));
+    }
+    const nextAttempt = args.attempt + 1;
+    const delay = SUMIT_CHECKOUT_RETRY_DELAYS[nextAttempt];
+    if (delay !== undefined) {
+      await ctx.scheduler.runAfter(
+        delay,
+        internal.sumitBilling.recoverPendingSUMITCheckout,
+        {
+          checkoutId: args.checkoutId,
+          attempt: nextAttempt,
+        }
+      );
+    }
+    return null;
+  },
+});
+
 export const verifySUMITCheckoutPayment = action({
-  args: { checkoutId: v.string(), paymentId: v.string() },
+  args: { checkoutId: v.string(), paymentId: v.optional(v.string()) },
   handler: async (ctx, args): Promise<any> => {
     const context = await ctx.runQuery(
       internal.sumitBilling.getSUMITVerificationContext,
-      { checkoutId: args.checkoutId }
+      {
+        checkoutId: args.checkoutId,
+      }
     );
     try {
       const config = resolveSumitConfig(process.env);
@@ -1095,16 +1217,25 @@ export const verifySUMITCheckoutPayment = action({
           missing: config.missingApi,
         };
       }
-      const payment = await fetchSumitPayment({
-        config,
-        paymentId: args.paymentId,
-      });
+      const payment = args.paymentId
+        ? await completeSumitCheckoutPaymentEvidence({
+            config,
+            payment: await fetchSumitPayment({
+              config,
+              paymentId: args.paymentId,
+            }),
+          })
+        : await findInitialSUMITPayment(config, context);
+      if (!payment) {
+        return { ok: false as const, code: 'SUMIT_CHECKOUT_PAYMENT_PENDING' };
+      }
       const result = await verifyAndApplyPayment(ctx, {
         config,
         context,
         payment,
       });
       if (!result.ok) {
+        console.warn('SUMIT checkout verification:', result.code);
         return result;
       }
       const subscription = await ctx.runQuery(
@@ -1118,7 +1249,9 @@ export const verifySUMITCheckoutPayment = action({
       };
     } catch (error) {
       rethrowAuth(error);
-      return { ok: false as const, code: sumitErrorCode(error) };
+      const code = sumitErrorCode(error);
+      console.warn('SUMIT checkout verification:', code);
+      return { ok: false as const, code };
     }
   },
 });

@@ -7,7 +7,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,6 +17,7 @@ import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { WebPaidBusinessActivation } from '@/components/onboarding/WebPaidBusinessActivation';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { AppText as Text } from '@/components/ui/AppText';
 import { TERMS_OF_SERVICE_URL } from '@/config/legalUrls';
 import { CARD_THEMES } from '@/constants/cardThemes';
 import { useAppMode } from '@/contexts/AppModeContext';
@@ -27,6 +27,7 @@ import type { Id } from '@/convex/_generated/dataModel';
 import { Alert } from '@/lib/alert';
 import {
   productAccent,
+  productPageBackground,
   webAccentText,
   webBody,
   webPage,
@@ -48,8 +49,8 @@ const TEXT = {
   subtitle: 'בחרו את העיצוב שמרגיש הכי מדויק למותג שלכם',
   progressLabel: 'התקדמות לדוגמה',
   feelLabel: 'אופי הכרטיס',
-  themeSectionTitle: '10 צבעים לבחירה',
-  themeSectionSubtitle: 'לחצו על סגנון כדי לראות את הכרטיס מתחלף מיד.',
+  themeSectionTitle: 'צבע הכרטיסייה',
+  themeSectionSubtitle: 'בחרו צבע כדי לראות איך הוא נראה על הכרטיסייה.',
   continue: 'סיום ופתיחת סורק',
   submitting: 'משלימים הגדרות',
   fallbackBusinessName: 'עסק חדש',
@@ -64,8 +65,8 @@ const TEXT = {
 };
 
 const PREVIEW_COPY = {
-  title: 'בדיקה אחרונה לפני פרסום',
-  subtitle: 'כך הכרטיסייה תיראה ללקוחות באפליקציה',
+  title: 'תצוגה מקדימה של הכרטיסייה',
+  subtitle: 'בדקו איך הכרטיסייה תיראה ללקוחות לפני הפרסום.',
   publishNote: 'נפרסם את הכרטיסייה הראשונה שלך ונעביר אותך לניהול העסק.',
   referralNote: 'אפשר להפעיל חבר מביא חבר בהגדרות העסק.',
   continue: 'פרסום וכניסה לניהול',
@@ -242,7 +243,9 @@ export default function PreviewCardScreen() {
         >
           <StickyScrollHeader
             topPadding={0}
-            backgroundColor="#F4F0E8"
+            backgroundColor={
+              Platform.OS === 'web' ? productPageBackground : '#F4F0E8'
+            }
             style={styles.titleContainer}
           >
             <StandaloneBackTitleHeader
@@ -265,7 +268,7 @@ export default function PreviewCardScreen() {
                   )}
                 />
               }
-              style={styles.header}
+              style={Platform.OS === 'web' ? undefined : styles.nativeHeader}
               titleStyle={styles.title}
               subtitleStyle={styles.subtitle}
             />
@@ -377,7 +380,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 20,
   },
-  header: {
+  nativeHeader: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',

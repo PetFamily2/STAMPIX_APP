@@ -18,6 +18,7 @@ import {
 } from '../lib/billing/sumit/config';
 import {
   compareSumitRecurringSnapshot,
+  completeSumitCheckoutPaymentEvidence,
   fetchSumitPayment,
   fetchSumitPayments,
   fetchSumitRecurringItems,
@@ -882,6 +883,58 @@ describe('SUMIT server-to-server verification', () => {
         }),
       })
     ).rejects.toThrow('SUMIT_PAYMENT_PAGINATION_INVALID');
+  });
+
+  test('hosted checkout uses the recurring ID from the exact provider payment and its billing dates', async () => {
+    const config = resolveSumitConfig(sumitEnv());
+    const details = payment({ recurringIds: [] });
+    const listed = paymentResponse().Data.Payment;
+    const lookup = (entries) =>
+      completeSumitCheckoutPaymentEvidence({
+        config,
+        payment: details,
+        transport: async () => ({
+          status: 200,
+          text: JSON.stringify({
+            Status: 0,
+            Data: { Payments: entries, HasNextPage: false },
+          }),
+        }),
+      });
+    expect(
+      (await lookup([{ ...listed, CustomerID: 51002 }])).recurringIds
+    ).toEqual([]);
+    expect((await lookup([listed, listed])).recurringIds).toEqual([]);
+    const corroborated = await lookup([listed]);
+    expect(corroborated.recurringIds).toEqual([RECURRING_ID]);
+    const response = recurringResponse({ durationMonths: 0 });
+    const raw = response.Data.RecurringItems[0];
+    raw.Item.Currency = null;
+    raw.Date_PreviousBilling = new Date(OCCURRED_AT).toISOString();
+    raw.Date_NextBilling = '2026-02-15T10:00:00Z';
+    const [linked] = parseSumitRecurringListResponse(response);
+    const evidence = {
+      payment: corroborated,
+      intent: {
+        checkoutId: CHECKOUT_ID,
+        amount: 149,
+        billingPeriod: 'monthly',
+      },
+      expectedProductId: PRODUCT_ID,
+      recurringItems: [linked],
+    };
+    expect(verifySumitPaymentEvidence(evidence).ok).toBe(true);
+    expect(
+      verifySumitPaymentEvidence({ ...evidence, payment: details }).ok
+    ).toBe(false);
+    expect(
+      verifySumitPaymentEvidence({
+        ...evidence,
+        recurringItems: [
+          { ...linked, dateNextBillingAt: Date.parse('2026-03-15T10:00:00Z') },
+        ],
+      })
+    ).toEqual({ ok: false, code: 'SUMIT_RECURRING_SCHEDULE_MISMATCH' });
   });
 
   test('wrong provider amount, currency, reference, product, or schedule fails', () => {

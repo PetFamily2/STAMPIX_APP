@@ -23,6 +23,7 @@ import {
   webAccentFill,
   webBody,
   webField,
+  webInputTypography,
   webLabel,
   webPage,
   webTitle,
@@ -575,6 +576,7 @@ const styles = StyleSheet.create({
     color: '#111827',
     writingDirection: 'rtl',
     ...webField,
+    ...webInputTypography,
   },
   ageSection: {
     marginTop: 20,

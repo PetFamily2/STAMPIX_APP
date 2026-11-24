@@ -5,15 +5,14 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
+import { AppText as Text } from '@/components/ui/AppText';
 import { PaintedPressable as Pressable } from '@/components/ui/PaintedPressable';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import {
@@ -22,6 +21,7 @@ import {
   webAccentText,
   webBody,
   webField,
+  webInputTypography,
   webPage,
   webSectionTitle,
   webTitle,
@@ -1010,6 +1010,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
     fontWeight: '700',
     ...webField,
+    ...webInputTypography,
   },
   multilineInput: {
     minHeight: 96,

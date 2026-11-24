@@ -31,11 +31,12 @@ export type NormalizedSumitRecurringItem = {
   providerProductId: string | null;
   quantity: number;
   unitPrice: number;
-  currency: string;
+  currency: string | null;
   durationMonths: number | null;
   status: SumitRecurringStatus;
   dateStartAt: number | null;
   dateLastAt: number | null;
+  datePreviousBillingAt?: number | null;
   dateNextBillingAt: number | null;
 };
 
@@ -238,7 +239,7 @@ function parseRecurringItem(
     !status ||
     typeof quantity !== 'number' ||
     typeof unitPrice !== 'number' ||
-    !currency
+    (value.Item.Currency != null && !currency)
   ) {
     return null;
   }
@@ -255,6 +256,7 @@ function parseRecurringItem(
     status,
     dateStartAt: readTimestamp(value.Date_Start),
     dateLastAt: readTimestamp(value.Date_Last),
+    datePreviousBillingAt: readTimestamp(value.Date_PreviousBilling),
     dateNextBillingAt: readTimestamp(value.Date_NextBilling),
   };
 }
@@ -318,6 +320,32 @@ export type VerifiedSumitPaymentEvidence = NormalizedSumitPayment & {
   providerProductId: string;
   recurringStatus: string | null;
 };
+
+export function matchesSumitRecurringSchedule(
+  item: NormalizedSumitRecurringItem,
+  period: BillingPeriod
+): boolean {
+  const months = expectedSumitRecurringMonths(period);
+  if (item.durationMonths !== null && item.durationMonths !== 0) {
+    return item.durationMonths === months;
+  }
+  // Hosted items can omit the duration. Use the provider's own charge dates.
+  if (!item.datePreviousBillingAt || !item.dateNextBillingAt) {
+    return false;
+  }
+  const expected = new Date(item.datePreviousBillingAt);
+  const day = expected.getUTCDate();
+  expected.setUTCDate(1);
+  expected.setUTCMonth(expected.getUTCMonth() + months);
+  const lastDay = new Date(
+    Date.UTC(expected.getUTCFullYear(), expected.getUTCMonth() + 1, 0)
+  ).getUTCDate();
+  expected.setUTCDate(Math.min(day, lastDay));
+  // A local monthly billing time can move by one hour across DST.
+  return (
+    Math.abs(expected.getTime() - item.dateNextBillingAt) <= 60 * 60 * 1000
+  );
+}
 
 export function verifySumitPaymentEvidence(args: {
   payment: NormalizedSumitPayment;
@@ -386,15 +414,12 @@ export function verifySumitPaymentEvidence(args: {
     return { ok: false, code: 'SUMIT_PRODUCT_MISMATCH' };
   }
   if (
-    item.currency !== 'ILS' ||
+    (item.currency !== null && item.currency !== 'ILS') ||
     !sumitAmountsMatch(item.quantity * item.unitPrice, args.intent.amount)
   ) {
     return { ok: false, code: 'SUMIT_RECURRING_AMOUNT_MISMATCH' };
   }
-  if (
-    item.durationMonths !==
-    expectedSumitRecurringMonths(args.intent.billingPeriod)
-  ) {
+  if (!matchesSumitRecurringSchedule(item, args.intent.billingPeriod)) {
     return { ok: false, code: 'SUMIT_RECURRING_SCHEDULE_MISMATCH' };
   }
   if (item.status !== 'Active') {
