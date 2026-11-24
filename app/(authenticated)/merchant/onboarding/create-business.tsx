@@ -6,16 +6,15 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import BusinessAddressSelector from '@/components/business/BusinessAddressSelector';
 import { ContinueButton } from '@/components/ContinueButton';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { AppText as Text } from '@/components/ui/AppText';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useUser } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
@@ -30,7 +29,12 @@ import {
   consumePendingJoin,
   savePendingJoin,
 } from '@/lib/deeplink/pendingJoin';
-import { webBody, webPage, webTitle } from '@/lib/design/webProductChrome';
+import {
+  productPageBackground,
+  webBody,
+  webPage,
+  webTitle,
+} from '@/lib/design/webProductChrome';
 import { safeDismissTo, safePush } from '@/lib/navigation';
 import {
   BUSINESS_ONBOARDING_ROUTES,
@@ -356,7 +360,9 @@ export default function CreateBusinessScreen() {
         >
           <StickyScrollHeader
             topPadding={0}
-            backgroundColor="#FBFAF7"
+            backgroundColor={
+              Platform.OS === 'web' ? productPageBackground : '#FBFAF7'
+            }
             style={styles.titleContainer}
           >
             <StandaloneBackTitleHeader

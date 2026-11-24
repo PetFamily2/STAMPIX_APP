@@ -59,6 +59,8 @@ export const webField = webOnly({
   fontWeight: '400',
 });
 
+export const webInputTypography = webOnly({ fontFamily: 'Heebo' });
+
 export const webAccentFill = webOnly({
   backgroundColor: T.colors.primary,
   borderColor: T.colors.primary,
