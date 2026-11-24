@@ -4,7 +4,9 @@ import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { assertPreservedDependencies } from './lib/release-dependency-policy.mjs';
 
-const base = '9afcfac8b5b68d3f72212f7866e0aad9c897b094';
+// Freeze point after the verified stage-2 RC that intentionally updated
+// protected scanner/referral contracts while keeping Native camera sources.
+const base = 'a619fb32d33de5e575f60774159c6637520a7af2';
 execFileSync('git', ['merge-base', '--is-ancestor', base, 'HEAD']);
 const files = new Set(
   [
@@ -41,7 +43,7 @@ for (const file of [
 ]) {
   const approved = execFileSync('git', [
     'show',
-    `119c3c58bb7ed085da5ba875f939585edc312ab1:${file}`,
+    `c8c59939b2c6fb253290251d370c4b1dfa67b8da:${file}`,
   ]);
   if (!approved.equals(readFileSync(file)))
     throw new Error(`Protected Native maps/location/push changed: ${file}`);
