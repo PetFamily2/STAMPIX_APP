@@ -1,5 +1,5 @@
 import type { BillingPeriod } from '../productionContract';
-import { canonicalSumitAmount, expectedSumitRecurringMonths } from './checkout';
+import { canonicalSumitAmount } from './checkout';
 import {
   assertSumitApiConfigured,
   SUMIT_API_HOST,
@@ -7,6 +7,7 @@ import {
 } from './config';
 import {
   isSumitSuccessStatus,
+  matchesSumitRecurringSchedule,
   type NormalizedSumitPayment,
   type NormalizedSumitRecurringItem,
   parseSumitDocumentResponse,
@@ -198,17 +199,58 @@ export async function fetchSumitRecurringItems(args: {
   return items;
 }
 
+export async function completeSumitCheckoutPaymentEvidence(args: {
+  config: SumitConfig;
+  payment: NormalizedSumitPayment;
+  transport?: SumitTransport;
+}): Promise<NormalizedSumitPayment> {
+  const { payment } = args;
+  if (
+    !payment.validPayment ||
+    payment.recurringIds.length > 0 ||
+    !payment.externalIdentifier
+  ) {
+    return payment;
+  }
+  // SUMIT's payment detail can omit the recurring ID even when its payment list
+  // reports it. Corroborate the identical transaction across both responses.
+  const nearby = await fetchSumitPayments({
+    config: args.config,
+    transport: args.transport,
+    dateFrom: payment.occurredAt - 120_000,
+    dateTo: payment.occurredAt + 120_000,
+    maxPages: 5,
+  });
+  const matches = nearby.filter(
+    (listed) =>
+      listed.paymentId === payment.paymentId &&
+      listed.customerId === payment.customerId &&
+      listed.externalIdentifier === payment.externalIdentifier &&
+      listed.validPayment &&
+      listed.amount === payment.amount &&
+      listed.currency === payment.currency &&
+      listed.occurredAt === payment.occurredAt &&
+      (payment.documentId === null ||
+        listed.documentId === null ||
+        listed.documentId === payment.documentId)
+  );
+  return matches.length === 1
+    ? { ...payment, recurringIds: matches[0].recurringIds }
+    : payment;
+}
+
 export async function fetchSumitPayments(args: {
   config: SumitConfig;
   dateFrom: number;
   dateTo: number;
+  maxPages?: number;
   transport?: SumitTransport;
 }): Promise<NormalizedSumitPayment[]> {
   const payments: NormalizedSumitPayment[] = [];
   let startIndex = 0;
   for (
     let pageNumber = 0;
-    pageNumber < SUMIT_MAX_PAYMENT_LIST_PAGES;
+    pageNumber < (args.maxPages ?? SUMIT_MAX_PAYMENT_LIST_PAGES);
     pageNumber += 1
   ) {
     const body = await sumitJsonRequest({
@@ -285,7 +327,9 @@ export function compareSumitRecurringSnapshot(args: {
   if (snapshot.providerProductId !== args.expectedProductId) {
     discrepancies.push('product_mismatch');
   }
-  if (snapshot.currency !== 'ILS') {
+  if (snapshot.currency === null) {
+    observations.push('provider_currency_not_reported');
+  } else if (snapshot.currency !== 'ILS') {
     discrepancies.push('currency_mismatch');
   }
   if (
@@ -294,9 +338,7 @@ export function compareSumitRecurringSnapshot(args: {
   ) {
     discrepancies.push('amount_mismatch');
   }
-  if (
-    snapshot.durationMonths !== expectedSumitRecurringMonths(args.billingPeriod)
-  ) {
+  if (!matchesSumitRecurringSchedule(snapshot, args.billingPeriod)) {
     discrepancies.push('schedule_mismatch');
   }
   switch (snapshot.status) {

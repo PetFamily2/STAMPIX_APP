@@ -40,7 +40,7 @@ const COPY: Record<SumitReturnState, { title: string; description: string }> = {
   awaiting_verification: {
     title: 'התשלום ממתין לאימות.',
     description:
-      'לא התקבלו מזהי העסקה הדרושים לאימות מיידי. לא שינינו את מצב המנוי; השרת והסנכרון מול SUMIT נשארים מקור הסמכות.',
+      'לא שינינו את מצב המנוי. האימות מול SUMIT יכול להמשיך ברקע. אם כבר שילמתם, אין צורך לשלם שוב.',
   },
   reauthentication: {
     title: 'נדרשת התחברות מחדש כדי לאמת את התשלום.',
@@ -50,7 +50,7 @@ const COPY: Record<SumitReturnState, { title: string; description: string }> = {
   failed: {
     title: 'לא הצלחנו לאמת את התשלום כרגע.',
     description:
-      'לא שינינו את מצב המנוי. אפשר לחזור לעמוד החיוב ולנסות שוב או לבדוק מאוחר יותר.',
+      'לא שינינו את מצב המנוי. אם כבר שילמתם, בדקו שוב את מצב המנוי מאוחר יותר לפני ניסיון תשלום נוסף.',
   },
   canceled: {
     title: 'התשלום לא הושלם',

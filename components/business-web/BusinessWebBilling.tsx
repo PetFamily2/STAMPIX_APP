@@ -1,4 +1,5 @@
 import { useAction, useMutation, useQuery } from 'convex/react';
+import { rememberPendingSumitCheckout } from '@/lib/billing/sumitWebReturn';
 import {
   Check,
   ExternalLink,
@@ -163,6 +164,7 @@ export function BusinessWebBilling({
         result.hosted === true &&
         typeof result.paymentPageLink === 'string'
       ) {
+        rememberPendingSumitCheckout(result.checkoutId);
         window.location.assign(result.paymentPageLink);
         return;
       }

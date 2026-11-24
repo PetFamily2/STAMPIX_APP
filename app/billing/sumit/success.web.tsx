@@ -9,7 +9,9 @@ import {
 import { FullScreenLoading } from '@/components/FullScreenLoading';
 import { api } from '@/convex/_generated/api';
 import {
+  forgetPendingSumitCheckout,
   isVerifiedActiveSumitResult,
+  readPendingSumitCheckout,
   readSumitVerificationIdentifiers,
 } from '@/lib/billing/sumitWebReturn';
 
@@ -21,7 +23,7 @@ export default function SumitSuccessReturnScreen() {
   const [state, setState] = useState<SumitReturnState>('verifying');
 
   const identifiers = readSumitVerificationIdentifiers(params);
-  const checkoutId = identifiers?.checkoutId ?? null;
+  const checkoutId = identifiers?.checkoutId ?? readPendingSumitCheckout();
   const paymentId = identifiers?.paymentId ?? null;
 
   useEffect(() => {
@@ -29,14 +31,20 @@ export default function SumitSuccessReturnScreen() {
       return;
     }
     attemptedRef.current = true;
-    if (!checkoutId || !paymentId) {
+    if (!checkoutId) {
       setState('awaiting_verification');
       return;
     }
-    void verifyPayment({ checkoutId, paymentId })
+    void verifyPayment({
+      checkoutId,
+      ...(paymentId ? { paymentId } : {}),
+    })
       .then((result) => {
         if (isVerifiedActiveSumitResult(result)) {
+          if (checkoutId) forgetPendingSumitCheckout(checkoutId);
           setState('verified');
+        } else if (result.code === 'SUMIT_CHECKOUT_PAYMENT_PENDING') {
+          setState('awaiting_verification');
         } else if (result.ok === true) {
           setState('pending');
         } else {
