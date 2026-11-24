@@ -1,3 +1,4 @@
+import { StampAixBrand } from '@/components/StampAixBrand';
 import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import {
   Building2,
@@ -38,13 +39,7 @@ export function AdminWebShell({ children }: { children: ReactNode }) {
     <View style={[styles.page, compact ? styles.pageCompact : null]}>
       <View style={[styles.sidebar, compact ? styles.sidebarCompact : null]}>
         <View style={styles.brandRow}>
-          <View style={styles.brandMark}>
-            <Text style={styles.brandMarkText}>S</Text>
-          </View>
-          <View>
-            <Text style={styles.brandName}>StampAix</Text>
-            <Text style={styles.brandProduct}>Admin</Text>
-          </View>
+          <StampAixBrand product="Admin" />
         </View>
 
         <View style={[styles.nav, compact ? styles.navCompact : null]}>
@@ -128,25 +123,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: flexDirection.row,
     gap: TOKENS.space.md,
-  },
-  brandMark: {
-    alignItems: 'center',
-    backgroundColor: TOKENS.colors.primary,
-    borderRadius: 14,
-    height: 42,
-    justifyContent: 'center',
-    width: 42,
-  },
-  brandMarkText: { color: '#FFFFFF', fontSize: 20, fontWeight: '900' },
-  brandName: {
-    color: TOKENS.colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  brandProduct: {
-    color: TOKENS.colors.textMuted,
-    fontSize: 12,
-    marginTop: 2,
   },
   nav: { gap: 6, marginTop: TOKENS.space.xxl },
   navCompact: {
