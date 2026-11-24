@@ -105,6 +105,9 @@ const ALLOWED_LTR_STYLES = new Set([
   'components/business-ui/HorizontalRankingChart.tsx:rowValue',
   'components/customer/CustomerBrandTitleRow.tsx:brandWrap',
   'components/legal/LegalDocumentScreen.tsx:urlText',
+  'components/StampAixBrand.tsx:copy',
+  'components/StampAixBrand.tsx:wordmark',
+  'components/StampAixBrand.tsx:product',
   'lib/rtl.ts:ltrBaseText',
   'lib/rtl.ts:ltrIslandView',
 ]);

@@ -1,7 +1,7 @@
 import { Image, Platform, StyleSheet, View } from 'react-native';
 import { AppText as Text } from '@/components/ui/AppText';
 import { BRAND_IMAGE_LOGO } from '@/config/branding';
-import { flexDirection, ltrBaseText } from '@/lib/rtl';
+import { flexDirection, ltrBaseText, ltrIslandView } from '@/lib/rtl';
 
 type StampAixBrandProps = {
   product?: 'Business' | 'Admin';
@@ -65,7 +65,9 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   mark: { overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  copy: { alignItems: 'flex-start', direction: 'ltr' },
+  copy: {
+    ...ltrIslandView,
+  },
   wordmark: {
     color: '#1230A8',
     fontWeight: '700',
