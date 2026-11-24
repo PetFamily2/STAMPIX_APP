@@ -887,6 +887,17 @@ export const getSUMITSubscriptionContext = internalQuery({
   },
 });
 
+export const getAuthenticatedAdminUser = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireCurrentUser(ctx);
+    if (user.isAdmin !== true) {
+      return null;
+    }
+    return { userId: user._id };
+  },
+});
+
 export const getSUMITServerReconciliationContext = internalQuery({
   args: { businessId: v.id('businesses') },
   handler: async (ctx, args) => {
@@ -1259,8 +1270,21 @@ export const verifySUMITCheckoutPayment = action({
 export const cancelSUMITRecurring = action({
   args: { businessId: v.id('businesses') },
   handler: async (ctx, args): Promise<any> => {
+    // Product policy: owners cancel only via customer service. This action is
+    // reserved for authorized system admins handling support requests.
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error('UNAUTHENTICATED');
+    }
+    const adminUser = await ctx.runQuery(
+      internal.sumitBilling.getAuthenticatedAdminUser,
+      {}
+    );
+    if (!adminUser) {
+      return { ok: false as const, code: 'SUMIT_CANCEL_REQUIRES_SUPPORT' };
+    }
     const context = await ctx.runQuery(
-      internal.sumitBilling.getSUMITSubscriptionContext,
+      internal.sumitBilling.getSUMITServerReconciliationContext,
       args
     );
     if (
@@ -1331,7 +1355,18 @@ export const createSUMITPaymentMethodUpdate = action({
 export const refundSUMITPayment = action({
   args: { businessId: v.id('businesses'), paymentId: v.string() },
   handler: async (ctx, args) => {
-    await ctx.runQuery(internal.sumitBilling.getSUMITSubscriptionContext, {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error('UNAUTHENTICATED');
+    }
+    const adminUser = await ctx.runQuery(
+      internal.sumitBilling.getAuthenticatedAdminUser,
+      {}
+    );
+    if (!adminUser) {
+      return { ok: false as const, code: 'SUMIT_REFUND_REQUIRES_SUPPORT' };
+    }
+    await ctx.runQuery(internal.sumitBilling.getSUMITServerReconciliationContext, {
       businessId: args.businessId,
     });
     return {

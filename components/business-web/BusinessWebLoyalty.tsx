@@ -75,7 +75,10 @@ export function BusinessWebLoyalty({
             accessibilityRole="tab"
             accessibilityState={{ selected: segment === key }}
             key={key}
-            onPress={() => setSegment(key)}
+            onPress={() => {
+              setSegment(key);
+              router.setParams({ segment: key });
+            }}
             style={[
               styles.segmentButton,
               segment === key ? styles.segmentOn : null,

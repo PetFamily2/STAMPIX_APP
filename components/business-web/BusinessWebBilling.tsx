@@ -14,10 +14,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import {
-  BusinessWebConfirmDialog,
-  BusinessWebDialog,
-} from '@/components/business-web/BusinessWebDialog';
+import { BusinessWebDialog } from '@/components/business-web/BusinessWebDialog';
 import { AppText as Text } from '@/components/ui/AppText';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -38,7 +35,7 @@ import { WEB_BUSINESS_OPERATOR } from '@/lib/webBusinessOperator';
 
 const YEARLY_COPY = 'בחיוב שנתי — משלמים על 10 חודשים ומקבלים 12';
 const CANCELLATION_COPY =
-  'ביטול מפסיק את החידוש הבא. הגישה נשארת פעילה עד סוף התקופה שכבר שולמה.';
+  'ביטול מנוי מתבצע רק דרך שירות הלקוחות. ביטול מפסיק את החידוש הבא, והגישה נשארת פעילה עד סוף התקופה שכבר שולמה.';
 
 const STATUS_LABELS: Record<string, string> = {
   active: 'פעיל',
@@ -75,13 +72,6 @@ function checkoutErrorMessage(code: unknown) {
     return 'סביבת התשלום עדיין אינה זמינה.';
   }
   return 'לא הצלחנו לפתוח את עמוד התשלום כרגע. נסו שוב.';
-}
-
-function cancellationErrorMessage(code: unknown) {
-  if (code === 'SUMIT_CONFIG_MISSING') {
-    return 'סביבת התשלום עדיין אינה זמינה. נסו שוב מאוחר יותר.';
-  }
-  return 'לא הצלחנו לבטל את החידוש כרגע. המנוי לא שונה.';
 }
 
 function openDocumentUrl(url: string | null) {
@@ -129,15 +119,11 @@ export function BusinessWebBilling({
     api.businessBilling.getCheckoutAvailability,
     activeBusinessId && isOwner ? { businessId: activeBusinessId } : 'skip'
   );
-  const cancelRecurring = useAction(api.sumitBilling.cancelSUMITRecurring);
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('yearly');
   const [planChoice, setPlanChoice] = useState<BusinessPlan | null>(null);
   const [pendingPlan, setPendingPlan] = useState<BusinessPlan | null>(null);
   const [actionError, setActionError] = useState('');
-  const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
-  const [isCanceling, setIsCanceling] = useState(false);
-  const [cancelNotice, setCancelNotice] = useState('');
 
   const documents = useMemo(() => overview?.documents ?? [], [overview]);
 
@@ -175,32 +161,6 @@ export function BusinessWebBilling({
       setActionError('לא הצלחנו לפתוח את עמוד התשלום כרגע. נסו שוב.');
     } finally {
       setPendingPlan(null);
-    }
-  }
-
-  async function handleCancellation() {
-    if (!activeBusinessId || isCanceling) {
-      return;
-    }
-    setIsCanceling(true);
-    setActionError('');
-    setCancelNotice('');
-    try {
-      const result = await cancelRecurring({ businessId: activeBusinessId });
-      if (result.ok === true) {
-        setCancelNotice(
-          'החידוש הבא בוטל. הגישה נשארת פעילה עד סוף התקופה ששולמה.'
-        );
-        setShowCancelDialog(false);
-        return;
-      }
-      setActionError(cancellationErrorMessage(result.code));
-      setShowCancelDialog(false);
-    } catch {
-      setActionError('לא הצלחנו לבטל את החידוש כרגע. המנוי לא שונה.');
-      setShowCancelDialog(false);
-    } finally {
-      setIsCanceling(false);
     }
   }
 
@@ -351,17 +311,7 @@ export function BusinessWebBilling({
             </Text>
           ) : null}
           {overview?.canCancel ? (
-            <Pressable
-              accessibilityLabel="ביטול חידוש המנוי"
-              accessibilityRole="button"
-              onPress={() => setShowCancelDialog(true)}
-              style={({ pressed }) => [
-                styles.dangerOutlineButton,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <Text style={styles.dangerOutlineText}>ביטול חידוש</Text>
-            </Pressable>
+            <Text style={styles.statusNote}>{CANCELLATION_COPY}</Text>
           ) : null}
           {bannerTone === 'danger' ? (
             <Pressable
@@ -382,11 +332,6 @@ export function BusinessWebBilling({
       {actionError ? (
         <View accessibilityLiveRegion="assertive" style={styles.errorBanner}>
           <Text style={styles.errorText}>{actionError}</Text>
-        </View>
-      ) : null}
-      {cancelNotice ? (
-        <View accessibilityLiveRegion="polite" style={styles.successBanner}>
-          <Text style={styles.successText}>{cancelNotice}</Text>
         </View>
       ) : null}
 
@@ -554,16 +499,16 @@ export function BusinessWebBilling({
       </Pressable>
 
       <Pressable
-        accessibilityLabel="שירות לקוחות"
+        accessibilityLabel="שירות לקוחות לביטול מנוי או החזר"
         accessibilityRole="link"
         onPress={() =>
           void Linking.openURL(
-            `mailto:${WEB_BUSINESS_OPERATOR.supportEmail}?subject=${encodeURIComponent(`בקשת שירות או החזר למנוי — ${businessName}`)}`
+            `mailto:${WEB_BUSINESS_OPERATOR.supportEmail}?subject=${encodeURIComponent(`בקשת ביטול מנוי או החזר — ${businessName}`)}`
           )
         }
         style={styles.helpLink}
       >
-        <Text style={styles.helpLinkText}>שירות לקוחות</Text>
+        <Text style={styles.helpLinkText}>שירות לקוחות — ביטול והחזרים</Text>
       </Pressable>
 
       <BusinessWebDialog
@@ -632,15 +577,6 @@ export function BusinessWebBilling({
         </SectionCard>
       ) : null}
 
-      <BusinessWebConfirmDialog
-        busy={isCanceling}
-        confirmLabel="ביטול החידוש"
-        description={CANCELLATION_COPY}
-        onCancel={() => setShowCancelDialog(false)}
-        onConfirm={() => void handleCancellation()}
-        title="לבטל את חידוש המנוי?"
-        visible={showCancelDialog}
-      />
     </View>
   );
 }
