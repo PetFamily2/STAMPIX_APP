@@ -379,7 +379,7 @@ export default function CreateBusinessScreen() {
                   )}
                 />
               }
-              style={styles.header}
+              style={Platform.OS === 'web' ? undefined : styles.nativeHeader}
               titleStyle={styles.title}
               subtitleStyle={styles.subtitle}
             />
@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 32,
   },
-  header: {
+  nativeHeader: {
     flexDirection: flexDirection.row,
     alignItems: 'center',
     justifyContent: 'space-between',
