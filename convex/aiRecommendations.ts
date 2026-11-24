@@ -30,6 +30,7 @@ import {
   startOfUtcDay,
 } from './lib/recommendationUtils';
 import { markSmartManagerDirty } from './lib/smartManagerDirty';
+import { resolveProgramLifecycle } from './loyaltyPrograms';
 
 const MODEL_NAME = OPENROUTER_JSON_MODEL;
 
@@ -3756,6 +3757,13 @@ export const runRecommendationSweepInternal = internalAction({
   },
 });
 
+export function isStoredRecommendationCurrentForProgramState(input: {
+  stateKey: string;
+  hasActiveProgram: boolean;
+}) {
+  return !(input.stateKey === 'NO_ACTIVE_PROGRAM' && input.hasActiveProgram);
+}
+
 export const getLatestRecommendationForBusiness = query({
   args: {
     businessId: v.optional(v.id('businesses')),
@@ -3767,12 +3775,24 @@ export const getLatestRecommendationForBusiness = query({
     await requireActorIsStaffForBusiness(ctx, businessId);
 
     const now = Date.now();
-    const rows = await ctx.db
-      .query('aiRecommendations')
-      .withIndex('by_businessId_createdAt', (q: any) =>
-        q.eq('businessId', businessId)
-      )
-      .collect();
+    const [rows, programs] = await Promise.all([
+      ctx.db
+        .query('aiRecommendations')
+        .withIndex('by_businessId_createdAt', (q: any) =>
+          q.eq('businessId', businessId)
+        )
+        .collect(),
+      ctx.db
+        .query('loyaltyPrograms')
+        .withIndex('by_businessId', (q: any) => q.eq('businessId', businessId))
+        .filter((q: any) => q.eq(q.field('isActive'), true))
+        .collect(),
+    ]);
+    const hasActiveProgram = programs.some(
+      (program) =>
+        program.isActive === true &&
+        resolveProgramLifecycle(program) === 'active'
+    );
 
     const sorted = rows
       .filter(
@@ -3780,7 +3800,11 @@ export const getLatestRecommendationForBusiness = query({
           row.action !== 'suppress' &&
           row.action !== 'defer' &&
           (row.expiresAt === undefined || row.expiresAt > now) &&
-          (row.consumedAt === undefined || row.ctaType === 'none')
+          (row.consumedAt === undefined || row.ctaType === 'none') &&
+          isStoredRecommendationCurrentForProgramState({
+            stateKey: row.stateKey,
+            hasActiveProgram,
+          })
       )
       .sort((left, right) => right.createdAt - left.createdAt);
 
