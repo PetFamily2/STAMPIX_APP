@@ -153,7 +153,6 @@ export default function CreateProgramScreen() {
     }
 
     setImageError(null);
-    setIsUploadingImage(true);
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
@@ -171,6 +170,7 @@ export default function CreateProgramScreen() {
       if (!asset?.uri) {
         return;
       }
+      setIsUploadingImage(true);
 
       // Expo provides the actual File on Web. Fetching its blob URL would
       // require relaxing the site's connect-src policy.
