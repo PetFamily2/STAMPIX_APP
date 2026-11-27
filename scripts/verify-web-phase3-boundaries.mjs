@@ -146,8 +146,7 @@ for (const [name, source] of oldTables) {
   const next = newTables.get(name);
   const unchanged =
     next === source ||
-    (name === 'businesses' &&
-      withoutApprovedDiscoveryIndexes(next) === source);
+    (name === 'businesses' && withoutApprovedDiscoveryIndexes(next) === source);
   if (!next || !unchanged) {
     throw new Error(`Existing schema table changed: ${name}`);
   }

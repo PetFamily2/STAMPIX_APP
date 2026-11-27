@@ -55,7 +55,10 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
-import { getEditConflictError } from '@/lib/errors/editConflicts';
+import {
+  canReloadEditConflict,
+  getEditConflictError,
+} from '@/lib/errors/editConflicts';
 import {
   DEFAULT_LOYALTY_CARD_TERMS,
   DEFAULT_LOYALTY_REWARD_CONDITIONS,
@@ -264,7 +267,12 @@ export default function ProgramDetailsScreen() {
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [baseUpdatedAt, setBaseUpdatedAt] = useState<number | null>(null);
-  const [conflictLocked, setConflictLocked] = useState(false);
+  const [conflictVersion, setConflictVersion] = useState<number | null>(null);
+  const conflictLocked = conflictVersion !== null;
+  const canLoadLatest = canReloadEditConflict(
+    conflictVersion,
+    details?.updatedAt
+  );
   const [savedSignature, setSavedSignature] = useState<string | null>(null);
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
   const [customerPreview, setCustomerPreview] = useState(false);
@@ -320,7 +328,7 @@ export default function ProgramDetailsScreen() {
     setImageStorageId(snapshot.imageStorageId ?? null);
     setUploadedImageUri(null);
     setBaseUpdatedAt(snapshot.updatedAt);
-    setConflictLocked(false);
+    setConflictVersion(null);
     setSavedSignature(
       JSON.stringify({
         title: snapshot.title.trim(),
@@ -341,7 +349,7 @@ export default function ProgramDetailsScreen() {
   useEffect(() => {
     const screenKey = `${selectedBusinessId ?? 'none'}:${programId ?? 'none'}`;
     setBaseUpdatedAt(null);
-    setConflictLocked(false);
+    setConflictVersion(null);
     setSavedSignature(null);
     if (screenKey === 'none:none') {
       setUploadedImageUri(null);
@@ -363,7 +371,7 @@ export default function ProgramDetailsScreen() {
     setImageStorageId(details.imageStorageId ?? null);
     setUploadedImageUri(null);
     setBaseUpdatedAt(details.updatedAt);
-    setConflictLocked(false);
+    setConflictVersion(null);
     setSavedSignature(
       JSON.stringify({
         title: details.title.trim(),
@@ -537,30 +545,13 @@ export default function ProgramDetailsScreen() {
       if (typeof result?.updatedAt === 'number') {
         setBaseUpdatedAt(result.updatedAt);
       }
-      setConflictLocked(false);
+      setConflictVersion(null);
       setSavedSignature(formSignature);
       Alert.alert(TEXT.saveDoneTitle, TEXT.saveDoneMessage);
     } catch (error) {
       const conflict = getEditConflictError(error);
       if (conflict) {
-        Alert.alert(
-          'הנתונים השתנו',
-          'נמצאה גרסה חדשה של הכרטיסיה. אפשר לטעון אותה או להשאיר את הטיוטה המקומית.',
-          [
-            {
-              text: 'טען גרסה עדכנית',
-              onPress: () => {
-                applyProgramSnapshot(details);
-              },
-            },
-            {
-              text: 'השאר טיוטה מקומית',
-              onPress: () => {
-                setConflictLocked(true);
-              },
-            },
-          ]
-        );
+        setConflictVersion(conflict.serverUpdatedAt);
         return;
       }
       if (isLoyaltyThemeConflict(error)) {
@@ -591,7 +582,7 @@ export default function ProgramDetailsScreen() {
   };
 
   const handlePublish = async () => {
-    if (!canManage || lifecycle !== 'draft' || isSubmitting) {
+    if (!canManage || lifecycle !== 'draft' || isSubmitting || conflictLocked) {
       return;
     }
 
@@ -605,29 +596,12 @@ export default function ProgramDetailsScreen() {
       if (typeof result?.updatedAt === 'number') {
         setBaseUpdatedAt(result.updatedAt);
       }
-      setConflictLocked(false);
+      setConflictVersion(null);
       Alert.alert(TEXT.publishDoneTitle, TEXT.publishDoneMessage);
     } catch (error) {
       const conflict = getEditConflictError(error);
       if (conflict) {
-        Alert.alert(
-          'הנתונים השתנו',
-          'נמצאה גרסה חדשה של הכרטיסיה. טענו אותה לפני פרסום.',
-          [
-            {
-              text: 'טען גרסה עדכנית',
-              onPress: () => {
-                applyProgramSnapshot(details);
-              },
-            },
-            {
-              text: 'השאר טיוטה מקומית',
-              onPress: () => {
-                setConflictLocked(true);
-              },
-            },
-          ]
-        );
+        setConflictVersion(conflict.serverUpdatedAt);
         return;
       }
       const entitlementError = getEntitlementError(error);
@@ -652,7 +626,12 @@ export default function ProgramDetailsScreen() {
   };
 
   const runArchive = async () => {
-    if (!canManage || lifecycle !== 'active' || isSubmitting) {
+    if (
+      !canManage ||
+      lifecycle !== 'active' ||
+      isSubmitting ||
+      conflictLocked
+    ) {
       return;
     }
 
@@ -666,29 +645,12 @@ export default function ProgramDetailsScreen() {
       if (typeof result?.updatedAt === 'number') {
         setBaseUpdatedAt(result.updatedAt);
       }
-      setConflictLocked(false);
+      setConflictVersion(null);
       Alert.alert(TEXT.archiveDoneTitle, TEXT.archiveDoneMessage);
     } catch (error) {
       const conflict = getEditConflictError(error);
       if (conflict) {
-        Alert.alert(
-          'הנתונים השתנו',
-          'נמצאה גרסה חדשה של הכרטיסיה. טענו אותה לפני העברה לארכיון.',
-          [
-            {
-              text: 'טען גרסה עדכנית',
-              onPress: () => {
-                applyProgramSnapshot(details);
-              },
-            },
-            {
-              text: 'השאר טיוטה מקומית',
-              onPress: () => {
-                setConflictLocked(true);
-              },
-            },
-          ]
-        );
+        setConflictVersion(conflict.serverUpdatedAt);
         return;
       }
       Alert.alert(TEXT.errorTitle, loyaltyWriteErrorToHebrewMessage(error));
@@ -698,7 +660,12 @@ export default function ProgramDetailsScreen() {
   };
 
   const handleArchive = () => {
-    if (!canManage || lifecycle !== 'active' || isSubmitting) {
+    if (
+      !canManage ||
+      lifecycle !== 'active' ||
+      isSubmitting ||
+      conflictLocked
+    ) {
       return;
     }
 
@@ -715,7 +682,12 @@ export default function ProgramDetailsScreen() {
   };
 
   const runReactivate = async () => {
-    if (!canManage || lifecycle !== 'archived' || isSubmitting) {
+    if (
+      !canManage ||
+      lifecycle !== 'archived' ||
+      isSubmitting ||
+      conflictLocked
+    ) {
       return;
     }
 
@@ -729,29 +701,12 @@ export default function ProgramDetailsScreen() {
       if (typeof result?.updatedAt === 'number') {
         setBaseUpdatedAt(result.updatedAt);
       }
-      setConflictLocked(false);
+      setConflictVersion(null);
       Alert.alert(TEXT.reactivateDoneTitle, TEXT.reactivateDoneMessage);
     } catch (error) {
       const conflict = getEditConflictError(error);
       if (conflict) {
-        Alert.alert(
-          'הנתונים השתנו',
-          'נמצאה גרסה חדשה של הכרטיסיה. טענו אותה לפני הפעלה מחדש.',
-          [
-            {
-              text: 'טען גרסה עדכנית',
-              onPress: () => {
-                applyProgramSnapshot(details);
-              },
-            },
-            {
-              text: 'השאר טיוטה מקומית',
-              onPress: () => {
-                setConflictLocked(true);
-              },
-            },
-          ]
-        );
+        setConflictVersion(conflict.serverUpdatedAt);
         return;
       }
       if (isLoyaltyThemeConflict(error)) {
@@ -783,7 +738,12 @@ export default function ProgramDetailsScreen() {
   };
 
   const handleReactivate = () => {
-    if (!canManage || lifecycle !== 'archived' || isSubmitting) {
+    if (
+      !canManage ||
+      lifecycle !== 'archived' ||
+      isSubmitting ||
+      conflictLocked
+    ) {
       return;
     }
     if (isDirty) {
@@ -806,7 +766,7 @@ export default function ProgramDetailsScreen() {
   };
 
   const runDelete = async () => {
-    if (!canManage || !details?.canDelete || isSubmitting) {
+    if (!canManage || !details?.canDelete || isSubmitting || conflictLocked) {
       return;
     }
 
@@ -833,24 +793,7 @@ export default function ProgramDetailsScreen() {
     } catch (error) {
       const conflict = getEditConflictError(error);
       if (conflict) {
-        Alert.alert(
-          'הנתונים השתנו',
-          'נמצאה גרסה חדשה של הכרטיסיה. טענו אותה לפני מחיקה.',
-          [
-            {
-              text: 'טען גרסה עדכנית',
-              onPress: () => {
-                applyProgramSnapshot(details);
-              },
-            },
-            {
-              text: 'השאר טיוטה מקומית',
-              onPress: () => {
-                setConflictLocked(true);
-              },
-            },
-          ]
-        );
+        setConflictVersion(conflict.serverUpdatedAt);
         return;
       }
       Alert.alert(TEXT.errorTitle, loyaltyWriteErrorToHebrewMessage(error));
@@ -1358,7 +1301,12 @@ export default function ProgramDetailsScreen() {
                         העדכנית.
                       </Text>
                       <TouchableOpacity
+                        disabled={!canLoadLatest}
+                        accessibilityState={{ disabled: !canLoadLatest }}
                         onPress={() => {
+                          if (!canLoadLatest) {
+                            return;
+                          }
                           applyProgramSnapshot(details);
                         }}
                         className={`mt-2 ${tw.selfStart} rounded-full bg-[#F59E0B] px-3 py-1.5`}

@@ -576,7 +576,6 @@ export function BusinessWebBilling({
           </View>
         </SectionCard>
       ) : null}
-
     </View>
   );
 }

@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
 import { CampaignCustomerPreview } from '@/components/campaigns/CampaignCustomerPreview';
 import { useGuidedTargetRef } from '@/components/guidance/GuidedActionAnchor';
 import { GuidedActionScreenOverlay } from '@/components/guidance/GuidedActionOverlay';
@@ -36,7 +37,10 @@ import {
   entitlementErrorToHebrewMessage,
   getEntitlementError,
 } from '@/lib/entitlements/errors';
-import { getEditConflictError } from '@/lib/errors/editConflicts';
+import {
+  canReloadEditConflict,
+  getEditConflictError,
+} from '@/lib/errors/editConflicts';
 import { safeBack } from '@/lib/navigation';
 import { businessHref } from '@/lib/navigation/businessHref';
 import { resolveCampaignDetailGuideTarget } from '@/lib/recommendations/guidance';
@@ -422,8 +426,9 @@ export default function CampaignDraftEditorScreen() {
     statsRevision,
   ]);
   useEffect(() => {
-    if (!selectedBusinessId || !campaignId || statsRevision === undefined)
+    if (!selectedBusinessId || !campaignId || statsRevision === undefined) {
       return;
+    }
     let current = true;
     const args = { businessId: selectedBusinessId, campaignId };
     void Promise.all([
@@ -431,16 +436,19 @@ export default function CampaignDraftEditorScreen() {
       loadHistory({ ...args, revision: statsRevision }),
     ])
       .then(([audience, history]) => {
-        if (current)
+        if (current) {
           setPagedStats({
             key: statsKey,
             ...history,
             eligibleAudienceNow: audience.total,
             missingBirthdayCount: audience.missingBirthdayCount,
           });
+        }
       })
       .catch(() => {
-        if (current) setPagedStats(null);
+        if (current) {
+          setPagedStats(null);
+        }
       });
     return () => {
       current = false;
@@ -486,7 +494,12 @@ export default function CampaignDraftEditorScreen() {
   const [isTogglingAutomation, setIsTogglingAutomation] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
   const [baseUpdatedAt, setBaseUpdatedAt] = useState<number | null>(null);
-  const [conflictLocked, setConflictLocked] = useState(false);
+  const [conflictVersion, setConflictVersion] = useState<number | null>(null);
+  const conflictLocked = conflictVersion !== null;
+  const canLoadLatest = canReloadEditConflict(
+    conflictVersion,
+    campaignDraft?.updatedAt
+  );
   const [savedSignature, setSavedSignature] = useState<string | null>(null);
   const [pendingSubmitAction, setPendingSubmitAction] = useState<
     'save' | 'publish' | null
@@ -513,6 +526,7 @@ export default function CampaignDraftEditorScreen() {
   });
   const isDirty = savedSignature !== null && formSignature !== savedSignature;
 
+  useBusinessWebUnsavedChanges(Platform.OS === 'web' && isDirty);
   usePreventRemove(isDirty && !isSubmitting && !isArchiving, ({ data }) => {
     Alert.alert(
       'יש שינויים שלא נשמרו',
@@ -564,7 +578,7 @@ export default function CampaignDraftEditorScreen() {
     setBaseUpdatedAt(
       typeof snapshot.updatedAt === 'number' ? snapshot.updatedAt : null
     );
-    setConflictLocked(false);
+    setConflictVersion(null);
     setSavedSignature(
       buildCampaignEditorSignature({
         messageTitle: nextMessageTitle,
@@ -580,7 +594,7 @@ export default function CampaignDraftEditorScreen() {
   useEffect(() => {
     const screenKey = `${selectedBusinessId ?? 'none'}:${campaignId ?? 'none'}`;
     setBaseUpdatedAt(null);
-    setConflictLocked(false);
+    setConflictVersion(null);
     setSavedSignature(null);
     if (screenKey === 'none:none') {
       setScheduledForAt(null);
@@ -619,7 +633,7 @@ export default function CampaignDraftEditorScreen() {
         ? campaignDraft.updatedAt
         : null
     );
-    setConflictLocked(false);
+    setConflictVersion(null);
     setSavedSignature(
       buildCampaignEditorSignature({
         messageTitle: nextMessageTitle,
@@ -1199,7 +1213,7 @@ export default function CampaignDraftEditorScreen() {
       setBaseUpdatedAt(result.updatedAt);
     }
     setSavedSignature(formSignature);
-    setConflictLocked(false);
+    setConflictVersion(null);
     return result;
   };
 
@@ -1207,6 +1221,7 @@ export default function CampaignDraftEditorScreen() {
     if (
       !canActivateSendCampaigns ||
       isTogglingAutomation ||
+      conflictLocked ||
       isArchivedCampaign
     ) {
       return;
@@ -1248,31 +1263,14 @@ export default function CampaignDraftEditorScreen() {
       if (typeof result?.updatedAt === 'number') {
         setBaseUpdatedAt(result.updatedAt);
       }
-      setConflictLocked(false);
+      setConflictVersion(null);
     } catch (error) {
       if (handleEntitlementError(error)) {
         return;
       }
       const conflict = getEditConflictError(error);
       if (conflict) {
-        Alert.alert(
-          'הנתונים השתנו',
-          'נמצאה גרסה חדשה של הקמפיין. טענו אותה לפני שינוי האוטומציה.',
-          [
-            {
-              text: 'טען גרסה עדכנית',
-              onPress: () => {
-                applyCampaignSnapshot(campaignDraft);
-              },
-            },
-            {
-              text: 'השאר טיוטה מקומית',
-              onPress: () => {
-                setConflictLocked(true);
-              },
-            },
-          ]
-        );
+        setConflictVersion(conflict.serverUpdatedAt);
         return;
       }
       Alert.alert('שגיאה', 'לא הצלחנו לעדכן מצב אוטומציה.');
@@ -1311,24 +1309,7 @@ export default function CampaignDraftEditorScreen() {
       }
       const conflict = getEditConflictError(error);
       if (conflict) {
-        Alert.alert(
-          'הנתונים השתנו',
-          'נמצאה גרסה חדשה של הקמפיין. אפשר לטעון אותה או להשאיר את הטיוטה המקומית.',
-          [
-            {
-              text: 'טען גרסה עדכנית',
-              onPress: () => {
-                applyCampaignSnapshot(campaignDraft);
-              },
-            },
-            {
-              text: 'השאר טיוטה מקומית',
-              onPress: () => {
-                setConflictLocked(true);
-              },
-            },
-          ]
-        );
+        setConflictVersion(conflict.serverUpdatedAt);
         return;
       }
       Alert.alert('שגיאה', 'שמירת טיוטה נכשלה.');
@@ -1428,24 +1409,7 @@ export default function CampaignDraftEditorScreen() {
       }
       const conflict = getEditConflictError(error);
       if (conflict) {
-        Alert.alert(
-          'הנתונים השתנו',
-          'נמצאה גרסה חדשה של הקמפיין. טענו אותה לפני השליחה.',
-          [
-            {
-              text: 'טען גרסה עדכנית',
-              onPress: () => {
-                applyCampaignSnapshot(campaignDraft);
-              },
-            },
-            {
-              text: 'השאר טיוטה מקומית',
-              onPress: () => {
-                setConflictLocked(true);
-              },
-            },
-          ]
-        );
+        setConflictVersion(conflict.serverUpdatedAt);
         return;
       }
       Alert.alert('שגיאה', 'שמירה או שליחה נכשלו.');
@@ -1526,24 +1490,7 @@ export default function CampaignDraftEditorScreen() {
       }
       const conflict = getEditConflictError(error);
       if (conflict) {
-        Alert.alert(
-          'הנתונים השתנו',
-          'נמצאה גרסה חדשה של הקמפיין. טענו אותה לפני התזמון.',
-          [
-            {
-              text: 'טען גרסה עדכנית',
-              onPress: () => {
-                applyCampaignSnapshot(campaignDraft);
-              },
-            },
-            {
-              text: 'השאר טיוטה מקומית',
-              onPress: () => {
-                setConflictLocked(true);
-              },
-            },
-          ]
-        );
+        setConflictVersion(conflict.serverUpdatedAt);
         return;
       }
       Alert.alert('שגיאה', 'שמירה או תזמון נכשלו.');
@@ -1557,6 +1504,7 @@ export default function CampaignDraftEditorScreen() {
     if (
       !selectedBusinessId ||
       !canArchiveCampaign ||
+      conflictLocked ||
       isArchiving ||
       isSubmitting ||
       isArchivedCampaign
@@ -1591,24 +1539,7 @@ export default function CampaignDraftEditorScreen() {
             } catch (error) {
               const conflict = getEditConflictError(error);
               if (conflict) {
-                Alert.alert(
-                  'הנתונים השתנו',
-                  'נמצאה גרסה חדשה של הקמפיין. טענו אותה לפני העברה לארכיון.',
-                  [
-                    {
-                      text: 'טען גרסה עדכנית',
-                      onPress: () => {
-                        applyCampaignSnapshot(campaignDraft);
-                      },
-                    },
-                    {
-                      text: 'השאר טיוטה מקומית',
-                      onPress: () => {
-                        setConflictLocked(true);
-                      },
-                    },
-                  ]
-                );
+                setConflictVersion(conflict.serverUpdatedAt);
                 return;
               }
               if (
@@ -2226,7 +2157,12 @@ export default function CampaignDraftEditorScreen() {
                   העדכנית.
                 </Text>
                 <TouchableOpacity
+                  disabled={!canLoadLatest}
+                  accessibilityState={{ disabled: !canLoadLatest }}
                   onPress={() => {
+                    if (!canLoadLatest) {
+                      return;
+                    }
                     applyCampaignSnapshot(campaignDraft);
                   }}
                   className={`mt-2 ${tw.selfStart} rounded-full bg-[#F59E0B] px-3 py-1.5`}
