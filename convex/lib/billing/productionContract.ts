@@ -68,7 +68,7 @@ export const LAUNCH_PLAN_COUNT = 3;
 
 export const MVP_FEATURE_FLAGS = {
   additionalBusinessCreationEnabled: false,
-  generalFreeTrialEnabled: true,
+  generalFreeTrialEnabled: false,
   freeStarterEnabled: false,
   ownerLevelBillingEnabled: false,
   multiBusinessBillingEnabled: false,
@@ -470,7 +470,7 @@ export function assertFrozenPlanContract(
   if (MVP_FEATURE_FLAGS.freeStarterEnabled) {
     throw new Error('BILLING_CONTRACT_FREE_STARTER_FLAG');
   }
-  if (!MVP_FEATURE_FLAGS.generalFreeTrialEnabled) {
+  if (MVP_FEATURE_FLAGS.generalFreeTrialEnabled) {
     throw new Error('BILLING_CONTRACT_GENERAL_TRIAL_FLAG');
   }
   if (GENERAL_FREE_TRIAL_DAYS !== 14) {
