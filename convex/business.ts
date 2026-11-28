@@ -3217,7 +3217,9 @@ export const listPendingStaffInvites = query({
             ...(invite.linkRequestedUserId ? { linkRequestedUserId: invite.linkRequestedUserId } : {}),
             invitedEmail: invite.linkInvite ? '' : invite.invitedEmail,
             invitedUserId: invite.invitedUserId ?? null,
-            invitedDisplayName: resolveUserDisplayName(invitedUser, 'משתמש'),
+            invitedDisplayName: invite.linkInvite
+              ? invitedUser?.fullName?.trim() || 'חשבון עובד'
+              : resolveUserDisplayName(invitedUser, 'משתמש'),
             invitedPhone: invitedUser?.phone ?? null,
             invitedResolvedEmail: invite.linkInvite
               ? null

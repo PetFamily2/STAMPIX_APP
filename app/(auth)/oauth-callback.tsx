@@ -1,4 +1,3 @@
-import { getPendingStaffLink, staffLinkHref } from '@/lib/deeplink/pendingStaffLink';
 import { useConvexAuth, useMutation } from 'convex/react';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -14,6 +13,7 @@ import {
   resolvePlatformPostAuthHref,
   resolvePostAuthRoute,
 } from '@/lib/auth/postAuthRouting';
+import { getPendingStaffLink, staffLinkHref } from '@/lib/deeplink/pendingStaffLink';
 import {
   productAccent,
   webAccentFill,

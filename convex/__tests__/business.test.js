@@ -5,6 +5,7 @@ import {
 } from '../../lib/legalContract';
 import { WEB_LEGAL_VERSION } from '../../lib/legalWebContract';
 import {
+  acceptStaffInvite,
   assertBusinessOnboardingReady,
   closeBusinessAccount,
   createBusinessForOwner,
@@ -1540,4 +1541,31 @@ test('staff history bounds reads and preserves insertion order when the cutoff h
     (await readLatestStaffEvents(ctx, 'b1', 3)).map((row) => row._id)
   ).toEqual(['newest', 'tie_0', 'tie_1']);
   expect(limits).toEqual([3, 2]);
+});
+
+
+describe('shareable team invitation security', () => {
+  test('legacy acceptance refuses a shareable link even when the account matches', async () => {
+    const { ctx, state } = createMockCtx();
+    const inviteCode = 'wa_' + 'A'.repeat(32);
+    state.staffInvites = new Map([
+      ['invite_1', {
+        _id: 'invite_1',
+        businessId: 'business_1',
+        inviteCode,
+        invitedUserId: 'user_owner',
+        invitedEmail: 'staff-link@invalid.invalid',
+        linkInvite: true,
+        linkRequestedUserId: 'user_owner',
+        targetRole: 'staff',
+        status: 'pending',
+        expiresAt: Date.now() + 60000,
+      }],
+    ]);
+    await expect(acceptStaffInvite._handler(ctx, { inviteCode })).rejects.toThrow(
+      'INVITE_LINK_APPROVAL_REQUIRED'
+    );
+    expect(state.businessStaff.size).toBe(1);
+    expect(state.staffInvites.get('invite_1').status).toBe('pending');
+  });
 });

@@ -4,7 +4,9 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  MessageCircle,
   MoreHorizontal,
+  QrCode,
   ShieldCheck,
   UserPlus,
 } from 'lucide-react-native';
@@ -63,6 +65,7 @@ type PendingInvite = {
   inviteCode: string;
   linkInvite?: boolean;
   linkRequestedUserId?: Id<'users'>;
+  invitedPhone?: string | null;
   invitedEmail: string;
   invitedDisplayName: string | null;
   invitedResolvedEmail: string | null;
@@ -385,7 +388,13 @@ export function BusinessWebTeam() {
       });
       setShareCode(result.inviteCode);
       setInviteSuccess('הקישור מוכן. לאחר ההזדהות יופיע אישור הצטרפות.');
-      if (popup && !popup.closed) popup.location.replace(whatsappUrl(result.inviteCode));
+      if (popup && !popup.closed) {
+        try {
+          popup.location.replace(whatsappUrl(result.inviteCode));
+        } catch {
+          popup.close(); // The existing invitation can still be shared manually.
+        }
+      }
     } catch (error) {
       popup?.close();
       setInviteError(mapTeamActionError(error));
@@ -719,7 +728,9 @@ export function BusinessWebTeam() {
                 actorRole === 'owner' || invite.targetRole === 'staff';
               const identity = invite.linkInvite && !invite.linkRequestedUserId
                 ? 'הזמנה בוואטסאפ'
-                : invite.invitedDisplayName || 'הזמנת עובד';
+                : invite.invitedDisplayName && !invite.invitedDisplayName.includes('@')
+                  ? invite.invitedDisplayName
+                  : 'הזמנת עובד';
               return (
                 <View key={String(invite.inviteId)} style={styles.inviteRow}>
                   <View style={styles.inviteIcon}>
@@ -727,6 +738,9 @@ export function BusinessWebTeam() {
                   </View>
                   <View style={styles.inviteCopy}>
                     <Text style={styles.inviteName}>{identity}</Text>
+                    {invite.linkRequestedUserId && invite.invitedPhone ? (
+                      <Text style={styles.inviteMeta}>{invite.invitedPhone}</Text>
+                    ) : null}
                     <Text style={styles.inviteMeta}>
                       {ROLE_LABEL[invite.targetRole]} · בתוקף עד{' '}
                       <Text style={styles.ltrText}>
@@ -884,7 +898,10 @@ export function BusinessWebTeam() {
                 }}
                 style={[styles.primaryButton, styles.inviteAction]}
               >
-                <Text style={[styles.primaryButtonText, styles.inviteActionLabel]}>סריקת QR של העובד</Text>
+                <QrCode color="#FFFFFF" size={20} />
+                <Text style={[styles.primaryButtonText, styles.inviteActionLabel]}>
+                  סריקת QR של העובד
+                </Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
@@ -892,6 +909,7 @@ export function BusinessWebTeam() {
                 onPress={() => void submitWhatsAppInvite()}
                 style={[styles.secondaryButton, styles.inviteAction, styles.whatsappButton]}
               >
+                <MessageCircle color="#168548" size={20} />
                 <Text style={[styles.secondaryButtonText, styles.inviteActionLabel, styles.whatsappText]}>
                   {isInviting ? 'מכינים קישור…' : 'הזמנה בוואטסאפ'}
                 </Text>
@@ -1543,8 +1561,16 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   modalForm: { gap: TOKENS.space.md },
-  inviteAction: { minHeight: 44, width: '100%', alignItems: 'flex-end', paddingHorizontal: TOKENS.space.lg },
-  inviteActionLabel: { textAlign: 'right', writingDirection: 'rtl', width: '100%' },
+  inviteAction: {
+    minHeight: 44,
+    width: '100%',
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: TOKENS.space.sm,
+    paddingHorizontal: TOKENS.space.lg,
+  },
+  inviteActionLabel: { textAlign: 'right', writingDirection: 'rtl', flex: 1 },
   whatsappButton: { borderColor: '#168548' },
   whatsappText: { color: '#168548' },
   formField: { gap: TOKENS.space.sm },
