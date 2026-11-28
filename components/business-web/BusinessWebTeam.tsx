@@ -4,12 +4,9 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  Clock3,
   MoreHorizontal,
   ShieldCheck,
   UserPlus,
-  Users,
-  UserX,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -235,31 +232,6 @@ function StatusBadge({ status }: { status: StaffStatus }) {
   );
 }
 
-function SummaryCard({
-  icon: Icon,
-  label,
-  value,
-  detail,
-}: {
-  icon: typeof Users;
-  label: string;
-  value: string;
-  detail?: string;
-}) {
-  return (
-    <View style={styles.summaryCard}>
-      <View style={styles.summaryIcon}>
-        <Icon color={TOKENS.colors.primary} size={20} />
-      </View>
-      <View style={styles.summaryCopy}>
-        <Text style={styles.summaryLabel}>{label}</Text>
-        <Text style={styles.summaryValue}>{value}</Text>
-        {detail ? <Text style={styles.summaryDetail}>{detail}</Text> : null}
-      </View>
-    </View>
-  );
-}
-
 export function BusinessWebTeam() {
   const { width } = useWindowDimensions();
   const { activeBusiness, activeBusinessId } = useActiveBusiness();
@@ -466,7 +438,7 @@ export function BusinessWebTeam() {
       return member.staffRole === 'owner' ? (
         <View style={styles.ownerProtection}>
           <ShieldCheck color={TOKENS.colors.primary} size={16} />
-          <Text style={styles.ownerProtectionText}>חשבון מוגן</Text>
+          <Text style={styles.ownerProtectionText}>מוגן</Text>
         </View>
       ) : null;
     }
@@ -572,7 +544,6 @@ export function BusinessWebTeam() {
       <View style={styles.pageHeader}>
         <View style={styles.pageHeaderCopy}>
           <Text style={styles.pageTitle}>צוות</Text>
-          <Text style={styles.pageSubtitle}>עובדים, תפקידים והרשאות.</Text>
         </View>
         {!seatLimitReached ? (
           <Pressable
@@ -605,52 +576,16 @@ export function BusinessWebTeam() {
         </View>
       ) : null}
 
-      <View style={styles.summaryGrid}>
-        <SummaryCard
-          icon={Users}
-          label="אנשי צוות פעילים"
-          value={String(summary?.activeStaffCount ?? 0)}
-        />
-        <SummaryCard
-          icon={Clock3}
-          label="הזמנות ממתינות"
-          value={String(summary?.pendingInvitesCount ?? 0)}
-        />
-        <SummaryCard
-          icon={UserX}
-          label="מושעים"
-          value={String(summary?.suspendedCount ?? 0)}
-        />
-        <SummaryCard
-          detail={
-            maxSeats == null
-              ? undefined
-              : `${summary?.usedSeats ?? 0} מתוך ${maxSeats} מקומות בשימוש`
-          }
-          icon={ShieldCheck}
-          label="מושבי צוות"
-          value={
-            maxSeats == null
-              ? 'ללא הגבלה'
-              : `${summary?.usedSeats ?? 0}/${maxSeats}`
-          }
-        />
+      <View style={styles.seatSummary}>
+        <Text style={styles.sectionTitle}>מקומות בצוות</Text>
+        <Text style={styles.summaryValue}>
+          {maxSeats == null
+            ? 'ללא הגבלה'
+            : `${summary?.usedSeats ?? 0} מתוך ${maxSeats} בשימוש`}
+        </Text>
       </View>
 
-      <Section
-        count={visibleStaff.length}
-        description="חברי הצוות הפעילים והמושעים, כולל הרשאה ופרטי קשר."
-        title="אנשי צוות"
-      >
-        {(summary?.activeStaffCount ?? 0) === 0 &&
-        (pending?.length ?? 0) === 0 ? (
-          <View style={styles.ownerOnlyNotice}>
-            <Text style={styles.ownerOnlyTitle}>הצוות עדיין כולל רק בעלים</Text>
-            <Text style={styles.ownerOnlyText}>
-              אפשר להזמין עובד ראשון כאשר יש מקום פנוי במסלול.
-            </Text>
-          </View>
-        ) : null}
+      <Section count={visibleStaff.length} title="אנשי צוות">
         {visibleStaff.length === 0 ? (
           <EmptyState text="אין עדיין אנשי צוות נוספים בעסק." />
         ) : showTable ? (
@@ -661,7 +596,6 @@ export function BusinessWebTeam() {
               </Text>
               <Text style={styles.tableHeading}>תפקיד</Text>
               <Text style={styles.tableHeading}>סטטוס</Text>
-              <Text style={styles.tableHeading}>הצטרפות</Text>
               <Text style={styles.tableHeading}>פעולות</Text>
             </View>
             {visibleStaff.map((member) => (
@@ -673,9 +607,6 @@ export function BusinessWebTeam() {
                 <View style={styles.tableCellWrap}>
                   <StatusBadge status={member.status} />
                 </View>
-                <Text style={[styles.tableCell, styles.ltrText]}>
-                  {formatDate(member.joinedAt)}
-                </Text>
                 <View style={styles.tableCellWrap}>
                   {renderActions(member)}
                 </View>
@@ -697,9 +628,6 @@ export function BusinessWebTeam() {
                     </Text>
                   </View>
                   <StatusBadge status={member.status} />
-                  <Text style={styles.memberDate}>
-                    הצטרפות: {formatDate(member.joinedAt)}
-                  </Text>
                 </View>
               </View>
             ))}
@@ -707,14 +635,8 @@ export function BusinessWebTeam() {
         )}
       </Section>
 
-      <Section
-        count={pending?.length ?? 0}
-        description="הזמנות פעילות נשמרות למשך שבעה ימים."
-        title="הזמנות ממתינות"
-      >
-        {(pending?.length ?? 0) === 0 ? (
-          <EmptyState text="אין כרגע הזמנות ממתינות." />
-        ) : (
+      {(pending?.length ?? 0) > 0 ? (
+        <Section count={pending?.length ?? 0} title="הזמנות ממתינות">
           <View style={styles.inviteList}>
             {pending?.map((invite) => {
               const canCancel =
@@ -773,8 +695,10 @@ export function BusinessWebTeam() {
               );
             })}
           </View>
-        )}
-      </Section>
+        </Section>
+      ) : (
+        <Text style={styles.emptyText}>אין הזמנות ממתינות</Text>
+      )}
 
       <View style={styles.sectionCard}>
         <Pressable
@@ -789,9 +713,6 @@ export function BusinessWebTeam() {
         >
           <View style={styles.sectionHeadingCopy}>
             <Text style={styles.sectionTitle}>היסטוריית צוות</Text>
-            <Text style={styles.sectionDescription}>
-              פעילות הרשאות והזמנות אחרונה
-            </Text>
           </View>
           {isHistoryOpen ? (
             <ChevronUp color={TOKENS.colors.textMuted} size={20} />
@@ -989,7 +910,7 @@ function Identity({ member, style }: { member: StaffRow; style?: object }) {
           </Text>
           {member.isSelf ? <Text style={styles.selfLabel}>את/ה</Text> : null}
         </View>
-        {member.email || member.phone ? (
+        {!member.isSelf && (member.email || member.phone) ? (
           <Text numberOfLines={1} style={styles.identityMeta}>
             {member.email ?? member.phone}
           </Text>
@@ -1041,12 +962,10 @@ function RoleOption({
 function Section({
   children,
   count,
-  description,
   title,
 }: {
   children: React.ReactNode;
   count: number;
-  description: string;
   title: string;
 }) {
   return (
@@ -1059,7 +978,6 @@ function Section({
               <Text style={styles.countBadgeText}>{count}</Text>
             </View>
           </View>
-          <Text style={styles.sectionDescription}>{description}</Text>
         </View>
       </View>
       {children}
@@ -1070,7 +988,6 @@ function Section({
 function EmptyState({ text }: { text: string }) {
   return (
     <View style={styles.emptyState}>
-      <Users color={TOKENS.colors.textMuted} size={24} />
       <Text style={styles.emptyText}>{text}</Text>
     </View>
   );
@@ -1109,7 +1026,7 @@ function PageState({
 const styles = StyleSheet.create({
   page: {
     alignSelf: 'center',
-    gap: TOKENS.space.xl,
+    gap: TOKENS.space.md,
     maxWidth: 980,
     width: '100%',
   },
@@ -1126,12 +1043,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  pageSubtitle: {
-    ...TOKENS.typography.body,
-    color: TOKENS.colors.textSecondary,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
   primaryButton: {
     alignItems: 'center',
     backgroundColor: TOKENS.colors.primary,
@@ -1139,8 +1050,8 @@ const styles = StyleSheet.create({
     flexDirection: flexDirection.row,
     gap: TOKENS.space.sm,
     justifyContent: 'center',
-    minHeight: 34,
-    paddingHorizontal: TOKENS.space.lg,
+    minHeight: 40,
+    paddingHorizontal: TOKENS.space.md,
   },
   primaryButtonText: { ...TOKENS.typography.label, color: '#FFFFFF' },
   pressed: { opacity: 0.82 },
@@ -1177,45 +1088,21 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  summaryGrid: {
+  seatSummary: {
     flexDirection: flexDirection.row,
+    alignItems: 'center',
+    justifyContent: 'space-between',
     flexWrap: 'wrap',
-    gap: 0,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
+    gap: TOKENS.space.sm,
+    padding: TOKENS.space.md,
+    backgroundColor: TOKENS.colors.elevatedSurface,
     borderColor: TOKENS.colors.border,
-    paddingVertical: 10,
-  },
-  summaryCard: {
-    alignItems: alignItems.start,
-    flex: 1,
-    flexBasis: 150,
-    flexDirection: flexDirection.row,
-    gap: 0,
-    minHeight: 56,
-    paddingHorizontal: 14,
-    paddingVertical: 2,
-  },
-  summaryIcon: {
-    display: 'none',
-  },
-  summaryCopy: { flex: 1, gap: 2 },
-  summaryLabel: {
-    ...TOKENS.typography.metadata,
-    color: TOKENS.colors.textSecondary,
-    textAlign: 'right',
-    writingDirection: 'rtl',
+    borderWidth: 1,
+    borderRadius: TOKENS.radii.md,
   },
   summaryValue: {
-    fontSize: 19,
-    fontWeight: '600',
-    lineHeight: 25,
-    color: TOKENS.colors.textPrimary,
-    textAlign: 'right',
-  },
-  summaryDetail: {
-    ...TOKENS.typography.metadata,
-    color: TOKENS.colors.textMuted,
+    ...TOKENS.typography.label,
+    color: TOKENS.colors.textSecondary,
     textAlign: 'right',
     writingDirection: 'rtl',
   },
@@ -1224,9 +1111,9 @@ const styles = StyleSheet.create({
     borderTopColor: TOKENS.colors.border,
     borderTopWidth: 1,
     overflow: 'visible',
-    paddingTop: 12,
+    paddingTop: TOKENS.space.sm,
   },
-  sectionHeader: { marginBottom: 10 },
+  sectionHeader: { marginBottom: TOKENS.space.sm },
   sectionHeadingCopy: { flex: 1, gap: 2 },
   sectionTitleRow: {
     alignItems: 'center',
@@ -1239,19 +1126,13 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  sectionDescription: {
-    ...TOKENS.typography.secondaryBody,
-    color: TOKENS.colors.textMuted,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
   countBadge: {
     alignItems: 'center',
     backgroundColor: TOKENS.colors.primarySubtle,
     borderRadius: TOKENS.radii.pill,
     justifyContent: 'center',
-    minHeight: 24,
-    minWidth: 28,
+    minHeight: 20,
+    minWidth: 24,
     paddingHorizontal: TOKENS.space.sm,
   },
   countBadgeText: {
@@ -1421,12 +1302,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: TOKENS.space.sm,
   },
-  memberDate: {
-    ...TOKENS.typography.metadata,
-    color: TOKENS.colors.textMuted,
-    marginStart: 'auto',
-    writingDirection: 'rtl',
-  },
   inviteList: { gap: TOKENS.space.sm },
   inviteRow: {
     alignItems: 'center',
@@ -1440,7 +1315,7 @@ const styles = StyleSheet.create({
   inviteIcon: {
     display: 'none',
   },
-  inviteCopy: { flex: 1, gap: 2, minWidth: 180 },
+  inviteCopy: { flex: 1, gap: 2, minWidth: 120 },
   inviteName: {
     ...TOKENS.typography.label,
     color: TOKENS.colors.textPrimary,
@@ -1508,27 +1383,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: TOKENS.space.sm,
     justifyContent: 'center',
-    minHeight: 88,
-    padding: TOKENS.space.md,
-  },
-  ownerOnlyNotice: {
-    backgroundColor: TOKENS.colors.primarySubtle,
-    borderRadius: TOKENS.radii.md,
-    gap: TOKENS.space.xs,
-    marginBottom: TOKENS.space.lg,
-    padding: TOKENS.space.md,
-  },
-  ownerOnlyTitle: {
-    ...TOKENS.typography.label,
-    color: TOKENS.colors.primary,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  ownerOnlyText: {
-    ...TOKENS.typography.secondaryBody,
-    color: TOKENS.colors.textSecondary,
-    textAlign: 'right',
-    writingDirection: 'rtl',
+    paddingVertical: TOKENS.space.sm,
   },
   emptyText: {
     ...TOKENS.typography.secondaryBody,
