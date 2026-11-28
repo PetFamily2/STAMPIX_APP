@@ -13,6 +13,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -876,150 +877,157 @@ export function BusinessWebTeam() {
         ) : null}
       </View>
 
-      <BusinessWebDialog
-        dismissDisabled={isInviting}
-        onDismiss={closeInvite}
-        title="הזמנת עובד"
+      <Modal
+        transparent={true}
         visible={isInviteOpen}
+        onRequestClose={closeInvite}
       >
-        <ScrollView
-          style={{ flexShrink: 1 }}
-          contentContainerStyle={styles.modalForm}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.formField}>
-            <Text style={styles.formLabel}>תפקיד</Text>
-            <View style={styles.roleOptions}>
-              <RoleOption
-                disabled={
-                  isInviting || Boolean(inviteSuccess) || inviteMode === 'qr'
-                }
-                label="עובד"
-                onPress={() => setInviteRole('staff')}
-                selected={inviteRole === 'staff'}
-              />
-              {actorRole === 'owner' ? (
-                <RoleOption
-                  disabled={
-                    isInviting || Boolean(inviteSuccess) || inviteMode === 'qr'
-                  }
-                  label="מנהל"
-                  onPress={() => setInviteRole('manager')}
-                  selected={inviteRole === 'manager'}
-                />
+        <View style={styles.inviteModalViewport}>
+          <BusinessWebDialog
+            dismissDisabled={isInviting}
+            maxWidth={520}
+            onDismiss={closeInvite}
+            title="הזמנת עובד"
+            visible={isInviteOpen}
+          >
+            <ScrollView
+              style={styles.inviteScroll}
+              contentContainerStyle={styles.modalForm}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={styles.formField}>
+                <Text style={styles.formLabel}>תפקיד</Text>
+                <View style={styles.roleOptions}>
+                  <RoleOption
+                    disabled={
+                      isInviting || Boolean(inviteSuccess) || inviteMode === 'qr'
+                    }
+                    label="עובד"
+                    onPress={() => setInviteRole('staff')}
+                    selected={inviteRole === 'staff'}
+                  />
+                  {actorRole === 'owner' ? (
+                    <RoleOption
+                      disabled={
+                        isInviting || Boolean(inviteSuccess) || inviteMode === 'qr'
+                      }
+                      label="מנהל"
+                      onPress={() => setInviteRole('manager')}
+                      selected={inviteRole === 'manager'}
+                    />
+                  ) : null}
+                </View>
+              </View>
+              {!inviteSuccess && inviteMode === 'choose' ? (
+                <>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={seatLimitReached || isInviting}
+                    onPress={() => {
+                      setInviteError('');
+                      setInviteMode('qr');
+                    }}
+                    style={[styles.primaryButton, styles.inviteAction]}
+                  >
+                    <QrCode color="#FFFFFF" size={20} />
+                    <Text
+                      style={[styles.primaryButtonText, styles.inviteActionLabel]}
+                    >
+                      סריקת QR של העובד
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={seatLimitReached || isInviting}
+                    onPress={() => void submitWhatsAppInvite()}
+                    style={[
+                      styles.secondaryButton,
+                      styles.inviteAction,
+                      styles.whatsappButton,
+                    ]}
+                  >
+                    <MessageCircle color="#168548" size={20} />
+                    <Text
+                      style={[
+                        styles.secondaryButtonText,
+                        styles.inviteActionLabel,
+                        styles.whatsappText,
+                      ]}
+                    >
+                      {isInviting ? 'מכינים קישור…' : 'הזמנה בוואטסאפ'}
+                    </Text>
+                  </Pressable>
+                </>
               ) : null}
-            </View>
-          </View>
-          {!inviteSuccess && inviteMode === 'choose' ? (
-            <>
-              <Pressable
-                accessibilityRole="button"
-                disabled={seatLimitReached || isInviting}
-                onPress={() => {
-                  setInviteError('');
-                  setInviteMode('qr');
-                }}
-                style={[styles.primaryButton, styles.inviteAction]}
-              >
-                <QrCode color="#FFFFFF" size={20} />
-                <Text
-                  style={[styles.primaryButtonText, styles.inviteActionLabel]}
-                >
-                  סריקת QR של העובד
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                disabled={seatLimitReached || isInviting}
-                onPress={() => void submitWhatsAppInvite()}
-                style={[
-                  styles.secondaryButton,
-                  styles.inviteAction,
-                  styles.whatsappButton,
-                ]}
-              >
-                <MessageCircle color="#168548" size={20} />
-                <Text
+              {!inviteSuccess && inviteMode === 'qr' ? (
+                <>
+                  <Text style={styles.inviteMeta}>סרקו את ה־QR האישי של העובד</Text>
+                  <QrScanner
+                    key={scannerResetKey}
+                    resetKey={scannerResetKey}
+                    isBusy={isInviting}
+                    onScan={submitScanInvite}
+                    cameraMinHeight={160}
+                  />
+                </>
+              ) : null}
+              {shareCode ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => shareExistingLink(shareCode)}
                   style={[
-                    styles.secondaryButtonText,
-                    styles.inviteActionLabel,
-                    styles.whatsappText,
+                    styles.secondaryButton,
+                    styles.inviteAction,
+                    styles.whatsappButton,
                   ]}
                 >
-                  {isInviting ? 'מכינים קישור…' : 'הזמנה בוואטסאפ'}
+                  <Text
+                    style={[
+                      styles.secondaryButtonText,
+                      styles.inviteActionLabel,
+                      styles.whatsappText,
+                    ]}
+                  >
+                    פתיחת WhatsApp
+                  </Text>
+                </Pressable>
+              ) : null}
+              {inviteError ? (
+                <Text accessibilityLiveRegion="polite" style={styles.formError}>
+                  {inviteError}
                 </Text>
-              </Pressable>
-            </>
-          ) : null}
-          {!inviteSuccess && inviteMode === 'qr' ? (
-            <>
-              <Text style={styles.inviteMeta}>סרקו את ה־QR האישי של העובד</Text>
-              <QrScanner
-                key={scannerResetKey}
-                resetKey={scannerResetKey}
-                isBusy={isInviting}
-                onScan={submitScanInvite}
-                cameraMinHeight={160}
-              />
-            </>
-          ) : null}
-          {shareCode ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => shareExistingLink(shareCode)}
-              style={[
-                styles.secondaryButton,
-                styles.inviteAction,
-                styles.whatsappButton,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.secondaryButtonText,
-                  styles.inviteActionLabel,
-                  styles.whatsappText,
-                ]}
-              >
-                פתיחת WhatsApp
-              </Text>
-            </Pressable>
-          ) : null}
-          {inviteError ? (
-            <Text accessibilityLiveRegion="polite" style={styles.formError}>
-              {inviteError}
-            </Text>
-          ) : null}
-          {inviteSuccess ? (
-            <View accessibilityLiveRegion="polite" style={styles.successBox}>
-              <Check color={TOKENS.colors.success} size={20} />
-              <Text style={styles.successText}>{inviteSuccess}</Text>
-            </View>
-          ) : null}
-          <View style={styles.modalActions}>
-            <Pressable
-              accessibilityRole="button"
-              disabled={isInviting}
-              onPress={() => {
-                if (inviteSuccess || inviteMode === 'choose') {
-                  closeInvite();
-                } else {
-                  setInviteMode('choose');
-                  setInviteError('');
-                }
-              }}
-              style={styles.secondaryButton}
-            >
-              <Text style={styles.secondaryButtonText}>
-                {inviteSuccess
-                  ? 'סיום'
-                  : inviteMode === 'choose'
-                    ? 'ביטול'
-                    : 'חזרה'}
-              </Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </BusinessWebDialog>
+              ) : null}
+              {inviteSuccess ? (
+                <View accessibilityLiveRegion="polite" style={styles.successBox}>
+                  <Check color={TOKENS.colors.success} size={20} />
+                  <Text style={styles.successText}>{inviteSuccess}</Text>
+                </View>
+              ) : null}
+              {inviteSuccess || inviteMode === 'qr' ? (
+              <View style={styles.modalActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={isInviting}
+                  onPress={() => {
+                    if (inviteSuccess || inviteMode === 'choose') {
+                      closeInvite();
+                    } else {
+                      setInviteMode('choose');
+                      setInviteError('');
+                    }
+                  }}
+                  style={styles.secondaryButton}
+                >
+                  <Text style={styles.secondaryButtonText}>
+                    {inviteSuccess ? 'סיום' : 'חזרה'}
+                  </Text>
+                </Pressable>
+              </View>
+              ) : null}
+            </ScrollView>
+          </BusinessWebDialog>
+        </View>
+      </Modal>
 
       <BusinessWebConfirmDialog
         busy={
@@ -1609,9 +1617,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     writingDirection: 'rtl',
   },
-  modalForm: { gap: TOKENS.space.md },
+  inviteModalViewport: { flex: 1 },
+  inviteScroll: { flexGrow: 0, flexShrink: 1, minHeight: 0 },
+  modalForm: { gap: TOKENS.space.md, paddingBottom: TOKENS.space.xs },
   inviteAction: {
-    minHeight: 44,
+    minHeight: TOKENS.control.height,
     width: '100%',
     flexDirection: flexDirection.row,
     alignItems: 'center',
@@ -1637,7 +1647,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: flexDirection.row,
     gap: TOKENS.space.sm,
-    minHeight: 38,
+    minHeight: TOKENS.control.quietHeight,
     paddingHorizontal: TOKENS.space.lg,
   },
   roleOptionSelected: {
