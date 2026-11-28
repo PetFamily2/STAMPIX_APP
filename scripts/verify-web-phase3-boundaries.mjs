@@ -146,7 +146,13 @@ for (const [name, source] of oldTables) {
   const next = newTables.get(name);
   const unchanged =
     next === source ||
-    (name === 'businesses' && withoutApprovedDiscoveryIndexes(next) === source);
+    (name === 'businesses' &&
+      withoutApprovedDiscoveryIndexes(next) === source) ||
+    (name === 'staffInvites' &&
+      next?.replace(
+        "    linkInvite: v.optional(v.boolean()),\n    linkRequestedUserId: v.optional(v.id('users')),\n",
+        ''
+      ) === source);
   if (!next || !unchanged) {
     throw new Error(`Existing schema table changed: ${name}`);
   }

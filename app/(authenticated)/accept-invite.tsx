@@ -15,10 +15,14 @@ import {
 } from 'react-native-safe-area-context';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { ActionButton } from '@/components/ui/ActionButton';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
+import {
+  clearPendingStaffLink,
+  isStaffLinkCode,
+} from '@/lib/deeplink/pendingStaffLink';
 import { webClassName } from '@/lib/design/webProductChrome';
-import { clearPendingStaffLink, isStaffLinkCode } from '@/lib/deeplink/pendingStaffLink';
 import { safeBack } from '@/lib/navigation';
 import { CUSTOMER_BACK_FALLBACKS } from '@/lib/navigation/customerRoutes';
 import { tw } from '@/lib/rtl';
@@ -58,7 +62,9 @@ export default function AcceptInviteScreen() {
   }>();
   const sessionContext = useSessionContext();
   const acceptStaffInvite = useMutation(api.business.acceptStaffInvite);
-  const requestStaffLinkInvite = useMutation(api.business.requestStaffLinkInvite);
+  const requestStaffLinkInvite = useMutation(
+    api.business.requestStaffLinkInvite
+  );
   const [requested, setRequested] = useState(false);
 
   const [manualCode, setManualCode] = useState('');
@@ -140,23 +146,29 @@ export default function AcceptInviteScreen() {
         <View className="px-6">
           {isLink ? (
             <View className="mt-6 rounded-2xl border border-zinc-200 bg-white p-4">
-              <Text className={`text-base font-semibold text-gray-900 ${tw.textStart}`}>
+              <Text
+                className={`text-base font-semibold text-gray-900 ${tw.textStart}`}
+              >
                 {requested ? 'הבקשה ממתינה לאישור' : 'הזמנה להצטרף לצוות'}
               </Text>
               <Text className={`mt-2 text-sm text-gray-600 ${tw.textStart}`}>
-                {requested ? 'לאחר אישור בעל העסק תוכלו להיכנס לעסק.' : 'אשרו בקשת הצטרפות עם החשבון המחובר.'}
+                {requested
+                  ? 'לאחר אישור בעל העסק תוכלו להיכנס לעסק.'
+                  : 'אשרו בקשת הצטרפות עם החשבון המחובר.'}
               </Text>
-              {error ? <Text className={`mt-2 text-sm text-rose-600 ${tw.textStart}`}>{error}</Text> : null}
-              <Pressable
-                accessibilityRole="button"
-                disabled={busy}
-                onPress={handleAccept}
-                className="mt-4 min-h-12 items-center justify-center rounded-xl bg-blue-600 px-4"
-              >
-                <Text className="text-sm font-bold text-white">
-                  {busy ? 'בודקים…' : requested ? 'בדיקת אישור וכניסה' : 'בקשת הצטרפות'}
+              {error ? (
+                <Text className={`mt-2 text-sm text-rose-600 ${tw.textStart}`}>
+                  {error}
                 </Text>
-              </Pressable>
+              ) : null}
+              <View className="mt-4">
+                <ActionButton
+                  label={requested ? 'בדיקת אישור וכניסה' : 'בקשת הצטרפות'}
+                  loading={busy}
+                  onPress={handleAccept}
+                  fullWidth={true}
+                />
+              </View>
             </View>
           ) : null}
           {showPendingInviteCard && (

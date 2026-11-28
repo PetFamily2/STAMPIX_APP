@@ -276,7 +276,9 @@ export function BusinessWebTeam() {
   ) as HistoryRow[] | undefined;
 
   const createStaffLinkInvite = useMutation(api.business.createStaffLinkInvite);
-  const approveStaffLinkInvite = useMutation(api.business.approveStaffLinkInvite);
+  const approveStaffLinkInvite = useMutation(
+    api.business.approveStaffLinkInvite
+  );
   const inviteStaffByScanToken = useMutation(
     api.business.inviteBusinessStaffByScanToken
   );
@@ -371,7 +373,12 @@ export function BusinessWebTeam() {
   };
 
   const submitWhatsAppInvite = async () => {
-    if (!activeBusinessId || !canManageTeam || inviteInFlight.current || seatLimitReached) {
+    if (
+      !activeBusinessId ||
+      !canManageTeam ||
+      inviteInFlight.current ||
+      seatLimitReached
+    ) {
       return;
     }
     inviteInFlight.current = true;
@@ -448,7 +455,9 @@ export function BusinessWebTeam() {
         scanToken,
         role: actorRole === 'owner' ? inviteRole : 'staff',
       });
-      setInviteSuccess(`ההזמנה נשלחה ל${result.invitedUser.name}. נדרש אישור העובד.`);
+      setInviteSuccess(
+        `ההזמנה נשלחה ל${result.invitedUser.name}. נדרש אישור העובד.`
+      );
       setInviteMode('choose');
     } catch (error) {
       setInviteError(mapTeamActionError(error));
@@ -726,11 +735,13 @@ export function BusinessWebTeam() {
             {pending?.map((invite) => {
               const canCancel =
                 actorRole === 'owner' || invite.targetRole === 'staff';
-              const identity = invite.linkInvite && !invite.linkRequestedUserId
-                ? 'הזמנה בוואטסאפ'
-                : invite.invitedDisplayName && !invite.invitedDisplayName.includes('@')
-                  ? invite.invitedDisplayName
-                  : 'הזמנת עובד';
+              const identity =
+                invite.linkInvite && !invite.linkRequestedUserId
+                  ? 'הזמנה בוואטסאפ'
+                  : invite.invitedDisplayName &&
+                      !invite.invitedDisplayName.includes('@')
+                    ? invite.invitedDisplayName
+                    : 'הזמנת עובד';
               return (
                 <View key={String(invite.inviteId)} style={styles.inviteRow}>
                   <View style={styles.inviteIcon}>
@@ -739,7 +750,9 @@ export function BusinessWebTeam() {
                   <View style={styles.inviteCopy}>
                     <Text style={styles.inviteName}>{identity}</Text>
                     {invite.linkRequestedUserId && invite.invitedPhone ? (
-                      <Text style={styles.inviteMeta}>{invite.invitedPhone}</Text>
+                      <Text style={styles.inviteMeta}>
+                        {invite.invitedPhone}
+                      </Text>
                     ) : null}
                     <Text style={styles.inviteMeta}>
                       {ROLE_LABEL[invite.targetRole]} · בתוקף עד{' '}
@@ -753,7 +766,9 @@ export function BusinessWebTeam() {
                       {invite.linkRequestedUserId ? 'ממתינה לאישור' : 'ממתינה'}
                     </Text>
                   </View>
-                  {canCancel && invite.linkInvite && invite.linkRequestedUserId ? (
+                  {canCancel &&
+                  invite.linkInvite &&
+                  invite.linkRequestedUserId ? (
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={`אישור הצטרפות של ${identity}`}
@@ -761,10 +776,14 @@ export function BusinessWebTeam() {
                       onPress={() => void approveLink(invite)}
                       style={styles.primaryButton}
                     >
-                      <Text style={styles.primaryButtonText}>אישור הצטרפות</Text>
+                      <Text style={styles.primaryButtonText}>
+                        אישור הצטרפות
+                      </Text>
                     </Pressable>
                   ) : null}
-                  {canCancel && invite.linkInvite && !invite.linkRequestedUserId ? (
+                  {canCancel &&
+                  invite.linkInvite &&
+                  !invite.linkRequestedUserId ? (
                     <Pressable
                       accessibilityRole="button"
                       onPress={() => shareExistingLink(invite.inviteCode)}
@@ -872,14 +891,18 @@ export function BusinessWebTeam() {
             <Text style={styles.formLabel}>תפקיד</Text>
             <View style={styles.roleOptions}>
               <RoleOption
-                disabled={isInviting || Boolean(inviteSuccess) || inviteMode === 'qr'}
+                disabled={
+                  isInviting || Boolean(inviteSuccess) || inviteMode === 'qr'
+                }
                 label="עובד"
                 onPress={() => setInviteRole('staff')}
                 selected={inviteRole === 'staff'}
               />
               {actorRole === 'owner' ? (
                 <RoleOption
-                  disabled={isInviting || Boolean(inviteSuccess) || inviteMode === 'qr'}
+                  disabled={
+                    isInviting || Boolean(inviteSuccess) || inviteMode === 'qr'
+                  }
                   label="מנהל"
                   onPress={() => setInviteRole('manager')}
                   selected={inviteRole === 'manager'}
@@ -899,7 +922,9 @@ export function BusinessWebTeam() {
                 style={[styles.primaryButton, styles.inviteAction]}
               >
                 <QrCode color="#FFFFFF" size={20} />
-                <Text style={[styles.primaryButtonText, styles.inviteActionLabel]}>
+                <Text
+                  style={[styles.primaryButtonText, styles.inviteActionLabel]}
+                >
                   סריקת QR של העובד
                 </Text>
               </Pressable>
@@ -907,10 +932,20 @@ export function BusinessWebTeam() {
                 accessibilityRole="button"
                 disabled={seatLimitReached || isInviting}
                 onPress={() => void submitWhatsAppInvite()}
-                style={[styles.secondaryButton, styles.inviteAction, styles.whatsappButton]}
+                style={[
+                  styles.secondaryButton,
+                  styles.inviteAction,
+                  styles.whatsappButton,
+                ]}
               >
                 <MessageCircle color="#168548" size={20} />
-                <Text style={[styles.secondaryButtonText, styles.inviteActionLabel, styles.whatsappText]}>
+                <Text
+                  style={[
+                    styles.secondaryButtonText,
+                    styles.inviteActionLabel,
+                    styles.whatsappText,
+                  ]}
+                >
                   {isInviting ? 'מכינים קישור…' : 'הזמנה בוואטסאפ'}
                 </Text>
               </Pressable>
@@ -932,9 +967,19 @@ export function BusinessWebTeam() {
             <Pressable
               accessibilityRole="button"
               onPress={() => shareExistingLink(shareCode)}
-              style={[styles.secondaryButton, styles.inviteAction, styles.whatsappButton]}
+              style={[
+                styles.secondaryButton,
+                styles.inviteAction,
+                styles.whatsappButton,
+              ]}
             >
-              <Text style={[styles.secondaryButtonText, styles.inviteActionLabel, styles.whatsappText]}>
+              <Text
+                style={[
+                  styles.secondaryButtonText,
+                  styles.inviteActionLabel,
+                  styles.whatsappText,
+                ]}
+              >
                 פתיחת WhatsApp
               </Text>
             </Pressable>
@@ -965,7 +1010,11 @@ export function BusinessWebTeam() {
               style={styles.secondaryButton}
             >
               <Text style={styles.secondaryButtonText}>
-                {inviteSuccess ? 'סיום' : inviteMode === 'choose' ? 'ביטול' : 'חזרה'}
+                {inviteSuccess
+                  ? 'סיום'
+                  : inviteMode === 'choose'
+                    ? 'ביטול'
+                    : 'חזרה'}
               </Text>
             </Pressable>
           </View>
@@ -1566,7 +1615,6 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: flexDirection.row,
     alignItems: 'center',
-    justifyContent: 'flex-start',
     gap: TOKENS.space.sm,
     paddingHorizontal: TOKENS.space.lg,
   },
@@ -1583,7 +1631,6 @@ const styles = StyleSheet.create({
   roleOptions: { flexDirection: flexDirection.row, gap: TOKENS.space.sm },
   roleOption: {
     alignItems: 'center',
-    justifyContent: 'flex-start',
     borderColor: TOKENS.colors.border,
     borderRadius: TOKENS.radii.sm,
     borderWidth: 1,

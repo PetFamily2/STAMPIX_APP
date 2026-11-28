@@ -6,15 +6,18 @@ import {
 import { WEB_LEGAL_VERSION } from '../../lib/legalWebContract';
 import {
   acceptStaffInvite,
+  approveStaffLinkInvite,
   assertBusinessOnboardingReady,
   closeBusinessAccount,
   createBusinessForOwner,
   createOrResumeBusinessOnboarding,
+  createStaffLinkInvite,
   generateBusinessLogoUploadUrl,
   getBusinessesNearby,
   getBusinessSettings,
   listMyClosedBusinesses,
   readLatestStaffEvents,
+  requestStaffLinkInvite,
   restoreBusinessAccount,
   saveBusinessOnboardingSnapshot,
   setBusinessLogo,
@@ -1543,28 +1546,103 @@ test('staff history bounds reads and preserves insertion order when the cutoff h
   expect(limits).toEqual([3, 2]);
 });
 
-
 describe('shareable team invitation security', () => {
+  test('an owner approves the authenticated claimant once, with no access before approval', async () => {
+    let actor = 'user_owner';
+    const { ctx, state } = createMockCtx({
+      users: ['user_owner', 'user_worker', 'user_other'].map((_id) =>
+        buildUser({ _id, activeMode: 'customer' })
+      ),
+    });
+    ctx.auth.getUserIdentity = async () =>
+      actor ? { subject: `${actor}|session_1` } : null;
+    state.businessBillingAccounts.set('billing_1', {
+      _id: 'billing_1',
+      businessId: 'business_1',
+      ownerUserId: 'user_owner',
+      hasProviderEvidence: true,
+      providerAppUserId: 'fixture',
+      provider: 'sumit',
+      status: 'active',
+      plan: 'premium',
+      billingPeriod: 'yearly',
+      currentPeriodEndAt: Date.now() + 86_400_000,
+    });
+    const { inviteCode, inviteId } = await createStaffLinkInvite._handler(ctx, {
+      businessId: 'business_1',
+      role: 'staff',
+    });
+    expect(inviteCode).toMatch(/^wa_[A-Za-z0-9_-]{32}$/);
+    actor = '';
+    await expect(
+      requestStaffLinkInvite._handler(ctx, { inviteCode })
+    ).rejects.toThrow();
+    actor = 'user_worker';
+    const approval = {
+      businessId: 'business_1',
+      inviteId,
+      expectedUserId: actor,
+    };
+    expect(
+      (await requestStaffLinkInvite._handler(ctx, { inviteCode })).status
+    ).toBe('requested');
+    expect(state.businessStaff.size).toBe(1);
+    expect(state.users.get(actor).activeMode).toBe('customer');
+    await expect(
+      approveStaffLinkInvite._handler(ctx, approval)
+    ).rejects.toThrow('NOT_AUTHORIZED');
+    actor = 'user_other';
+    await expect(
+      requestStaffLinkInvite._handler(ctx, { inviteCode })
+    ).rejects.toThrow('INVITE_NOT_PENDING');
+    actor = 'user_owner';
+    await expect(
+      approveStaffLinkInvite._handler(ctx, {
+        ...approval,
+        expectedUserId: 'user_other',
+      })
+    ).rejects.toThrow('INVITE_NOT_PENDING');
+    await approveStaffLinkInvite._handler(ctx, approval);
+    expect(state.businessStaff.size).toBe(2);
+    expect(state.staffInvites.get(inviteId).status).toBe('accepted');
+    await expect(
+      approveStaffLinkInvite._handler(ctx, approval)
+    ).rejects.toThrow('INVITE_NOT_PENDING');
+    actor = 'user_worker';
+    expect(await requestStaffLinkInvite._handler(ctx, { inviteCode })).toEqual({
+      status: 'approved',
+      staffRole: 'staff',
+    });
+    expect(state.users.get(actor).activeBusinessId).toBe('business_1');
+    actor = 'user_other';
+    await expect(
+      requestStaffLinkInvite._handler(ctx, { inviteCode })
+    ).rejects.toThrow('INVITE_NOT_PENDING');
+  });
+
   test('legacy acceptance refuses a shareable link even when the account matches', async () => {
     const { ctx, state } = createMockCtx();
     const inviteCode = 'wa_' + 'A'.repeat(32);
     state.staffInvites = new Map([
-      ['invite_1', {
-        _id: 'invite_1',
-        businessId: 'business_1',
-        inviteCode,
-        invitedUserId: 'user_owner',
-        invitedEmail: 'staff-link@invalid.invalid',
-        linkInvite: true,
-        linkRequestedUserId: 'user_owner',
-        targetRole: 'staff',
-        status: 'pending',
-        expiresAt: Date.now() + 60000,
-      }],
+      [
+        'invite_1',
+        {
+          _id: 'invite_1',
+          businessId: 'business_1',
+          inviteCode,
+          invitedUserId: 'user_owner',
+          invitedEmail: 'staff-link@invalid.invalid',
+          linkInvite: true,
+          linkRequestedUserId: 'user_owner',
+          targetRole: 'staff',
+          status: 'pending',
+          expiresAt: Date.now() + 60000,
+        },
+      ],
     ]);
-    await expect(acceptStaffInvite._handler(ctx, { inviteCode })).rejects.toThrow(
-      'INVITE_LINK_APPROVAL_REQUIRED'
-    );
+    await expect(
+      acceptStaffInvite._handler(ctx, { inviteCode })
+    ).rejects.toThrow('INVITE_LINK_APPROVAL_REQUIRED');
     expect(state.businessStaff.size).toBe(1);
     expect(state.staffInvites.get('invite_1').status).toBe('pending');
   });
