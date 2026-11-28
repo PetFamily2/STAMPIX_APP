@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
 
 import {
   buildReinviteAfterRemovalPatch,
@@ -237,4 +238,22 @@ describe('strict v1 staff management rules', () => {
     expect(patch.roleChangedAt).toBe(20_000);
     expect(patch.roleChangedByUserId).toBe('u_target');
   });
+});
+
+
+test('shareable team links never grant access before approval', () => {
+  const source = readFileSync('convex/business.ts', 'utf8');
+  const request = source.slice(source.indexOf('export const requestStaffLinkInvite'), source.indexOf('export const approveStaffLinkInvite'));
+  const approval = source.slice(source.indexOf('export const approveStaffLinkInvite'), source.indexOf('export const acceptStaffInvite'));
+  const accept = source.slice(source.indexOf('export const acceptStaffInvite'), source.indexOf('async function completeStaffInvite'));
+  expect(request).toContain('await requireCurrentUser(ctx)');
+  expect(request).toContain('linkRequestedUserId: user._id');
+  expect(request).not.toContain("insert('businessStaff'");
+  expect(request).not.toContain('completeStaffInvite(');
+  expect(approval).toContain('requireActorCanManageTeamForBusiness');
+  expect(approval).toContain('requireActorCanInviteRole');
+  expect(approval).toContain('invite.linkRequestedUserId !== expectedUserId');
+  expect(approval).toContain('usage.usedSeats - 1');
+  expect(approval).toContain('completeStaffInvite');
+  expect(accept).toContain('INVITE_LINK_APPROVAL_REQUIRED');
 });

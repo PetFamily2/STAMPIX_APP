@@ -14,7 +14,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -61,6 +60,9 @@ type StaffRow = {
 
 type PendingInvite = {
   inviteId: Id<'staffInvites'>;
+  inviteCode: string;
+  linkInvite?: boolean;
+  linkRequestedUserId?: Id<'users'>;
   invitedEmail: string;
   invitedDisplayName: string | null;
   invitedResolvedEmail: string | null;
@@ -270,7 +272,8 @@ export function BusinessWebTeam() {
     queryArgs === 'skip' ? 'skip' : { ...queryArgs, limit: 30 }
   ) as HistoryRow[] | undefined;
 
-  const inviteStaff = useMutation(api.business.inviteBusinessStaff);
+  const createStaffLinkInvite = useMutation(api.business.createStaffLinkInvite);
+  const approveStaffLinkInvite = useMutation(api.business.approveStaffLinkInvite);
   const inviteStaffByScanToken = useMutation(
     api.business.inviteBusinessStaffByScanToken
   );
@@ -282,8 +285,8 @@ export function BusinessWebTeam() {
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteMode, setInviteMode] = useState<'choose' | 'qr' | 'email'>('choose');
+  const [inviteMode, setInviteMode] = useState<'choose' | 'qr'>('choose');
+  const [shareCode, setShareCode] = useState<string | null>(null);
   const [scannerResetKey, setScannerResetKey] = useState(0);
   const inviteInFlight = useRef(false);
   const [inviteRole, setInviteRole] = useState<InviteRole>('staff');
@@ -299,7 +302,7 @@ export function BusinessWebTeam() {
   } | null>(null);
 
   useBusinessWebUnsavedChanges(
-    isInviteOpen && (isInviting || inviteEmail.trim().length > 0 || inviteRole !== 'staff')
+    isInviteOpen && (isInviting || (!inviteSuccess && inviteRole !== 'staff'))
   );
 
   useEffect(() => {
@@ -346,42 +349,66 @@ export function BusinessWebTeam() {
     }
     setIsInviteOpen(false);
     setInviteMode('choose');
-    setInviteEmail('');
+    setShareCode(null);
     setInviteRole('staff');
     setInviteError('');
     setInviteSuccess('');
   };
 
-  const submitInvite = async () => {
+  const whatsappUrl = (code: string) => {
+    const link = new URL('/accept-invite', window.location.origin);
+    link.searchParams.set('inviteCode', code);
+    return `https://wa.me/?text=${encodeURIComponent(
+      `הוזמנת להצטרף לצוות שלנו ב־StampAix. ${link.toString()}`
+    )}`;
+  };
+
+  const shareExistingLink = (code: string) => {
+    window.open(whatsappUrl(code), '_blank', 'noopener,noreferrer');
+  };
+
+  const submitWhatsAppInvite = async () => {
     if (!activeBusinessId || !canManageTeam || inviteInFlight.current || seatLimitReached) {
       return;
     }
-    const email = inviteEmail.trim().toLowerCase();
-    if (!email) {
-      setInviteError('יש להזין כתובת אימייל.');
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setInviteError('כתובת האימייל אינה תקינה.');
-      return;
-    }
-    setInviteError('');
-    setInviteSuccess('');
     inviteInFlight.current = true;
     setIsInviting(true);
+    setInviteError('');
+    // Reserve a browser tab in the click gesture; a later click remains available
+    // if the browser blocks the popup.
+    const popup = window.open('about:blank', '_blank');
+    if (popup) popup.opener = null;
     try {
-      await inviteStaff({
+      const result = await createStaffLinkInvite({
         businessId: activeBusinessId,
-        email,
         role: actorRole === 'owner' ? inviteRole : 'staff',
       });
-      setInviteSuccess('ההזמנה נשלחה ונוספה להזמנות הממתינות.');
-      setInviteEmail('');
+      setShareCode(result.inviteCode);
+      setInviteSuccess('הקישור מוכן. לאחר ההזדהות יופיע אישור הצטרפות.');
+      if (popup && !popup.closed) popup.location.replace(whatsappUrl(result.inviteCode));
     } catch (error) {
+      popup?.close();
       setInviteError(mapTeamActionError(error));
     } finally {
       inviteInFlight.current = false;
       setIsInviting(false);
+    }
+  };
+
+  const approveLink = async (invite: PendingInvite) => {
+    if (!activeBusinessId || !invite.linkRequestedUserId || busyId) return;
+    setBusyId(String(invite.inviteId));
+    setPageError('');
+    try {
+      await approveStaffLinkInvite({
+        businessId: activeBusinessId,
+        inviteId: invite.inviteId,
+        expectedUserId: invite.linkRequestedUserId,
+      });
+    } catch (error) {
+      setPageError(mapTeamActionError(error));
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -690,10 +717,9 @@ export function BusinessWebTeam() {
             {pending?.map((invite) => {
               const canCancel =
                 actorRole === 'owner' || invite.targetRole === 'staff';
-              const identity =
-                invite.invitedDisplayName ||
-                invite.invitedResolvedEmail ||
-                invite.invitedEmail;
+              const identity = invite.linkInvite && !invite.linkRequestedUserId
+                ? 'הזמנה בוואטסאפ'
+                : invite.invitedDisplayName || 'הזמנת עובד';
               return (
                 <View key={String(invite.inviteId)} style={styles.inviteRow}>
                   <View style={styles.inviteIcon}>
@@ -710,9 +736,29 @@ export function BusinessWebTeam() {
                   </View>
                   <View style={[styles.badge, styles.badgeWarning]}>
                     <Text style={[styles.badgeText, styles.badgeTextWarning]}>
-                      ממתינה
+                      {invite.linkRequestedUserId ? 'ממתינה לאישור' : 'ממתינה'}
                     </Text>
                   </View>
+                  {canCancel && invite.linkInvite && invite.linkRequestedUserId ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`אישור הצטרפות של ${identity}`}
+                      disabled={busyId != null}
+                      onPress={() => void approveLink(invite)}
+                      style={styles.primaryButton}
+                    >
+                      <Text style={styles.primaryButtonText}>אישור הצטרפות</Text>
+                    </Pressable>
+                  ) : null}
+                  {canCancel && invite.linkInvite && !invite.linkRequestedUserId ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => shareExistingLink(invite.inviteCode)}
+                      style={styles.secondarySmallButton}
+                    >
+                      <Text style={styles.secondarySmallButtonText}>שיתוף</Text>
+                    </Pressable>
+                  ) : null}
                   {canCancel ? (
                     <Pressable
                       accessibilityLabel={`ביטול ההזמנה של ${identity}`}
@@ -831,24 +877,24 @@ export function BusinessWebTeam() {
             <>
               <Pressable
                 accessibilityRole="button"
-                disabled={seatLimitReached}
+                disabled={seatLimitReached || isInviting}
                 onPress={() => {
                   setInviteError('');
                   setInviteMode('qr');
                 }}
-                style={styles.primaryButton}
+                style={[styles.primaryButton, styles.inviteAction]}
               >
-                <Text style={styles.primaryButtonText}>סריקת QR של העובד</Text>
+                <Text style={[styles.primaryButtonText, styles.inviteActionLabel]}>סריקת QR של העובד</Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
-                onPress={() => {
-                  setInviteError('');
-                  setInviteMode('email');
-                }}
-                style={styles.secondaryButton}
+                disabled={seatLimitReached || isInviting}
+                onPress={() => void submitWhatsAppInvite()}
+                style={[styles.secondaryButton, styles.inviteAction, styles.whatsappButton]}
               >
-                <Text style={styles.secondaryButtonText}>הזמנה באימייל</Text>
+                <Text style={[styles.secondaryButtonText, styles.inviteActionLabel, styles.whatsappText]}>
+                  {isInviting ? 'מכינים קישור…' : 'הזמנה בוואטסאפ'}
+                </Text>
               </Pressable>
             </>
           ) : null}
@@ -864,37 +910,16 @@ export function BusinessWebTeam() {
               />
             </>
           ) : null}
-          {!inviteSuccess && inviteMode === 'email' ? (
-            <>
-          <View style={styles.formField}>
-            <Text style={styles.formLabel}>אימייל</Text>
-            <TextInput
-              accessibilityLabel="כתובת אימייל לעובד"
-              autoCapitalize="none"
-              autoComplete="email"
-              autoCorrect={false}
-              editable={!isInviting && !inviteSuccess}
-              keyboardType="email-address"
-              onChangeText={(value) => {
-                setInviteEmail(value);
-                setInviteError('');
-              }}
-              onSubmitEditing={() => void submitInvite()}
-              placeholder="name@example.com"
-              placeholderTextColor={TOKENS.colors.textMuted}
-              style={[styles.input, styles.ltrInput]}
-              value={inviteEmail}
-            />
-          </View>
-              <Pressable
-                accessibilityRole="button"
-                disabled={isInviting || seatLimitReached}
-                onPress={() => void submitInvite()}
-                style={styles.primaryButton}
-              >
-                <Text style={styles.primaryButtonText}>שליחת הזמנה</Text>
-              </Pressable>
-            </>
+          {shareCode ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => shareExistingLink(shareCode)}
+              style={[styles.secondaryButton, styles.inviteAction, styles.whatsappButton]}
+            >
+              <Text style={[styles.secondaryButtonText, styles.inviteActionLabel, styles.whatsappText]}>
+                פתיחת WhatsApp
+              </Text>
+            </Pressable>
           ) : null}
           {inviteError ? (
             <Text accessibilityLiveRegion="polite" style={styles.formError}>
@@ -917,7 +942,6 @@ export function BusinessWebTeam() {
                 } else {
                   setInviteMode('choose');
                   setInviteError('');
-                  setInviteEmail('');
                 }
               }}
               style={styles.secondaryButton}
@@ -1518,7 +1542,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     writingDirection: 'rtl',
   },
-  modalForm: { gap: TOKENS.space.lg },
+  modalForm: { gap: TOKENS.space.md },
+  inviteAction: { minHeight: 44, width: '100%', alignItems: 'flex-end', paddingHorizontal: TOKENS.space.lg },
+  inviteActionLabel: { textAlign: 'right', writingDirection: 'rtl', width: '100%' },
+  whatsappButton: { borderColor: '#168548' },
+  whatsappText: { color: '#168548' },
   formField: { gap: TOKENS.space.sm },
   formLabel: {
     ...TOKENS.typography.label,
@@ -1526,21 +1554,10 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  input: {
-    backgroundColor: TOKENS.colors.elevatedSurface,
-    borderColor: TOKENS.colors.borderStrong,
-    borderRadius: TOKENS.radii.sm,
-    borderWidth: 1,
-    color: TOKENS.colors.textPrimary,
-    fontSize: 13,
-    minHeight: 38,
-    paddingHorizontal: TOKENS.space.lg,
-    paddingVertical: TOKENS.space.md,
-  },
-  ltrInput: { ...ltrIslandText },
-  roleOptions: { flexDirection: flexDirection.row, gap: TOKENS.space.md },
+  roleOptions: { flexDirection: flexDirection.row, gap: TOKENS.space.sm },
   roleOption: {
     alignItems: 'center',
+    justifyContent: 'flex-start',
     borderColor: TOKENS.colors.border,
     borderRadius: TOKENS.radii.sm,
     borderWidth: 1,
@@ -1556,6 +1573,8 @@ const styles = StyleSheet.create({
   },
   roleOptionText: {
     ...TOKENS.typography.label,
+    textAlign: 'right',
+    writingDirection: 'rtl',
     color: TOKENS.colors.textSecondary,
   },
   roleOptionTextSelected: { color: TOKENS.colors.primary },
