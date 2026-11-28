@@ -1656,7 +1656,7 @@ export default function CampaignDraftEditorScreen() {
           className="flex-1"
           contentContainerStyle={{
             paddingHorizontal: isWeb ? 0 : 20,
-            paddingBottom: isWeb ? T.space.md : 220,
+            ...(isWeb ? { paddingBottom: T.space.md } : { paddingBottom: 220 }),
             width: '100%',
             maxWidth: 960,
             alignSelf: 'center',

@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActionButton } from '@/components/ui/ActionButton';
 import { BUSINESS_WEB_TOKENS as T } from '@/lib/design/businessWebTokens';
 import { webInputTypography } from '@/lib/design/webProductChrome';
-import { rtlBaseView } from '@/lib/rtl';
+import { flexDirection, rtlBaseView } from '@/lib/rtl';
 
 export function EditorSection({
   title,
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     ...rtlBaseView,
   },
   actionsCompact: {
-    flexDirection: 'row-reverse',
+    flexDirection: flexDirection.row,
     flexWrap: 'wrap',
     gap: T.space.xs,
   },
