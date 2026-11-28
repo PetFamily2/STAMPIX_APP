@@ -2610,6 +2610,8 @@ export default defineSchema({
 
   staffInvites: defineTable({
     businessId: v.id('businesses'),
+    linkInvite: v.optional(v.boolean()),
+    linkRequestedUserId: v.optional(v.id('users')),
     invitedEmail: v.string(),
     invitedUserId: v.optional(v.id('users')),
     invitedByUserId: v.id('users'),

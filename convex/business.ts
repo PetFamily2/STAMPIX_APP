@@ -4,6 +4,7 @@ import type { Doc, Id } from './_generated/dataModel';
 import {
   internalMutation,
   mutation,
+  type MutationCtx,
   type QueryCtx,
   query,
 } from './_generated/server';
@@ -29,6 +30,7 @@ import { assertExpectedUpdatedAt } from './lib/editConflicts';
 import {
   generateInviteCode,
   generateJoinCode,
+  generateOpaqueToken,
   generatePublicId,
 } from './lib/ids';
 import { markSmartManagerDirty } from './lib/smartManagerDirty';
@@ -2810,6 +2812,8 @@ const STAFF_ROLE_SORT_ORDER: Record<StaffRole, number> = {
 };
 
 type TeamPendingInviteView = {
+  linkInvite?: boolean;
+  linkRequestedUserId?: Id<'users'>;
   inviteId: Id<'staffInvites'>;
   businessId: Id<'businesses'>;
   invitedEmail: string;
@@ -3199,8 +3203,9 @@ export const listPendingStaffInvites = query({
     const populated = await Promise.all(
       visibleInvites.map(
         async (invite: any): Promise<TeamPendingInviteView> => {
-          const invitedUser = invite.invitedUserId
-            ? ((await ctx.db.get(invite.invitedUserId)) as Doc<'users'> | null)
+          const targetUserId = invite.linkRequestedUserId ?? invite.invitedUserId;
+          const invitedUser = targetUserId
+            ? ((await ctx.db.get(targetUserId)) as Doc<'users'> | null)
             : null;
           const inviter = (await ctx.db.get(
             invite.invitedByUserId
@@ -3208,12 +3213,15 @@ export const listPendingStaffInvites = query({
           return {
             inviteId: invite._id,
             businessId: invite.businessId,
-            invitedEmail: invite.invitedEmail,
+            ...(invite.linkInvite ? { linkInvite: true } : {}),
+            ...(invite.linkRequestedUserId ? { linkRequestedUserId: invite.linkRequestedUserId } : {}),
+            invitedEmail: invite.linkInvite ? '' : invite.invitedEmail,
             invitedUserId: invite.invitedUserId ?? null,
             invitedDisplayName: resolveUserDisplayName(invitedUser, 'משתמש'),
             invitedPhone: invitedUser?.phone ?? null,
-            invitedResolvedEmail:
-              invitedUser?.email ?? invite.invitedEmail ?? null,
+            invitedResolvedEmail: invite.linkInvite
+              ? null
+              : invitedUser?.email ?? invite.invitedEmail ?? null,
             invitedByUserId: invite.invitedByUserId,
             invitedByDisplayName: resolveUserDisplayName(inviter),
             targetRole: resolveInviteTargetRole(invite),
@@ -3938,6 +3946,157 @@ export const cancelStaffInvite = mutation({
   },
 });
 
+// Shareable links reserve a seat, but do not grant access. The claimed account
+// is kept separate from invitedUserId until an authorized manager approves.
+export const createStaffLinkInvite = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    role: v.union(v.literal('manager'), v.literal('staff')),
+  },
+  handler: async (ctx, { businessId, role }) => {
+    const { actor, staffRole } =
+      await requireActorCanManageTeamForBusiness(ctx, businessId);
+    await requireActiveBusiness(ctx, businessId);
+    await requireTeamFeatureEnabled(ctx, businessId);
+    requireActorCanInviteRole(staffRole, role);
+    const now = Date.now();
+    await requireAvailableTeamSeat(ctx, businessId, now);
+    const inviteCode = `wa_${generateOpaqueToken()}`;
+    const existing = await ctx.db
+      .query('staffInvites')
+      .withIndex('by_inviteCode', (q) => q.eq('inviteCode', inviteCode))
+      .first();
+    if (existing) throw new Error('FAILED_TO_GENERATE_INVITE_CODE');
+    const inviteId = await ctx.db.insert('staffInvites', {
+      businessId,
+      // A non-deliverable, nonempty address also fails closed on older servers.
+      invitedEmail: 'staff-link@invalid.invalid',
+      invitedByUserId: actor._id,
+      targetRole: role,
+      inviteCode,
+      linkInvite: true,
+      status: 'pending',
+      expiresAt: now + 24 * 60 * 60 * 1000,
+      createdAt: now,
+    });
+    await writeStaffEvent(ctx, {
+      businessId,
+      actorUserId: actor._id,
+      targetInviteId: inviteId,
+      eventType: 'invite_created',
+      toRole: role,
+      reasonCode: 'staff_link',
+      createdAt: now,
+    });
+    await markSmartManagerDirty(ctx, {
+      businessId,
+      domains: ['team'],
+      reasons: ['team_invite_created'],
+      now,
+    });
+    return { inviteId, inviteCode };
+  },
+});
+
+export const requestStaffLinkInvite = mutation({
+  args: { inviteCode: v.string() },
+  handler: async (ctx, { inviteCode }) => {
+    const user = await requireCurrentUser(ctx);
+    const now = Date.now();
+    if (!/^wa_[A-Za-z0-9_-]{32}$/.test(inviteCode)) {
+      throw new Error('INVITE_NOT_FOUND');
+    }
+    const invite = await ctx.db
+      .query('staffInvites')
+      .withIndex('by_inviteCode', (q) => q.eq('inviteCode', inviteCode))
+      .first();
+    if (!invite?.linkInvite) throw new Error('INVITE_NOT_FOUND');
+    await requireActiveBusiness(ctx, invite.businessId);
+    await requireTeamFeatureEnabled(ctx, invite.businessId);
+    if (invite.status === 'accepted' && invite.invitedUserId === user._id) {
+      const staff = await ctx.db
+        .query('businessStaff')
+        .withIndex('by_businessId_userId', (q) =>
+          q.eq('businessId', invite.businessId).eq('userId', user._id)
+        )
+        .first();
+      if (!staff || resolveStaffStatus(staff) !== 'active') {
+        throw new Error('INVITE_NOT_PENDING');
+      }
+      await ctx.db.patch(user._id, {
+        activeMode: 'business',
+        activeBusinessId: invite.businessId,
+        updatedAt: now,
+      });
+      return { status: 'approved' as const, staffRole: staff.staffRole };
+    }
+    if (invite.status !== 'pending' || invite.expiresAt <= now) {
+      throw new Error('INVITE_NOT_PENDING');
+    }
+    if (invite.invitedByUserId === user._id) throw new Error('CANNOT_INVITE_SELF');
+    if (invite.linkRequestedUserId && invite.linkRequestedUserId !== user._id) {
+      throw new Error('INVITE_NOT_PENDING');
+    }
+    const staff = await ctx.db
+      .query('businessStaff')
+      .withIndex('by_businessId_userId', (q) =>
+        q.eq('businessId', invite.businessId).eq('userId', user._id)
+      )
+      .first();
+    if (staff && (staff.staffRole === 'owner' || resolveStaffStatus(staff) !== 'removed')) {
+      throw new Error('ALREADY_STAFF');
+    }
+    if (invite.linkRequestedUserId !== user._id) {
+      const pending = await ctx.db
+        .query('staffInvites')
+        .withIndex('by_businessId_status', (q) =>
+          q.eq('businessId', invite.businessId).eq('status', 'pending')
+        )
+        .collect();
+      if (pending.some((row) => row._id !== invite._id && row.expiresAt > now &&
+        (row.linkRequestedUserId === user._id || row.invitedUserId === user._id ||
+          (!!user.email && row.invitedEmail === user.email.toLowerCase())))) {
+        throw new Error('INVITE_ALREADY_PENDING');
+      }
+      await ctx.db.patch(invite._id, { linkRequestedUserId: user._id });
+    }
+    return { status: 'requested' as const, staffRole: null };
+  },
+});
+
+export const approveStaffLinkInvite = mutation({
+  args: {
+    businessId: v.id('businesses'),
+    inviteId: v.id('staffInvites'),
+    expectedUserId: v.id('users'),
+  },
+  handler: async (ctx, { businessId, inviteId, expectedUserId }) => {
+    const { actor, staffRole } =
+      await requireActorCanManageTeamForBusiness(ctx, businessId);
+    await requireActiveBusiness(ctx, businessId);
+    await requireTeamFeatureEnabled(ctx, businessId);
+    const now = Date.now();
+    const invite = await ctx.db.get(inviteId);
+    if (!invite || invite.businessId !== businessId || !invite.linkInvite ||
+        invite.status !== 'pending' || invite.expiresAt <= now ||
+        invite.linkRequestedUserId !== expectedUserId) {
+      throw new Error('INVITE_NOT_PENDING');
+    }
+    requireActorCanInviteRole(staffRole, resolveInviteTargetRole(invite));
+    if (actor._id === expectedUserId) throw new Error('CANNOT_INVITE_SELF');
+    const user = await ctx.db.get(expectedUserId);
+    if (!user) throw new Error('TARGET_USER_NOT_FOUND');
+    // This pending invitation already reserves one seat. Re-check current
+    // entitlement without reserving an additional one on conversion.
+    const usage = await getSeatUsageForBusiness(ctx, businessId, now);
+    await assertEntitlement(ctx, businessId, {
+      limitKey: 'maxTeamSeats',
+      currentValue: Math.max(0, usage.usedSeats - 1),
+    });
+    return completeStaffInvite(ctx, invite, user, actor._id, now, false);
+  },
+});
+
 export const acceptStaffInvite = mutation({
   args: {
     inviteCode: v.string(),
@@ -3955,6 +4114,9 @@ export const acceptStaffInvite = mutation({
 
     if (!invite) {
       throw new Error('INVITE_NOT_FOUND');
+    }
+    if (invite.linkInvite || invite.inviteCode.startsWith('wa_')) {
+      throw new Error('INVITE_LINK_APPROVAL_REQUIRED');
     }
     await requireActiveBusiness(ctx, invite.businessId);
     if (invite.status !== 'pending') {
@@ -3981,113 +4143,124 @@ export const acceptStaffInvite = mutation({
 
     await requireTeamFeatureEnabled(ctx, invite.businessId);
 
-    const existingMembership = await ctx.db
-      .query('businessStaff')
-      .withIndex('by_businessId_userId', (q: any) =>
-        q.eq('businessId', invite.businessId).eq('userId', user._id)
-      )
-      .first();
+    return completeStaffInvite(ctx, invite, user, user._id, now, true);
+  },
+});
 
-    let staffId: Id<'businessStaff'>;
-    const acceptedRole: InviteTargetRole = resolveInviteTargetRole(invite);
-    let reusedRemovedMembership = false;
-    let previousRole: StaffRole | undefined;
+async function completeStaffInvite(
+  ctx: MutationCtx,
+  invite: Doc<'staffInvites'>,
+  user: Doc<'users'>,
+  actorUserId: Id<'users'>,
+  now: number,
+  switchMode: boolean
+) {
+  const existingMembership = await ctx.db
+    .query('businessStaff')
+    .withIndex('by_businessId_userId', (q: any) =>
+      q.eq('businessId', invite.businessId).eq('userId', user._id)
+    )
+    .first();
 
-    if (existingMembership) {
-      const membershipStatus = resolveStaffStatus(existingMembership);
-      previousRole = existingMembership.staffRole as StaffRole;
-      if (membershipStatus === 'active') {
-        throw new Error('ALREADY_STAFF');
-      }
-      if (membershipStatus === 'suspended') {
-        throw new Error('SUSPENDED_MEMBER_CANNOT_ACCEPT_INVITE');
-      }
-      if (existingMembership.staffRole === 'owner') {
-        throw new Error('OWNER_CANNOT_BE_INVITED');
-      }
+  let staffId: Id<'businessStaff'>;
+  const acceptedRole: InviteTargetRole = resolveInviteTargetRole(invite);
+  let reusedRemovedMembership = false;
+  let previousRole: StaffRole | undefined;
 
-      const patchData = buildReinviteAfterRemovalPatch({
-        existingRole: existingMembership.staffRole,
-        acceptedRole,
-        actorUserId: user._id,
-        now,
-      });
-
-      await ctx.db.patch(existingMembership._id, patchData);
-      staffId = existingMembership._id;
-      reusedRemovedMembership = true;
-    } else {
-      staffId = await ctx.db.insert('businessStaff', {
-        businessId: invite.businessId,
-        userId: user._id,
-        staffRole: acceptedRole,
-        status: 'active',
-        isActive: true,
-        joinedAt: now,
-        statusChangedAt: now,
-        statusChangedByUserId: user._id,
-        createdAt: now,
-        updatedAt: now,
-      });
+  if (existingMembership) {
+    const membershipStatus = resolveStaffStatus(existingMembership);
+    previousRole = existingMembership.staffRole as StaffRole;
+    if (membershipStatus === 'active') {
+      throw new Error('ALREADY_STAFF');
+    }
+    if (membershipStatus === 'suspended') {
+      throw new Error('SUSPENDED_MEMBER_CANNOT_ACCEPT_INVITE');
+    }
+    if (existingMembership.staffRole === 'owner') {
+      throw new Error('OWNER_CANNOT_BE_INVITED');
     }
 
-    await ctx.db.patch(invite._id, {
-      status: 'accepted',
-      invitedUserId: user._id,
-      acceptedAt: now,
-      acceptedByUserId: user._id,
-    });
-
-    await writeStaffEvent(ctx, {
-      businessId: invite.businessId,
-      actorUserId: user._id,
-      targetUserId: user._id,
-      targetInviteId: invite._id,
-      eventType: 'invite_accepted',
-      toRole: acceptedRole,
-      toStatus: 'active',
-      createdAt: now,
-    });
-
-    if (reusedRemovedMembership) {
-      await writeStaffEvent(ctx, {
-        businessId: invite.businessId,
-        actorUserId: user._id,
-        targetUserId: user._id,
-        targetInviteId: invite._id,
-        eventType: 'reinvited_after_removal',
-        fromRole: previousRole,
-        toRole: acceptedRole,
-        fromStatus: 'removed',
-        toStatus: 'active',
-        createdAt: now,
-      });
-    }
-
-    const currentUser = await ctx.db.get(user._id);
-    if (currentUser) {
-      await ctx.db.patch(user._id, {
-        activeMode: 'business',
-        activeBusinessId: invite.businessId,
-        updatedAt: now,
-      });
-    }
-
-    await markSmartManagerDirty(ctx, {
-      businessId: invite.businessId,
-      domains: ['team'],
-      reasons: ['team_invite_accepted'],
+    const patchData = buildReinviteAfterRemovalPatch({
+      existingRole: existingMembership.staffRole,
+      acceptedRole,
+      actorUserId,
       now,
     });
 
-    return {
-      staffId,
+    await ctx.db.patch(existingMembership._id, patchData);
+    staffId = existingMembership._id;
+    reusedRemovedMembership = true;
+  } else {
+    staffId = await ctx.db.insert('businessStaff', {
       businessId: invite.businessId,
+      userId: user._id,
       staffRole: acceptedRole,
-      reusedRemovedMembership,
-    };
-  },
-});
+      status: 'active',
+      isActive: true,
+      joinedAt: now,
+      statusChangedAt: now,
+      statusChangedByUserId: actorUserId,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  await ctx.db.patch(invite._id, {
+    status: 'accepted',
+    invitedUserId: user._id,
+    acceptedAt: now,
+    acceptedByUserId: user._id,
+  });
+
+  await writeStaffEvent(ctx, {
+    businessId: invite.businessId,
+    actorUserId,
+    targetUserId: user._id,
+    targetInviteId: invite._id,
+    eventType: 'invite_accepted',
+    toRole: acceptedRole,
+    toStatus: 'active',
+    createdAt: now,
+  });
+
+  if (reusedRemovedMembership) {
+    await writeStaffEvent(ctx, {
+      businessId: invite.businessId,
+      actorUserId,
+      targetUserId: user._id,
+      targetInviteId: invite._id,
+      eventType: 'reinvited_after_removal',
+      fromRole: previousRole,
+      toRole: acceptedRole,
+      fromStatus: 'removed',
+      toStatus: 'active',
+      createdAt: now,
+    });
+  }
+
+  const currentUser = await ctx.db.get(user._id);
+  if (switchMode && currentUser) {
+    await ctx.db.patch(user._id, {
+      activeMode: 'business',
+      activeBusinessId: invite.businessId,
+      updatedAt: now,
+    });
+  }
+
+  await markSmartManagerDirty(ctx, {
+    businessId: invite.businessId,
+    domains: ['team'],
+    reasons: ['team_invite_accepted'],
+    now,
+  });
+
+  return {
+    staffId,
+    businessId: invite.businessId,
+    staffRole: acceptedRole,
+    reusedRemovedMembership,
+  };
+}
 
 export const updateBusinessStaffRole = mutation({
   args: {
