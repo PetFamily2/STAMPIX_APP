@@ -6,6 +6,7 @@ import {
   type StyleProp,
   StyleSheet,
   Text,
+  type TextStyle,
   View,
   type ViewStyle,
 } from 'react-native';
@@ -29,6 +30,7 @@ type ActionButtonProps = {
   fullWidth?: boolean;
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
+  labelStyle?: StyleProp<TextStyle>;
   testID?: string;
 };
 
@@ -53,6 +55,7 @@ export function ActionButton({
   fullWidth = false,
   accessibilityLabel,
   style,
+  labelStyle,
   testID,
 }: ActionButtonProps) {
   const isDisabled = disabled || loading;
@@ -104,6 +107,7 @@ export function ActionButton({
               styles.label,
               styles[`${variant}Label`],
               muted ? styles[`${variant}LabelDisabled`] : null,
+              labelStyle,
             ]}
           >
             {label}

@@ -77,7 +77,7 @@ export function BusinessWebAnalytics({
   return (
     <View style={styles.page}>
       <View style={styles.header}>
-        <Text style={styles.pageTitle}>ניתוחים</Text>
+        <Text style={styles.sectionTitle}>ניתוח פעילות</Text>
         <Text style={styles.pageSubtitle}>
           30 הימים האחרונים מול התקופה הקודמת.
         </Text>
@@ -123,7 +123,7 @@ export function BusinessWebAnalytics({
 }
 
 const styles = StyleSheet.create({
-  page: { width: '100%', maxWidth: 980, alignSelf: 'center', gap: 16 },
+  page: { width: '100%', maxWidth: 980, alignSelf: 'center', gap: 8 },
   header: { gap: 4 },
   pageTitle: {
     ...TOKENS.typography.pageTitle,
@@ -144,10 +144,10 @@ const styles = StyleSheet.create({
   },
   kpiCard: {
     flexGrow: 1,
-    flexBasis: 136,
+    flexBasis: 120,
     minWidth: 0,
-    padding: TOKENS.space.lg,
-    gap: TOKENS.space.xs,
+    padding: TOKENS.space.sm,
+    gap: 2,
     backgroundColor: TOKENS.colors.elevatedSurface,
     borderRadius: TOKENS.radii.md,
     borderWidth: 1,

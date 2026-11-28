@@ -4,19 +4,19 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  Clock3,
+  MessageCircle,
   MoreHorizontal,
+  QrCode,
   ShieldCheck,
   UserPlus,
-  Users,
-  UserX,
 } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
-  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -25,6 +25,7 @@ import {
   BusinessWebDialog,
 } from '@/components/business-web/BusinessWebDialog';
 import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
+import QrScanner from '@/components/QrScanner';
 import { AppText as Text } from '@/components/ui/AppText';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -62,6 +63,10 @@ type StaffRow = {
 
 type PendingInvite = {
   inviteId: Id<'staffInvites'>;
+  inviteCode: string;
+  linkInvite?: boolean;
+  linkRequestedUserId?: Id<'users'>;
+  invitedPhone?: string | null;
   invitedEmail: string;
   invitedDisplayName: string | null;
   invitedResolvedEmail: string | null;
@@ -235,31 +240,6 @@ function StatusBadge({ status }: { status: StaffStatus }) {
   );
 }
 
-function SummaryCard({
-  icon: Icon,
-  label,
-  value,
-  detail,
-}: {
-  icon: typeof Users;
-  label: string;
-  value: string;
-  detail?: string;
-}) {
-  return (
-    <View style={styles.summaryCard}>
-      <View style={styles.summaryIcon}>
-        <Icon color={TOKENS.colors.primary} size={20} />
-      </View>
-      <View style={styles.summaryCopy}>
-        <Text style={styles.summaryLabel}>{label}</Text>
-        <Text style={styles.summaryValue}>{value}</Text>
-        {detail ? <Text style={styles.summaryDetail}>{detail}</Text> : null}
-      </View>
-    </View>
-  );
-}
-
 export function BusinessWebTeam() {
   const { width } = useWindowDimensions();
   const { activeBusiness, activeBusinessId } = useActiveBusiness();
@@ -296,7 +276,13 @@ export function BusinessWebTeam() {
     queryArgs === 'skip' ? 'skip' : { ...queryArgs, limit: 30 }
   ) as HistoryRow[] | undefined;
 
-  const inviteStaff = useMutation(api.business.inviteBusinessStaff);
+  const createStaffLinkInvite = useMutation(api.business.createStaffLinkInvite);
+  const approveStaffLinkInvite = useMutation(
+    api.business.approveStaffLinkInvite
+  );
+  const inviteStaffByScanToken = useMutation(
+    api.business.inviteBusinessStaffByScanToken
+  );
   const cancelInvite = useMutation(api.business.cancelStaffInvite);
   const updateRole = useMutation(api.business.updateBusinessStaffRole);
   const suspendStaff = useMutation(api.business.suspendBusinessStaff);
@@ -305,7 +291,10 @@ export function BusinessWebTeam() {
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteMode, setInviteMode] = useState<'choose' | 'qr'>('choose');
+  const [shareCode, setShareCode] = useState<string | null>(null);
+  const [scannerResetKey, setScannerResetKey] = useState(0);
+  const inviteInFlight = useRef(false);
   const [inviteRole, setInviteRole] = useState<InviteRole>('staff');
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
@@ -319,7 +308,7 @@ export function BusinessWebTeam() {
   } | null>(null);
 
   useBusinessWebUnsavedChanges(
-    isInviteOpen && (inviteEmail.trim().length > 0 || inviteRole !== 'staff')
+    isInviteOpen && (isInviting || (!inviteSuccess && inviteRole !== 'staff'))
   );
 
   useEffect(() => {
@@ -365,39 +354,117 @@ export function BusinessWebTeam() {
       return;
     }
     setIsInviteOpen(false);
-    setInviteEmail('');
+    setInviteMode('choose');
+    setShareCode(null);
     setInviteRole('staff');
     setInviteError('');
     setInviteSuccess('');
   };
 
-  const submitInvite = async () => {
-    if (!activeBusinessId || isInviting || seatLimitReached) {
+  const whatsappUrl = (code: string) => {
+    const link = new URL('/accept-invite', window.location.origin);
+    link.searchParams.set('inviteCode', code);
+    return `https://wa.me/?text=${encodeURIComponent(
+      `הוזמנת להצטרף לצוות שלנו ב־StampAix. ${link.toString()}`
+    )}`;
+  };
+
+  const shareExistingLink = (code: string) => {
+    window.open(whatsappUrl(code), '_blank', 'noopener,noreferrer');
+  };
+
+  const submitWhatsAppInvite = async () => {
+    if (
+      !activeBusinessId ||
+      !canManageTeam ||
+      inviteInFlight.current ||
+      seatLimitReached
+    ) {
       return;
     }
-    const email = inviteEmail.trim().toLowerCase();
-    if (!email) {
-      setInviteError('יש להזין כתובת אימייל.');
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setInviteError('כתובת האימייל אינה תקינה.');
-      return;
-    }
-    setInviteError('');
-    setInviteSuccess('');
+    inviteInFlight.current = true;
     setIsInviting(true);
+    setInviteError('');
+    // Reserve a browser tab in the click gesture; a later click remains available
+    // if the browser blocks the popup.
+    const popup = window.open('about:blank', '_blank');
+    if (popup) popup.opener = null;
     try {
-      await inviteStaff({
+      const result = await createStaffLinkInvite({
         businessId: activeBusinessId,
-        email,
         role: actorRole === 'owner' ? inviteRole : 'staff',
       });
-      setInviteSuccess('ההזמנה נשלחה ונוספה להזמנות הממתינות.');
-      setInviteEmail('');
+      setShareCode(result.inviteCode);
+      setInviteSuccess('הקישור מוכן. לאחר ההזדהות יופיע אישור הצטרפות.');
+      if (popup && !popup.closed) {
+        try {
+          popup.location.replace(whatsappUrl(result.inviteCode));
+        } catch {
+          popup.close(); // The existing invitation can still be shared manually.
+        }
+      }
     } catch (error) {
+      popup?.close();
       setInviteError(mapTeamActionError(error));
     } finally {
+      inviteInFlight.current = false;
+      setIsInviting(false);
+    }
+  };
+
+  const approveLink = async (invite: PendingInvite) => {
+    if (!activeBusinessId || !invite.linkRequestedUserId || busyId) return;
+    setBusyId(String(invite.inviteId));
+    setPageError('');
+    try {
+      await approveStaffLinkInvite({
+        businessId: activeBusinessId,
+        inviteId: invite.inviteId,
+        expectedUserId: invite.linkRequestedUserId,
+      });
+    } catch (error) {
+      setPageError(mapTeamActionError(error));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const submitScanInvite = async (raw: string) => {
+    if (
+      !activeBusinessId ||
+      !canManageTeam ||
+      !isInviteOpen ||
+      inviteMode !== 'qr' ||
+      inviteSuccess ||
+      inviteInFlight.current ||
+      seatLimitReached
+    ) {
+      return;
+    }
+    const scanToken = raw.trim();
+    if (!scanToken) {
+      setInviteError('קוד לא תקין. נסו לסרוק שוב.');
+      setScannerResetKey((current) => current + 1);
+      return;
+    }
+    inviteInFlight.current = true;
+    setIsInviting(true);
+    setInviteError('');
+    try {
+      const result = await inviteStaffByScanToken({
+        businessId: activeBusinessId,
+        scanToken,
+        role: actorRole === 'owner' ? inviteRole : 'staff',
+      });
+      setInviteSuccess(
+        `ההזמנה נשלחה ל${result.invitedUser.name}. נדרש אישור העובד.`
+      );
+      setInviteMode('choose');
+    } catch (error) {
+      setInviteError(mapTeamActionError(error));
+      setScannerResetKey((current) => current + 1);
+    } finally {
+      inviteInFlight.current = false;
       setIsInviting(false);
     }
   };
@@ -466,7 +533,7 @@ export function BusinessWebTeam() {
       return member.staffRole === 'owner' ? (
         <View style={styles.ownerProtection}>
           <ShieldCheck color={TOKENS.colors.primary} size={16} />
-          <Text style={styles.ownerProtectionText}>חשבון מוגן</Text>
+          <Text style={styles.ownerProtectionText}>מוגן</Text>
         </View>
       ) : null;
     }
@@ -572,7 +639,6 @@ export function BusinessWebTeam() {
       <View style={styles.pageHeader}>
         <View style={styles.pageHeaderCopy}>
           <Text style={styles.pageTitle}>צוות</Text>
-          <Text style={styles.pageSubtitle}>עובדים, תפקידים והרשאות.</Text>
         </View>
         {!seatLimitReached ? (
           <Pressable
@@ -605,52 +671,16 @@ export function BusinessWebTeam() {
         </View>
       ) : null}
 
-      <View style={styles.summaryGrid}>
-        <SummaryCard
-          icon={Users}
-          label="אנשי צוות פעילים"
-          value={String(summary?.activeStaffCount ?? 0)}
-        />
-        <SummaryCard
-          icon={Clock3}
-          label="הזמנות ממתינות"
-          value={String(summary?.pendingInvitesCount ?? 0)}
-        />
-        <SummaryCard
-          icon={UserX}
-          label="מושעים"
-          value={String(summary?.suspendedCount ?? 0)}
-        />
-        <SummaryCard
-          detail={
-            maxSeats == null
-              ? undefined
-              : `${summary?.usedSeats ?? 0} מתוך ${maxSeats} מקומות בשימוש`
-          }
-          icon={ShieldCheck}
-          label="מושבי צוות"
-          value={
-            maxSeats == null
-              ? 'ללא הגבלה'
-              : `${summary?.usedSeats ?? 0}/${maxSeats}`
-          }
-        />
+      <View style={styles.seatSummary}>
+        <Text style={styles.sectionTitle}>מקומות בצוות</Text>
+        <Text style={styles.summaryValue}>
+          {maxSeats == null
+            ? 'ללא הגבלה'
+            : `${summary?.usedSeats ?? 0} מתוך ${maxSeats} בשימוש`}
+        </Text>
       </View>
 
-      <Section
-        count={visibleStaff.length}
-        description="חברי הצוות הפעילים והמושעים, כולל הרשאה ופרטי קשר."
-        title="אנשי צוות"
-      >
-        {(summary?.activeStaffCount ?? 0) === 0 &&
-        (pending?.length ?? 0) === 0 ? (
-          <View style={styles.ownerOnlyNotice}>
-            <Text style={styles.ownerOnlyTitle}>הצוות עדיין כולל רק בעלים</Text>
-            <Text style={styles.ownerOnlyText}>
-              אפשר להזמין עובד ראשון כאשר יש מקום פנוי במסלול.
-            </Text>
-          </View>
-        ) : null}
+      <Section count={visibleStaff.length} title="אנשי צוות">
         {visibleStaff.length === 0 ? (
           <EmptyState text="אין עדיין אנשי צוות נוספים בעסק." />
         ) : showTable ? (
@@ -661,7 +691,6 @@ export function BusinessWebTeam() {
               </Text>
               <Text style={styles.tableHeading}>תפקיד</Text>
               <Text style={styles.tableHeading}>סטטוס</Text>
-              <Text style={styles.tableHeading}>הצטרפות</Text>
               <Text style={styles.tableHeading}>פעולות</Text>
             </View>
             {visibleStaff.map((member) => (
@@ -673,9 +702,6 @@ export function BusinessWebTeam() {
                 <View style={styles.tableCellWrap}>
                   <StatusBadge status={member.status} />
                 </View>
-                <Text style={[styles.tableCell, styles.ltrText]}>
-                  {formatDate(member.joinedAt)}
-                </Text>
                 <View style={styles.tableCellWrap}>
                   {renderActions(member)}
                 </View>
@@ -697,9 +723,6 @@ export function BusinessWebTeam() {
                     </Text>
                   </View>
                   <StatusBadge status={member.status} />
-                  <Text style={styles.memberDate}>
-                    הצטרפות: {formatDate(member.joinedAt)}
-                  </Text>
                 </View>
               </View>
             ))}
@@ -707,22 +730,19 @@ export function BusinessWebTeam() {
         )}
       </Section>
 
-      <Section
-        count={pending?.length ?? 0}
-        description="הזמנות פעילות נשמרות למשך שבעה ימים."
-        title="הזמנות ממתינות"
-      >
-        {(pending?.length ?? 0) === 0 ? (
-          <EmptyState text="אין כרגע הזמנות ממתינות." />
-        ) : (
+      {(pending?.length ?? 0) > 0 ? (
+        <Section count={pending?.length ?? 0} title="הזמנות ממתינות">
           <View style={styles.inviteList}>
             {pending?.map((invite) => {
               const canCancel =
                 actorRole === 'owner' || invite.targetRole === 'staff';
               const identity =
-                invite.invitedDisplayName ||
-                invite.invitedResolvedEmail ||
-                invite.invitedEmail;
+                invite.linkInvite && !invite.linkRequestedUserId
+                  ? 'הזמנה בוואטסאפ'
+                  : invite.invitedDisplayName &&
+                      !invite.invitedDisplayName.includes('@')
+                    ? invite.invitedDisplayName
+                    : 'הזמנת עובד';
               return (
                 <View key={String(invite.inviteId)} style={styles.inviteRow}>
                   <View style={styles.inviteIcon}>
@@ -730,6 +750,11 @@ export function BusinessWebTeam() {
                   </View>
                   <View style={styles.inviteCopy}>
                     <Text style={styles.inviteName}>{identity}</Text>
+                    {invite.linkRequestedUserId && invite.invitedPhone ? (
+                      <Text style={styles.inviteMeta}>
+                        {invite.invitedPhone}
+                      </Text>
+                    ) : null}
                     <Text style={styles.inviteMeta}>
                       {ROLE_LABEL[invite.targetRole]} · בתוקף עד{' '}
                       <Text style={styles.ltrText}>
@@ -739,9 +764,35 @@ export function BusinessWebTeam() {
                   </View>
                   <View style={[styles.badge, styles.badgeWarning]}>
                     <Text style={[styles.badgeText, styles.badgeTextWarning]}>
-                      ממתינה
+                      {invite.linkRequestedUserId ? 'ממתינה לאישור' : 'ממתינה'}
                     </Text>
                   </View>
+                  {canCancel &&
+                  invite.linkInvite &&
+                  invite.linkRequestedUserId ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`אישור הצטרפות של ${identity}`}
+                      disabled={busyId != null}
+                      onPress={() => void approveLink(invite)}
+                      style={styles.primaryButton}
+                    >
+                      <Text style={styles.primaryButtonText}>
+                        אישור הצטרפות
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                  {canCancel &&
+                  invite.linkInvite &&
+                  !invite.linkRequestedUserId ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => shareExistingLink(invite.inviteCode)}
+                      style={styles.secondarySmallButton}
+                    >
+                      <Text style={styles.secondarySmallButtonText}>שיתוף</Text>
+                    </Pressable>
+                  ) : null}
                   {canCancel ? (
                     <Pressable
                       accessibilityLabel={`ביטול ההזמנה של ${identity}`}
@@ -773,8 +824,10 @@ export function BusinessWebTeam() {
               );
             })}
           </View>
-        )}
-      </Section>
+        </Section>
+      ) : (
+        <Text style={styles.emptyText}>אין הזמנות ממתינות</Text>
+      )}
 
       <View style={styles.sectionCard}>
         <Pressable
@@ -789,9 +842,6 @@ export function BusinessWebTeam() {
         >
           <View style={styles.sectionHeadingCopy}>
             <Text style={styles.sectionTitle}>היסטוריית צוות</Text>
-            <Text style={styles.sectionDescription}>
-              פעילות הרשאות והזמנות אחרונה
-            </Text>
           </View>
           {isHistoryOpen ? (
             <ChevronUp color={TOKENS.colors.textMuted} size={20} />
@@ -827,101 +877,157 @@ export function BusinessWebTeam() {
         ) : null}
       </View>
 
-      <BusinessWebDialog
-        description="הזינו כתובת אימייל ובחרו את התפקיד המתאים."
-        dismissDisabled={isInviting}
-        onDismiss={closeInvite}
-        title="הזמנת עובד"
+      <Modal
+        transparent={true}
         visible={isInviteOpen}
+        onRequestClose={closeInvite}
       >
-        <View style={styles.modalForm}>
-          <View style={styles.formField}>
-            <Text style={styles.formLabel}>אימייל</Text>
-            <TextInput
-              accessibilityLabel="כתובת אימייל לעובד"
-              autoCapitalize="none"
-              autoComplete="email"
-              autoCorrect={false}
-              editable={!isInviting && !inviteSuccess}
-              keyboardType="email-address"
-              onChangeText={(value) => {
-                setInviteEmail(value);
-                setInviteError('');
-              }}
-              onSubmitEditing={() => void submitInvite()}
-              placeholder="name@example.com"
-              placeholderTextColor={TOKENS.colors.textMuted}
-              style={[styles.input, styles.ltrInput]}
-              value={inviteEmail}
-            />
-          </View>
-          <View style={styles.formField}>
-            <Text style={styles.formLabel}>תפקיד</Text>
-            <View style={styles.roleOptions}>
-              <RoleOption
-                disabled={isInviting || Boolean(inviteSuccess)}
-                label="עובד"
-                onPress={() => setInviteRole('staff')}
-                selected={inviteRole === 'staff'}
-              />
-              {actorRole === 'owner' ? (
-                <RoleOption
-                  disabled={isInviting || Boolean(inviteSuccess)}
-                  label="מנהל"
-                  onPress={() => setInviteRole('manager')}
-                  selected={inviteRole === 'manager'}
-                />
-              ) : null}
-            </View>
-          </View>
-          {inviteError ? (
-            <Text accessibilityLiveRegion="polite" style={styles.formError}>
-              {inviteError}
-            </Text>
-          ) : null}
-          {inviteSuccess ? (
-            <View accessibilityLiveRegion="polite" style={styles.successBox}>
-              <Check color={TOKENS.colors.success} size={20} />
-              <Text style={styles.successText}>{inviteSuccess}</Text>
-            </View>
-          ) : null}
-          <View style={styles.modalActions}>
-            <Pressable
-              accessibilityRole="button"
-              disabled={isInviting}
-              onPress={closeInvite}
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                pressed ? styles.pressed : null,
-              ]}
+        <View style={styles.inviteModalViewport}>
+          <BusinessWebDialog
+            dismissDisabled={isInviting}
+            maxWidth={520}
+            onDismiss={closeInvite}
+            title="הזמנת עובד"
+            visible={isInviteOpen}
+          >
+            <ScrollView
+              style={styles.inviteScroll}
+              contentContainerStyle={styles.modalForm}
+              keyboardShouldPersistTaps="handled"
             >
-              <Text style={styles.secondaryButtonText}>
-                {inviteSuccess ? 'סיום' : 'ביטול'}
-              </Text>
-            </Pressable>
-            {!inviteSuccess ? (
-              <Pressable
-                accessibilityLabel="שליחת הזמנה"
-                accessibilityRole="button"
-                accessibilityState={{ busy: isInviting, disabled: isInviting }}
-                disabled={isInviting}
-                onPress={() => void submitInvite()}
-                style={({ pressed }) => [
-                  styles.primaryButton,
-                  pressed ? styles.pressed : null,
-                ]}
-              >
-                {isInviting ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <UserPlus color="#FFFFFF" size={18} />
-                )}
-                <Text style={styles.primaryButtonText}>שליחת הזמנה</Text>
-              </Pressable>
-            ) : null}
-          </View>
+              <View style={styles.formField}>
+                <Text style={styles.formLabel}>תפקיד</Text>
+                <View style={styles.roleOptions}>
+                  <RoleOption
+                    disabled={
+                      isInviting || Boolean(inviteSuccess) || inviteMode === 'qr'
+                    }
+                    label="עובד"
+                    onPress={() => setInviteRole('staff')}
+                    selected={inviteRole === 'staff'}
+                  />
+                  {actorRole === 'owner' ? (
+                    <RoleOption
+                      disabled={
+                        isInviting || Boolean(inviteSuccess) || inviteMode === 'qr'
+                      }
+                      label="מנהל"
+                      onPress={() => setInviteRole('manager')}
+                      selected={inviteRole === 'manager'}
+                    />
+                  ) : null}
+                </View>
+              </View>
+              {!inviteSuccess && inviteMode === 'choose' ? (
+                <>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={seatLimitReached || isInviting}
+                    onPress={() => {
+                      setInviteError('');
+                      setInviteMode('qr');
+                    }}
+                    style={[styles.primaryButton, styles.inviteAction]}
+                  >
+                    <QrCode color="#FFFFFF" size={20} />
+                    <Text
+                      style={[styles.primaryButtonText, styles.inviteActionLabel]}
+                    >
+                      סריקת QR של העובד
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={seatLimitReached || isInviting}
+                    onPress={() => void submitWhatsAppInvite()}
+                    style={[
+                      styles.secondaryButton,
+                      styles.inviteAction,
+                      styles.whatsappButton,
+                    ]}
+                  >
+                    <MessageCircle color="#168548" size={20} />
+                    <Text
+                      style={[
+                        styles.secondaryButtonText,
+                        styles.inviteActionLabel,
+                        styles.whatsappText,
+                      ]}
+                    >
+                      {isInviting ? 'מכינים קישור…' : 'הזמנה בוואטסאפ'}
+                    </Text>
+                  </Pressable>
+                </>
+              ) : null}
+              {!inviteSuccess && inviteMode === 'qr' ? (
+                <>
+                  <Text style={styles.inviteMeta}>סרקו את ה־QR האישי של העובד</Text>
+                  <QrScanner
+                    key={scannerResetKey}
+                    resetKey={scannerResetKey}
+                    isBusy={isInviting}
+                    onScan={submitScanInvite}
+                    cameraMinHeight={160}
+                  />
+                </>
+              ) : null}
+              {shareCode ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => shareExistingLink(shareCode)}
+                  style={[
+                    styles.secondaryButton,
+                    styles.inviteAction,
+                    styles.whatsappButton,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.secondaryButtonText,
+                      styles.inviteActionLabel,
+                      styles.whatsappText,
+                    ]}
+                  >
+                    פתיחת WhatsApp
+                  </Text>
+                </Pressable>
+              ) : null}
+              {inviteError ? (
+                <Text accessibilityLiveRegion="polite" style={styles.formError}>
+                  {inviteError}
+                </Text>
+              ) : null}
+              {inviteSuccess ? (
+                <View accessibilityLiveRegion="polite" style={styles.successBox}>
+                  <Check color={TOKENS.colors.success} size={20} />
+                  <Text style={styles.successText}>{inviteSuccess}</Text>
+                </View>
+              ) : null}
+              {inviteSuccess || inviteMode === 'qr' ? (
+              <View style={styles.modalActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={isInviting}
+                  onPress={() => {
+                    if (inviteSuccess || inviteMode === 'choose') {
+                      closeInvite();
+                    } else {
+                      setInviteMode('choose');
+                      setInviteError('');
+                    }
+                  }}
+                  style={styles.secondaryButton}
+                >
+                  <Text style={styles.secondaryButtonText}>
+                    {inviteSuccess ? 'סיום' : 'חזרה'}
+                  </Text>
+                </Pressable>
+              </View>
+              ) : null}
+            </ScrollView>
+          </BusinessWebDialog>
         </View>
-      </BusinessWebDialog>
+      </Modal>
 
       <BusinessWebConfirmDialog
         busy={
@@ -989,7 +1095,7 @@ function Identity({ member, style }: { member: StaffRow; style?: object }) {
           </Text>
           {member.isSelf ? <Text style={styles.selfLabel}>את/ה</Text> : null}
         </View>
-        {member.email || member.phone ? (
+        {!member.isSelf && (member.email || member.phone) ? (
           <Text numberOfLines={1} style={styles.identityMeta}>
             {member.email ?? member.phone}
           </Text>
@@ -1041,12 +1147,10 @@ function RoleOption({
 function Section({
   children,
   count,
-  description,
   title,
 }: {
   children: React.ReactNode;
   count: number;
-  description: string;
   title: string;
 }) {
   return (
@@ -1059,7 +1163,6 @@ function Section({
               <Text style={styles.countBadgeText}>{count}</Text>
             </View>
           </View>
-          <Text style={styles.sectionDescription}>{description}</Text>
         </View>
       </View>
       {children}
@@ -1070,7 +1173,6 @@ function Section({
 function EmptyState({ text }: { text: string }) {
   return (
     <View style={styles.emptyState}>
-      <Users color={TOKENS.colors.textMuted} size={24} />
       <Text style={styles.emptyText}>{text}</Text>
     </View>
   );
@@ -1109,7 +1211,7 @@ function PageState({
 const styles = StyleSheet.create({
   page: {
     alignSelf: 'center',
-    gap: TOKENS.space.xl,
+    gap: TOKENS.space.md,
     maxWidth: 980,
     width: '100%',
   },
@@ -1126,12 +1228,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  pageSubtitle: {
-    ...TOKENS.typography.body,
-    color: TOKENS.colors.textSecondary,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
   primaryButton: {
     alignItems: 'center',
     backgroundColor: TOKENS.colors.primary,
@@ -1139,8 +1235,8 @@ const styles = StyleSheet.create({
     flexDirection: flexDirection.row,
     gap: TOKENS.space.sm,
     justifyContent: 'center',
-    minHeight: 34,
-    paddingHorizontal: TOKENS.space.lg,
+    minHeight: 40,
+    paddingHorizontal: TOKENS.space.md,
   },
   primaryButtonText: { ...TOKENS.typography.label, color: '#FFFFFF' },
   pressed: { opacity: 0.82 },
@@ -1177,45 +1273,21 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  summaryGrid: {
+  seatSummary: {
     flexDirection: flexDirection.row,
+    alignItems: 'center',
+    justifyContent: 'space-between',
     flexWrap: 'wrap',
-    gap: 0,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
+    gap: TOKENS.space.sm,
+    padding: TOKENS.space.md,
+    backgroundColor: TOKENS.colors.elevatedSurface,
     borderColor: TOKENS.colors.border,
-    paddingVertical: 10,
-  },
-  summaryCard: {
-    alignItems: alignItems.start,
-    flex: 1,
-    flexBasis: 150,
-    flexDirection: flexDirection.row,
-    gap: 0,
-    minHeight: 56,
-    paddingHorizontal: 14,
-    paddingVertical: 2,
-  },
-  summaryIcon: {
-    display: 'none',
-  },
-  summaryCopy: { flex: 1, gap: 2 },
-  summaryLabel: {
-    ...TOKENS.typography.metadata,
-    color: TOKENS.colors.textSecondary,
-    textAlign: 'right',
-    writingDirection: 'rtl',
+    borderWidth: 1,
+    borderRadius: TOKENS.radii.md,
   },
   summaryValue: {
-    fontSize: 19,
-    fontWeight: '600',
-    lineHeight: 25,
-    color: TOKENS.colors.textPrimary,
-    textAlign: 'right',
-  },
-  summaryDetail: {
-    ...TOKENS.typography.metadata,
-    color: TOKENS.colors.textMuted,
+    ...TOKENS.typography.label,
+    color: TOKENS.colors.textSecondary,
     textAlign: 'right',
     writingDirection: 'rtl',
   },
@@ -1224,9 +1296,9 @@ const styles = StyleSheet.create({
     borderTopColor: TOKENS.colors.border,
     borderTopWidth: 1,
     overflow: 'visible',
-    paddingTop: 12,
+    paddingTop: TOKENS.space.sm,
   },
-  sectionHeader: { marginBottom: 10 },
+  sectionHeader: { marginBottom: TOKENS.space.sm },
   sectionHeadingCopy: { flex: 1, gap: 2 },
   sectionTitleRow: {
     alignItems: 'center',
@@ -1239,19 +1311,13 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  sectionDescription: {
-    ...TOKENS.typography.secondaryBody,
-    color: TOKENS.colors.textMuted,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
   countBadge: {
     alignItems: 'center',
     backgroundColor: TOKENS.colors.primarySubtle,
     borderRadius: TOKENS.radii.pill,
     justifyContent: 'center',
-    minHeight: 24,
-    minWidth: 28,
+    minHeight: 20,
+    minWidth: 24,
     paddingHorizontal: TOKENS.space.sm,
   },
   countBadgeText: {
@@ -1421,12 +1487,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: TOKENS.space.sm,
   },
-  memberDate: {
-    ...TOKENS.typography.metadata,
-    color: TOKENS.colors.textMuted,
-    marginStart: 'auto',
-    writingDirection: 'rtl',
-  },
   inviteList: { gap: TOKENS.space.sm },
   inviteRow: {
     alignItems: 'center',
@@ -1440,7 +1500,7 @@ const styles = StyleSheet.create({
   inviteIcon: {
     display: 'none',
   },
-  inviteCopy: { flex: 1, gap: 2, minWidth: 180 },
+  inviteCopy: { flex: 1, gap: 2, minWidth: 120 },
   inviteName: {
     ...TOKENS.typography.label,
     color: TOKENS.colors.textPrimary,
@@ -1508,27 +1568,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: TOKENS.space.sm,
     justifyContent: 'center',
-    minHeight: 88,
-    padding: TOKENS.space.md,
-  },
-  ownerOnlyNotice: {
-    backgroundColor: TOKENS.colors.primarySubtle,
-    borderRadius: TOKENS.radii.md,
-    gap: TOKENS.space.xs,
-    marginBottom: TOKENS.space.lg,
-    padding: TOKENS.space.md,
-  },
-  ownerOnlyTitle: {
-    ...TOKENS.typography.label,
-    color: TOKENS.colors.primary,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-  },
-  ownerOnlyText: {
-    ...TOKENS.typography.secondaryBody,
-    color: TOKENS.colors.textSecondary,
-    textAlign: 'right',
-    writingDirection: 'rtl',
+    paddingVertical: TOKENS.space.sm,
   },
   emptyText: {
     ...TOKENS.typography.secondaryBody,
@@ -1577,7 +1617,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     writingDirection: 'rtl',
   },
-  modalForm: { gap: TOKENS.space.lg },
+  inviteModalViewport: { flex: 1 },
+  inviteScroll: { flexGrow: 0, flexShrink: 1, minHeight: 0 },
+  modalForm: { gap: TOKENS.space.md, paddingBottom: TOKENS.space.xs },
+  inviteAction: {
+    minHeight: TOKENS.control.height,
+    width: '100%',
+    flexDirection: flexDirection.row,
+    alignItems: 'center',
+    gap: TOKENS.space.sm,
+    paddingHorizontal: TOKENS.space.lg,
+  },
+  inviteActionLabel: { textAlign: 'right', writingDirection: 'rtl', flex: 1 },
+  whatsappButton: { borderColor: '#168548' },
+  whatsappText: { color: '#168548' },
   formField: { gap: TOKENS.space.sm },
   formLabel: {
     ...TOKENS.typography.label,
@@ -1585,19 +1638,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     writingDirection: 'rtl',
   },
-  input: {
-    backgroundColor: TOKENS.colors.elevatedSurface,
-    borderColor: TOKENS.colors.borderStrong,
-    borderRadius: TOKENS.radii.sm,
-    borderWidth: 1,
-    color: TOKENS.colors.textPrimary,
-    fontSize: 13,
-    minHeight: 38,
-    paddingHorizontal: TOKENS.space.lg,
-    paddingVertical: TOKENS.space.md,
-  },
-  ltrInput: { ...ltrIslandText },
-  roleOptions: { flexDirection: flexDirection.row, gap: TOKENS.space.md },
+  roleOptions: { flexDirection: flexDirection.row, gap: TOKENS.space.sm },
   roleOption: {
     alignItems: 'center',
     borderColor: TOKENS.colors.border,
@@ -1606,7 +1647,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: flexDirection.row,
     gap: TOKENS.space.sm,
-    minHeight: 38,
+    minHeight: TOKENS.control.quietHeight,
     paddingHorizontal: TOKENS.space.lg,
   },
   roleOptionSelected: {
@@ -1615,6 +1656,8 @@ const styles = StyleSheet.create({
   },
   roleOptionText: {
     ...TOKENS.typography.label,
+    textAlign: 'right',
+    writingDirection: 'rtl',
     color: TOKENS.colors.textSecondary,
   },
   roleOptionTextSelected: { color: TOKENS.colors.primary },

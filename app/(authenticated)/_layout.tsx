@@ -22,6 +22,7 @@ import {
 } from '@/lib/auth/postAuthRouting';
 import { isWebRoleRoutingEnabled } from '@/lib/auth/webRoleRouting';
 import { savePendingJoin } from '@/lib/deeplink/pendingJoin';
+import { getPendingStaffLink, isStaffLinkCode, rememberPendingStaffLink, staffLinkHref } from '@/lib/deeplink/pendingStaffLink';
 import { resolveAuthenticatedRouteGuard } from '@/lib/navigation/authenticatedRouteGuard';
 import { resolveWebAuthenticatedRouteGuard } from '@/lib/navigation/webAuthenticatedRouteGuard';
 import { isAdditionalBusinessFlow } from '@/lib/onboarding/businessOnboardingFlow';
@@ -30,7 +31,7 @@ import { rtlScreenContentStyle } from '@/lib/rtl';
 
 export default function AuthenticatedLayout() {
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const { preview, map, biz, ref, bref, src, camp, flow } =
+  const { preview, map, biz, ref, bref, src, camp, flow, inviteCode } =
     useLocalSearchParams<{
       preview?: string;
       map?: string;
@@ -40,6 +41,7 @@ export default function AuthenticatedLayout() {
       src?: string;
       camp?: string;
       flow?: string;
+      inviteCode?: string;
     }>();
   const webRoleRoutingEnabled = isWebRoleRoutingEnabled(Platform.OS);
   // Native preview behavior is unchanged. New Web routes always require auth;
@@ -148,6 +150,14 @@ export default function AuthenticatedLayout() {
     if (resolution.status !== 'route') {
       return;
     }
+    if (Platform.OS === 'web' && user?.customerOnboardedAt != null &&
+        !currentSegments.includes('accept-invite')) {
+      const pending = getPendingStaffLink();
+      if (pending) {
+        safeReplace(staffLinkHref(pending));
+        return;
+      }
+    }
 
     if (Platform.OS === 'web') {
       const decision = resolveWebAuthenticatedRouteGuard({
@@ -197,7 +207,18 @@ export default function AuthenticatedLayout() {
     }
   }, [isAuthenticated, isPreviewMode, biz, ref, bref, src, camp]);
 
+  useEffect(() => {
+    if (Platform.OS === 'web' && !isAuthenticated && !isPreviewMode &&
+        !isLoading && isStaffLinkCode(inviteCode)) {
+      rememberPendingStaffLink(inviteCode);
+      router.replace('/(auth)/sign-up');
+    }
+  }, [inviteCode, isAuthenticated, isLoading, isPreviewMode, router]);
+
   if (!isAuthenticated && !isPreviewMode && !isLoading) {
+    if (Platform.OS === 'web' && isStaffLinkCode(inviteCode)) {
+      return <FullScreenLoading />;
+    }
     return <Redirect href="/(auth)/sign-up" />;
   }
 

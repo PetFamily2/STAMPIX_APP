@@ -23,6 +23,7 @@ mock.module('react-native', () => ({
   View: host('view'),
   Text: host('text'),
   TextInput: host('input'),
+  Image: host('image'),
   Pressable: host('button'),
   TouchableOpacity: host('button'),
   ScrollView: host('scroll'),
@@ -116,6 +117,7 @@ mock.module('@/components/business-settings', () => ({
   SETTINGS_TOKENS: {},
   validateProfileFields: () => null,
   SettingsCard: component,
+  SettingsPrimaryButton: host('address-save'),
   SettingsField: component,
   SettingsSection: component,
   BusinessSettingsSubpageHeader: component,
@@ -649,7 +651,7 @@ try {
   const save = () =>
     tree.root
       .findAllByType('continue')
-      .find((node) => node.props.label === 'שמירה והמשך לפרסום');
+      .find((node) => node.props.label.startsWith('שמירה'));
   const load = () =>
     tree.root
       .findAllByType('continue')
@@ -683,6 +685,97 @@ try {
   assert.equal(programWrites[0].args.businessId, 'card_a');
   console.log(
     'PASS rendered onboarding program: stale draft, business switch, navigation and refresh guard; mocked backend'
+  );
+} finally {
+  if (tree) await act(async () => tree.unmount());
+}
+
+api.business.getBusinessSettings = 'readAddress';
+api.business.updateBusinessAddress = 'saveAddress';
+const originalAddress = {
+  formattedAddress: '10 Original Street',
+  placeId: 'original',
+  location: { lat: 32, lng: 34 },
+  city: 'Test City',
+  street: 'Original Street',
+  streetNumber: '10',
+  updatedAt: 1,
+};
+let addressSnapshot = originalAddress;
+const addressWrites = [];
+mock.module('convex/react', () => ({
+  useQuery: (name, args) =>
+    name === 'readAddress' && args !== 'skip' ? addressSnapshot : undefined,
+  useMutation: () => async (args) => {
+    addressWrites.push(args);
+    if (addressWrites.length === 1) {
+      throw {
+        data: {
+          code: 'EDIT_CONFLICT',
+          entity: 'business',
+          entityId: scope,
+          serverUpdatedAt: 3,
+        },
+      };
+    }
+    return { updatedAt: 4 };
+  },
+}));
+mock.module('@/components/business/BusinessAddressSelector', () => ({
+  default: host('address-picker'),
+}));
+mock.module('@/components/guidance/GuidedActionAnchor', () => ({
+  useGuidedTargetRef: () => () => {},
+}));
+mock.module('@/components/guidance/GuidedActionOverlay', () => ({
+  GuidedActionScreenOverlay: component,
+}));
+const { default: BusinessAddress } = await import(
+  '../app/(authenticated)/(business)/settings-business-address.tsx'
+);
+tree = null;
+try {
+  await act(async () => {
+    tree = create(<BusinessAddress />);
+  });
+  const picker = () => tree.root.findByType('address-picker');
+  const save = () => tree.root.findByType('address-save');
+  const reload = () =>
+    tree.root
+      .findAllByType('button')
+      .find((button) => button.props.accessibilityState);
+  const localAddress = {
+    formattedAddress: '20 Draft Street',
+    placeId: 'draft',
+    latitude: 32,
+    longitude: 34,
+    city: 'Test City',
+    street: 'Draft Street',
+    streetNumber: '20',
+  };
+  await act(async () => picker().props.onSelectedAddressChange(localAddress));
+  assert(browserListeners.has('beforeunload'));
+  await act(async () => save().props.onPress());
+  assert.equal(addressWrites[0].expectedUpdatedAt, 1);
+  assert.equal(reload().props.disabled, true);
+  addressSnapshot = { ...originalAddress, updatedAt: 2 };
+  await act(async () => tree.update(<BusinessAddress />));
+  assert.equal(reload().props.disabled, true);
+  await act(async () => reload().props.onPress());
+  await act(async () => save().props.onPress());
+  assert.equal(addressWrites.length, 1);
+  assert.deepEqual(picker().props.selectedAddress, localAddress);
+  addressSnapshot = { ...originalAddress, updatedAt: 3 };
+  await act(async () => tree.update(<BusinessAddress />));
+  assert.equal(reload().props.disabled, false);
+  await act(async () => reload().props.onPress());
+  assert.equal(picker().props.selectedAddress.placeId, 'original');
+  assert(!browserListeners.has('beforeunload'));
+  await act(async () => picker().props.onSelectedAddressChange(localAddress));
+  await act(async () => save().props.onPress());
+  assert.equal(addressWrites[1].expectedUpdatedAt, 3);
+  console.log(
+    'PASS rendered business address: stale reload preserves draft and blocks writes; mocked backend'
   );
 } finally {
   if (tree) await act(async () => tree.unmount());

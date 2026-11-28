@@ -13,6 +13,7 @@ import {
   resolvePlatformPostAuthHref,
   resolvePostAuthRoute,
 } from '@/lib/auth/postAuthRouting';
+import { getPendingStaffLink, staffLinkHref } from '@/lib/deeplink/pendingStaffLink';
 import {
   productAccent,
   webAccentFill,
@@ -139,9 +140,13 @@ export default function OAuthCallbackScreen() {
 
     hasNavigatedRef.current = true;
     clearPostAuthTimeout();
-    router.replace(resolution.href as Href);
+    const pending = Platform.OS === 'web' && currentUser?.customerOnboardedAt != null
+      ? getPendingStaffLink()
+      : null;
+    router.replace((pending ? staffLinkHref(pending) : resolution.href) as Href);
   }, [
     clearPostAuthTimeout,
+    currentUser?.customerOnboardedAt,
     isLegalAcceptancePending,
     isTransitionPending,
     resolution,

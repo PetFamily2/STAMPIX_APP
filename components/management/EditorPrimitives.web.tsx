@@ -7,27 +7,43 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import { ActionButton } from '@/components/ui/ActionButton';
-import { rtlBaseView } from '@/lib/rtl';
+import { BUSINESS_WEB_TOKENS as T } from '@/lib/design/businessWebTokens';
+import { webInputTypography } from '@/lib/design/webProductChrome';
+import { flexDirection, rtlBaseView } from '@/lib/rtl';
 
 export function EditorSection({
   title,
   subtitle,
   children,
   style,
+  compact = false,
 }: {
   title: string;
   subtitle?: string;
   children: ReactNode;
+  compact?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   return (
-    <View style={[styles.section, style]}>
+    <View style={[styles.section, compact && styles.sectionCompact, style]}>
       <View style={styles.sectionHeading}>
-        <Text style={styles.sectionTitle}>{title}</Text>
+        <Text
+          accessibilityRole={compact ? 'header' : undefined}
+          aria-level={compact ? 2 : undefined}
+          style={[styles.sectionTitle, compact && styles.sectionTitleCompact]}
+        >
+          {title}
+        </Text>
         {subtitle ? (
-          <Text style={styles.sectionSubtitle}>{subtitle}</Text>
+          <Text
+            style={[
+              styles.sectionSubtitle,
+              compact && styles.sectionSubtitleCompact,
+            ]}
+          >
+            {subtitle}
+          </Text>
         ) : null}
       </View>
       {children}
@@ -39,20 +55,27 @@ export function EditorPreviewSurface({
   title = 'כך הלקוחות יראו את זה',
   children,
   style,
+  compact = false,
 }: {
   title?: string;
   children: ReactNode;
+  compact?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   return (
-    <View style={[styles.preview, style]}>
-      <Text style={styles.previewLabel}>{title}</Text>
+    <View style={[styles.preview, compact && styles.previewCompact, style]}>
+      <Text
+        style={[styles.previewLabel, compact && styles.previewLabelCompact]}
+      >
+        {title}
+      </Text>
       {children}
     </View>
   );
 }
 
 export function EditorPrimaryActions({
+  compact = false,
   primaryLabel,
   primaryDisabled,
   primaryLoading,
@@ -67,6 +90,7 @@ export function EditorPrimaryActions({
   lifecycleVariant = 'lifecycle',
   onLifecyclePress,
 }: {
+  compact?: boolean;
   primaryLabel: string;
   primaryDisabled?: boolean;
   primaryLoading?: boolean;
@@ -82,9 +106,10 @@ export function EditorPrimaryActions({
   onLifecyclePress?: () => void;
 }) {
   return (
-    <View style={styles.actions}>
+    <View style={[styles.actions, compact && styles.actionsCompact]}>
       <ActionButton
         label={primaryLabel}
+        labelStyle={compact ? styles.compactActionLabel : undefined}
         disabled={primaryDisabled}
         loading={primaryLoading}
         onPress={onPrimaryPress}
@@ -93,6 +118,8 @@ export function EditorPrimaryActions({
 
       {secondaryLabel && onSecondaryPress ? (
         <ActionButton
+          style={compact ? styles.secondaryAction : undefined}
+          labelStyle={compact ? styles.compactActionLabel : undefined}
           label={secondaryLabel}
           variant="secondary"
           disabled={secondaryDisabled}
@@ -104,6 +131,8 @@ export function EditorPrimaryActions({
 
       {lifecycleLabel && onLifecyclePress ? (
         <ActionButton
+          style={compact ? styles.secondaryAction : undefined}
+          labelStyle={compact ? styles.compactActionLabel : undefined}
           label={lifecycleLabel}
           variant={lifecycleVariant}
           disabled={lifecycleDisabled}
@@ -152,6 +181,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 18,
   },
+  sectionCompact: {
+    gap: T.space.sm,
+    borderColor: T.colors.border,
+    borderRadius: T.radii.lg,
+    paddingHorizontal: T.space.md,
+    paddingVertical: T.space.md,
+  },
+  sectionTitleCompact: {
+    ...webInputTypography,
+    ...T.typography.sectionTitle,
+    color: T.colors.textPrimary,
+  },
+  sectionSubtitleCompact: {
+    ...webInputTypography,
+    ...T.typography.secondaryBody,
+    color: T.colors.textSecondary,
+  },
   sectionHeading: {
     width: '100%',
     gap: 3,
@@ -185,6 +231,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
   },
+  previewCompact: {
+    gap: T.space.xs,
+    borderTopWidth: 1,
+    borderBottomWidth: 0,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+    borderColor: T.colors.border,
+    borderRadius: 0,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingTop: T.space.sm,
+    paddingBottom: 0,
+  },
+  previewLabelCompact: {
+    ...webInputTypography,
+    ...T.typography.label,
+    color: T.colors.textSecondary,
+  },
   previewLabel: {
     width: '100%',
     color: '#475569',
@@ -199,6 +263,18 @@ const styles = StyleSheet.create({
     gap: 10,
     ...rtlBaseView,
   },
+  actionsCompact: {
+    flexDirection: flexDirection.row,
+    flexWrap: 'wrap',
+    gap: T.space.xs,
+  },
+  secondaryAction: {
+    width: 'auto',
+    flexBasis: '45%',
+    flexGrow: 1,
+    minWidth: 0,
+  },
+  compactActionLabel: { ...webInputTypography, fontWeight: '600' },
   stickyFooter: {
     width: '100%',
     flexShrink: 0,

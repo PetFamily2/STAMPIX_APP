@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { CARD_THEMES } from '../../constants/cardThemes';
+import { ensureBusinessBillingAccount } from '../lib/billing/accounts';
 import {
   assertFrozenPlanContract,
   CANONICAL_LOYALTY_THEME_COUNT,
@@ -75,12 +76,60 @@ describe('frozen launch billing contract', () => {
     expect(LOGICAL_SUBSCRIPTION_PRODUCTS).toHaveLength(6);
     expect(REVENUECAT_CANONICAL_ENTITLEMENT).toBe('business_access');
     expect(MVP_FEATURE_FLAGS.freeStarterEnabled).toBe(false);
-    expect(MVP_FEATURE_FLAGS.generalFreeTrialEnabled).toBe(true);
+    expect(MVP_FEATURE_FLAGS.generalFreeTrialEnabled).toBe(false);
     expect(GENERAL_FREE_TRIAL_DAYS).toBe(14);
     expect(GENERAL_FREE_TRIAL_PLAN).toBe('pro');
     expect(MVP_FEATURE_FLAGS.additionalBusinessCreationEnabled).toBe(false);
     expect(MVP_FEATURE_FLAGS.referralRewardMayGrantEntitlement).toBe(false);
     expect(MVP_FEATURE_FLAGS.referralMayPatchSubscriptionEndAt).toBe(false);
+  });
+
+  test('new accounts stay inactive even if a caller requests a legacy trial', async () => {
+    let inserted;
+    const ctx = {
+      db: {
+        query: () => ({
+          withIndex: () => ({ first: async () => null }),
+        }),
+        insert: async (_table, value) => {
+          inserted = value;
+          return 'billing_1';
+        },
+        get: async () => inserted,
+      },
+    };
+    const account = await ensureBusinessBillingAccount(ctx, {
+      businessId: 'business_1',
+      ownerUserId: 'user_1',
+      preferredProviderAppUserId: 'ba_testidentitytoken1234',
+      startGeneralFreeTrial: true,
+      now: 1000,
+    });
+    expect(account.status).toBe('inactive');
+    expect(account.plan).toBeUndefined();
+    expect(account.trialEndsAt).toBeUndefined();
+    expect(account.hasProviderEvidence).toBe(false);
+  });
+
+  test('existing historical trial accounts are not rewritten', async () => {
+    const existing = { status: 'trialing', trialEndsAt: 2000 };
+    const ctx = {
+      db: {
+        query: () => ({
+          withIndex: () => ({ first: async () => existing }),
+        }),
+        insert: async () => {
+          throw new Error('Existing account must not be replaced');
+        },
+      },
+    };
+    expect(
+      await ensureBusinessBillingAccount(ctx, {
+        businessId: 'business_1',
+        ownerUserId: 'user_1',
+        now: 1000,
+      })
+    ).toBe(existing);
   });
 
   test('premium maxCards matches ten loyalty themes', () => {

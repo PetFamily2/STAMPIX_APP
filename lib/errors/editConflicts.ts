@@ -31,3 +31,14 @@ export function getEditConflictError(
 
   return null;
 }
+
+export function canReloadEditConflict(
+  conflictVersion: number | null,
+  snapshotVersion: number | undefined
+): boolean {
+  return (
+    conflictVersion !== null &&
+    typeof snapshotVersion === 'number' &&
+    snapshotVersion >= conflictVersion
+  );
+}

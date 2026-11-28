@@ -18,6 +18,7 @@ import {
   resolvePlatformPostAuthHref,
   resolvePostAuthRoute,
 } from '@/lib/auth/postAuthRouting';
+import { getPendingStaffLink, staffLinkHref } from '@/lib/deeplink/pendingStaffLink';
 import { canPaintPublicWelcome } from '@/lib/auth/publicWelcome';
 import { isWebRoleRoutingEnabled } from '@/lib/auth/webRoleRouting';
 import { isAdditionalBusinessFlow } from '@/lib/onboarding/businessOnboardingFlow';
@@ -116,6 +117,10 @@ export default function AuthRoutesLayout() {
   }
 
   if (disposition.status === 'redirect') {
+    const pending = Platform.OS === 'web' && user?.customerOnboardedAt != null
+      ? getPendingStaffLink()
+      : null;
+    if (pending) return <Redirect href={staffLinkHref(pending) as Href} />;
     const href =
       Platform.OS === 'web' && platformPostAuthResolution.status === 'route'
         ? platformPostAuthResolution.href

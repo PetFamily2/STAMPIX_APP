@@ -15,8 +15,13 @@ import {
 } from 'react-native-safe-area-context';
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { ActionButton } from '@/components/ui/ActionButton';
 import { useSessionContext } from '@/contexts/UserContext';
 import { api } from '@/convex/_generated/api';
+import {
+  clearPendingStaffLink,
+  isStaffLinkCode,
+} from '@/lib/deeplink/pendingStaffLink';
 import { webClassName } from '@/lib/design/webProductChrome';
 import { safeBack } from '@/lib/navigation';
 import { CUSTOMER_BACK_FALLBACKS } from '@/lib/navigation/customerRoutes';
@@ -57,6 +62,10 @@ export default function AcceptInviteScreen() {
   }>();
   const sessionContext = useSessionContext();
   const acceptStaffInvite = useMutation(api.business.acceptStaffInvite);
+  const requestStaffLinkInvite = useMutation(
+    api.business.requestStaffLinkInvite
+  );
+  const [requested, setRequested] = useState(false);
 
   const [manualCode, setManualCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -64,14 +73,16 @@ export default function AcceptInviteScreen() {
 
   const pendingInvites = sessionContext?.pendingInvites ?? [];
   const hasParamCode = Boolean(paramCode?.trim());
+  const isLink = isStaffLinkCode(paramCode);
   const hasPendingInvite = pendingInvites.length > 0;
   const showPendingInviteCard = hasPendingInvite && !hasParamCode;
-  const showManualCodeCard = !hasPendingInvite || hasParamCode;
+  const showManualCodeCard = (!hasPendingInvite || hasParamCode) && !isLink;
   const effectiveCode =
     (paramCode ?? manualCode).trim() || pendingInvites[0]?.inviteCode;
 
   useEffect(() => {
     if (paramCode?.trim()) {
+      if (isStaffLinkCode(paramCode)) clearPendingStaffLink();
       setManualCode(paramCode.trim());
     }
   }, [paramCode]);
@@ -86,6 +97,15 @@ export default function AcceptInviteScreen() {
     setError(null);
     setBusy(true);
     try {
+      if (isStaffLinkCode(code)) {
+        const result = await requestStaffLinkInvite({ inviteCode: code });
+        if (result.status === 'approved') {
+          router.replace(nextRouteByStaffRole(result.staffRole ?? null));
+        } else {
+          setRequested(true);
+        }
+        return;
+      }
       const result = await acceptStaffInvite({ inviteCode: code });
       router.replace(nextRouteByStaffRole(result?.staffRole ?? null));
     } catch (e) {
@@ -124,6 +144,33 @@ export default function AcceptInviteScreen() {
         </StickyScrollHeader>
 
         <View className="px-6">
+          {isLink ? (
+            <View className="mt-6 rounded-2xl border border-zinc-200 bg-white p-4">
+              <Text
+                className={`text-base font-semibold text-gray-900 ${tw.textStart}`}
+              >
+                {requested ? 'הבקשה ממתינה לאישור' : 'הזמנה להצטרף לצוות'}
+              </Text>
+              <Text className={`mt-2 text-sm text-gray-600 ${tw.textStart}`}>
+                {requested
+                  ? 'לאחר אישור בעל העסק תוכלו להיכנס לעסק.'
+                  : 'אשרו בקשת הצטרפות עם החשבון המחובר.'}
+              </Text>
+              {error ? (
+                <Text className={`mt-2 text-sm text-rose-600 ${tw.textStart}`}>
+                  {error}
+                </Text>
+              ) : null}
+              <View className="mt-4">
+                <ActionButton
+                  label={requested ? 'בדיקת אישור וכניסה' : 'בקשת הצטרפות'}
+                  loading={busy}
+                  onPress={handleAccept}
+                  fullWidth={true}
+                />
+              </View>
+            </View>
+          ) : null}
           {showPendingInviteCard && (
             <View className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-4">
               <Text

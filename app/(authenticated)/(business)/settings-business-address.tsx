@@ -32,7 +32,10 @@ import {
   type SelectedBusinessAddress,
 } from '@/lib/businessAddressSelection';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
-import { getEditConflictError } from '@/lib/errors/editConflicts';
+import {
+  canReloadEditConflict,
+  getEditConflictError,
+} from '@/lib/errors/editConflicts';
 import { safeBack } from '@/lib/navigation';
 import { BUSINESS_ROUTES } from '@/lib/navigation/businessRoutes';
 import { selfEnd } from '@/lib/rtl';
@@ -48,11 +51,7 @@ const TEXT = {
   savedTitle: 'נשמר',
   savedMessage: 'כתובת העסק עודכנה בהצלחה.',
   saveFailed: 'עדכון הכתובת נכשל.',
-  conflictTitle: 'הנתונים עודכנו',
-  conflictMessage:
-    'נמצאה גרסה חדשה של כתובת העסק. אפשר לטעון את הנתונים העדכניים או להשאיר את הטיוטה המקומית.',
   loadLatest: 'טען גרסה עדכנית',
-  keepDraft: 'השאר טיוטה מקומית',
   conflictLocked:
     'נמצאה גרסה חדשה של הכתובת. השמירה נעולה עד לטעינת הגרסה העדכנית.',
 };
@@ -119,7 +118,12 @@ export default function BusinessSettingsAddressScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [baseUpdatedAt, setBaseUpdatedAt] = useState<number | null>(null);
-  const [conflictLocked, setConflictLocked] = useState(false);
+  const [conflictVersion, setConflictVersion] = useState<number | null>(null);
+  const conflictLocked = conflictVersion !== null;
+  const canLoadLatest = canReloadEditConflict(
+    conflictVersion,
+    businessSettings?.updatedAt
+  );
   const scrollViewRef = useRef<ScrollView | null>(null);
   const guideTargetRef = useGuidedTargetRef();
   const guideFocusTargetRef = useRef<(() => void) | null>(null);
@@ -136,7 +140,7 @@ export default function BusinessSettingsAddressScreen() {
       setBaseUpdatedAt(
         typeof settings.updatedAt === 'number' ? settings.updatedAt : null
       );
-      setConflictLocked(false);
+      setConflictVersion(null);
     },
     []
   );
@@ -144,14 +148,14 @@ export default function BusinessSettingsAddressScreen() {
   useEffect(() => {
     if (activeBusinessId == null) {
       setBaseUpdatedAt(null);
-      setConflictLocked(false);
+      setConflictVersion(null);
       setSelectedAddress(null);
       setLoadedAddress(null);
       setAddressQuery('');
       return;
     }
     setBaseUpdatedAt(null);
-    setConflictLocked(false);
+    setConflictVersion(null);
     setSelectedAddress(null);
     setLoadedAddress(null);
     setAddressQuery('');
@@ -219,21 +223,7 @@ export default function BusinessSettingsAddressScreen() {
     } catch (saveError) {
       const conflict = getEditConflictError(saveError);
       if (conflict) {
-        Alert.alert(TEXT.conflictTitle, TEXT.conflictMessage, [
-          {
-            text: TEXT.loadLatest,
-            onPress: () => {
-              applyBusinessAddressSnapshot(businessSettings);
-              setError(null);
-            },
-          },
-          {
-            text: TEXT.keepDraft,
-            onPress: () => {
-              setConflictLocked(true);
-            },
-          },
-        ]);
+        setConflictVersion(conflict.serverUpdatedAt);
         return;
       }
       setError(TEXT.saveFailed);
@@ -318,7 +308,12 @@ export default function BusinessSettingsAddressScreen() {
                 <View style={styles.warningCard}>
                   <Text style={styles.warningText}>{TEXT.conflictLocked}</Text>
                   <Pressable
+                    disabled={!canLoadLatest}
+                    accessibilityState={{ disabled: !canLoadLatest }}
                     onPress={() => {
+                      if (!canLoadLatest) {
+                        return;
+                      }
                       applyBusinessAddressSnapshot(businessSettings);
                       setError(null);
                     }}

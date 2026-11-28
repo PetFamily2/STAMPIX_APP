@@ -1366,9 +1366,12 @@ export const refundSUMITPayment = action({
     if (!adminUser) {
       return { ok: false as const, code: 'SUMIT_REFUND_REQUIRES_SUPPORT' };
     }
-    await ctx.runQuery(internal.sumitBilling.getSUMITServerReconciliationContext, {
-      businessId: args.businessId,
-    });
+    await ctx.runQuery(
+      internal.sumitBilling.getSUMITServerReconciliationContext,
+      {
+        businessId: args.businessId,
+      }
+    );
     return {
       ok: false as const,
       code: 'SUMIT_REFUND_VERIFY_REQUIRED',
