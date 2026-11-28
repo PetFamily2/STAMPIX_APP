@@ -1,7 +1,7 @@
 import { useQuery } from 'convex/react';
 import { type Href, useRouter } from 'expo-router';
-import { Component, type ReactNode, useState } from 'react';
-import { Linking, Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { Component, type ReactNode } from 'react';
+import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { BusinessWebDialog } from '@/components/business-web/BusinessWebDialog';
 import { LoyaltyCardClassic } from '@/components/loyalty/LoyaltyCardClassic';
 import { PwaButton } from '@/components/pwa-ui/PwaButton';
@@ -10,10 +10,7 @@ import { normalizeStampShape } from '@/constants/stampOptions';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
-import {
-  webCustomerGuidance,
-  webCustomerStateLabel,
-} from '@/lib/customers/webCustomerGuidance';
+import { webCustomerStateLabel } from '@/lib/customers/webCustomerGuidance';
 import { BUSINESS_WEB_TOKENS as TOKENS } from '@/lib/design/businessWebTokens';
 import { rtlBaseText } from '@/lib/rtl';
 
@@ -54,7 +51,17 @@ function CustomerDetailsContent({
     limit: 30,
   });
   const { activeBusiness } = useActiveBusiness();
-  const [contactError, setContactError] = useState('');
+  const business =
+    String(activeBusiness?.businessId) === String(businessId)
+      ? activeBusiness
+      : null;
+  const canAccessCampaigns = business?.capabilities?.access_campaigns === true;
+  const campaigns = useQuery(
+    api.campaigns.listManagementCampaignsByBusiness,
+    canAccessCampaigns && card?.summary.customerState === 'NEEDS_WINBACK'
+      ? { businessId, deferLargeStats: true }
+      : 'skip'
+  );
   if (card === undefined) {
     return (
       <Text style={styles.body} role="status">
@@ -69,16 +76,16 @@ function CustomerDetailsContent({
       </Text>
     );
   }
-  const guidance = webCustomerGuidance({
-    customerState: card.summary.customerState,
-    marketingOptIn: card.customer.marketingOptIn,
-    phone: card.customer.phone,
-    email: card.customer.email,
-  });
-  const business =
-    String(activeBusiness?.businessId) === String(businessId)
-      ? activeBusiness
+  const existingWinback = (campaigns ?? []).filter(
+    (campaign) => campaign.type === 'winback' && campaign.lifecycle !== 'archived'
+  );
+  const directCampaign =
+    existingWinback.length === 1 && business?.capabilities?.edit_campaigns
+      ? existingWinback[0]
       : null;
+  const canOpenWinback =
+    canAccessCampaigns &&
+    (directCampaign || business?.capabilities?.create_campaigns === true);
 
   return (
     <ScrollView
@@ -97,66 +104,33 @@ function CustomerDetailsContent({
         </Text>
       </View>
       <View style={styles.guidance}>
-        <Text accessibilityRole="header" style={styles.title}>
+        <Text style={styles.title}>
           {webCustomerStateLabel(card.summary.customerState)}
         </Text>
-        <Text style={styles.body}>{guidance.explanation}</Text>
-        <Text style={styles.title}>מה מומלץ לעשות?</Text>
-        <Text style={styles.body}>{guidance.nextStep}</Text>
         {card.summary.customerState === 'NEEDS_WINBACK' &&
-        business?.capabilities?.access_campaigns === true ? (
+        canOpenWinback ? (
           <PwaButton
-            label="הגדרת קמפיין החזרה"
+            label={directCampaign ? 'פתיחת קמפיין החזרה' : 'קמפיין החזרת לקוחות'}
+            disabled={campaigns === undefined}
             onPress={() => {
               onClose();
               router.push({
                 pathname: '/business/campaign/[campaignId]',
                 params: {
-                  campaignId: 'new',
-                  template: 'winback',
+                  campaignId: directCampaign
+                    ? String(directCampaign.campaignId)
+                    : 'new',
+                  ...(directCampaign ? {} : { template: 'winback' }),
                   businessId: String(businessId),
                 },
               } as Href);
             }}
           />
         ) : null}
-        {!card.customer.marketingOptIn ? (
-          <Text style={styles.body}>
-            לא רשומה הסכמה לדיוור שיווקי. לא מוצעת כאן פנייה שיווקית.
-          </Text>
-        ) : guidance.contact ? (
-          <>
-            <PwaButton
-              label={
-                guidance.contact.kind === 'phone'
-                  ? 'התקשרות ללקוח'
-                  : 'פתיחת דוא״ל ללקוח'
-              }
-              variant="secondary"
-              onPress={() => {
-                setContactError('');
-                if (guidance.contact) {
-                  void Linking.openURL(guidance.contact.href).catch(() =>
-                    setContactError(
-                      'לא ניתן לפתוח את אפליקציית הקשר במכשיר הזה.'
-                    )
-                  );
-                }
-              }}
-            />
-            <Text style={styles.caption}>
-              הפעולה פותחת את אפליקציית הטלפון או הדוא״ל בלבד. לא נשלחת הודעה
-              אוטומטית.
-            </Text>
-          </>
-        ) : card.summary.customerState === 'NEEDS_WINBACK' ? (
-          <Text style={styles.body}>
-            אין פרטי קשר תקינים לפנייה. אפשר לבדוק אותם מול הלקוח בביקור הבא.
-          </Text>
-        ) : null}
-        {contactError ? (
-          <Text role="alert" style={styles.body}>
-            {contactError}
+        {card.summary.customerState === 'NEEDS_WINBACK' &&
+        canOpenWinback ? (
+          <Text style={styles.caption}>
+            קמפיין לקבוצת לקוחות · שליחה רק לאחר אישור
           </Text>
         ) : null}
       </View>
@@ -251,7 +225,7 @@ class DetailsErrorBoundary extends Component<
 const styles = StyleSheet.create({
   modal: { flex: 1 },
   scroll: { flexShrink: 1 },
-  content: { gap: TOKENS.space.xl },
+  content: { gap: TOKENS.space.md },
   section: { gap: TOKENS.space.sm },
   title: {
     ...rtlBaseText,
@@ -270,7 +244,7 @@ const styles = StyleSheet.create({
   },
   guidance: {
     gap: TOKENS.space.sm,
-    padding: TOKENS.space.lg,
+    padding: TOKENS.space.sm,
     borderRadius: TOKENS.radii.md,
     backgroundColor: TOKENS.colors.primarySubtle,
   },

@@ -1,9 +1,10 @@
 import { useQuery } from 'convex/react';
 import { useLocalSearchParams } from 'expo-router';
 import { Search, Users } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
+import { BusinessWebAnalytics } from '@/components/business-web/BusinessWebAnalytics';
 import { BusinessWebCustomerDetails } from '@/components/business-web/BusinessWebCustomerDetails';
 import { AppText as Text } from '@/components/ui/AppText';
 import { api } from '@/convex/_generated/api';
@@ -51,6 +52,10 @@ export function BusinessWebCustomers({
   const { filter } = useLocalSearchParams<{ filter?: string | string[] }>();
   const routeFilter = parseWebCustomerRouteFilter(filter);
   const [search, setSearch] = useState('');
+  const [stateFilter, setStateFilter] = useState<string | null | undefined>(
+    undefined
+  );
+  useEffect(() => setStateFilter(undefined), [routeFilter]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(
     null
   );
@@ -59,7 +64,11 @@ export function BusinessWebCustomers({
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return customers.filter((customer) => {
-      if (!customerMatchesWebRouteFilter(customer, routeFilter)) {
+      if (
+        stateFilter === undefined
+          ? !customerMatchesWebRouteFilter(customer, routeFilter)
+          : stateFilter !== null && customer.customerState !== stateFilter
+      ) {
         return false;
       }
       if (!q) {
@@ -69,17 +78,16 @@ export function BusinessWebCustomers({
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(q));
     });
-  }, [customers, routeFilter, search]);
+  }, [customers, routeFilter, search, stateFilter]);
 
-  const activeCount = customers.filter(
-    (customer) => customer.customerState === 'ACTIVE'
-  ).length;
-  const attentionCount = customers.filter(
-    (customer) =>
-      customer.customerState === 'NEEDS_NURTURE' ||
-      customer.customerState === 'NEEDS_WINBACK'
-  ).length;
-
+  const segments = [
+    { state: null, label: 'סה״כ לקוחות' },
+    { state: 'ACTIVE', label: 'פעילים' },
+    { state: 'NEW', label: 'חדשים' },
+    { state: 'CLOSE_TO_REWARD', label: 'קרובים להטבה' },
+    { state: 'NEEDS_NURTURE', label: 'לחיזוק הקשר' },
+    { state: 'NEEDS_WINBACK', label: 'להחזרה' },
+  ];
   return (
     <View style={styles.page}>
       <View style={styles.header}>
@@ -89,31 +97,39 @@ export function BusinessWebCustomers({
         </Text>
       </View>
 
+      <Text style={styles.customerMeta}>מצב הלקוחות · לחצו לסינון הרשימה</Text>
       <View style={styles.summaryRow}>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>סה״כ לקוחות</Text>
-          <Text style={styles.summaryValue}>
-            {data === undefined ? '—' : customers.length}
-          </Text>
-        </View>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>לקוחות פעילים</Text>
-          <Text style={styles.summaryValue}>
-            {data === undefined ? '—' : activeCount}
-          </Text>
-        </View>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>דורשים תשומת לב</Text>
-          <Text style={styles.summaryValue}>
-            {data === undefined ? '—' : attentionCount}
-          </Text>
-        </View>
+        {segments.map(({ state, label }) => {
+          const selected =
+            stateFilter === undefined
+              ? state === null && routeFilter === null
+              : stateFilter === state;
+          const count =
+            state === null
+              ? customers.length
+              : customers.filter((customer) => customer.customerState === state)
+                  .length;
+          return (
+            <Pressable
+              key={state ?? 'all'}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              accessibilityLabel={label}
+              onPress={() => setStateFilter(state)}
+              style={[
+                styles.summaryCard,
+                selected ? styles.summarySelected : null,
+              ]}
+            >
+              <Text style={styles.summaryLabel}>{label}</Text>
+              <Text style={styles.summaryValue}>
+                {data === undefined ? '—' : count}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
-      <Text style={styles.customerMeta}>
-        הסיכום לפי סיווג הלקוחות כעת. נתוני פעילות ב־30 הימים האחרונים מופיעים
-        בניתוחים.
-      </Text>
-
+      <BusinessWebAnalytics activeBusinessId={activeBusinessId} />
       <View style={styles.panel}>
         <View nativeID="business-customer-search" style={styles.searchWrap}>
           <Search color={TOKENS.colors.textMuted} size={18} />
@@ -127,9 +143,13 @@ export function BusinessWebCustomers({
           />
         </View>
 
-        {routeFilter ? (
+        {stateFilter === undefined && routeFilter ? (
           <Text style={styles.filterLabel}>
             {webCustomerRouteFilterLabel(routeFilter)}
+          </Text>
+        ) : stateFilter ? (
+          <Text style={styles.filterLabel}>
+            {segments.find((segment) => segment.state === stateFilter)?.label}
           </Text>
         ) : null}
 
@@ -146,7 +166,7 @@ export function BusinessWebCustomers({
             <Text style={styles.emptyText}>
               {customers.length === 0
                 ? 'לקוחות שיצטרפו לעסק יופיעו כאן.'
-                : routeFilter
+                : routeFilter || stateFilter
                   ? 'אין לקוחות בקבוצה הזו.'
                   : 'נסו חיפוש אחר.'}
             </Text>
@@ -215,7 +235,7 @@ export function BusinessWebCustomers({
                       />
                     </View>
                     <Text style={styles.openCustomer}>
-                      כרטיסיות, פעילות ומה מומלץ לעשות ←
+                      כרטיסיות ופעילות ←
                     </Text>
                   </View>
                 </Pressable>
@@ -258,14 +278,18 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     flexGrow: 1,
-    flexBasis: 88,
+    flexBasis: 86,
     minWidth: 0,
-    padding: TOKENS.space.md,
-    gap: TOKENS.space.xs,
+    padding: TOKENS.space.sm,
+    gap: 2,
     backgroundColor: TOKENS.colors.elevatedSurface,
     borderRadius: TOKENS.radii.md,
     borderWidth: 1,
     borderColor: TOKENS.colors.border,
+  },
+  summarySelected: {
+    borderColor: TOKENS.colors.primary,
+    backgroundColor: TOKENS.colors.primarySubtle,
   },
   summaryLabel: {
     ...TOKENS.typography.metadata,
