@@ -8,10 +8,11 @@ import {
   ShieldCheck,
   UserPlus,
 } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   TextInput,
   useWindowDimensions,
@@ -22,6 +23,7 @@ import {
   BusinessWebDialog,
 } from '@/components/business-web/BusinessWebDialog';
 import { useBusinessWebUnsavedChanges } from '@/components/business-web/BusinessWebRouteContext';
+import QrScanner from '@/components/QrScanner';
 import { AppText as Text } from '@/components/ui/AppText';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -269,6 +271,9 @@ export function BusinessWebTeam() {
   ) as HistoryRow[] | undefined;
 
   const inviteStaff = useMutation(api.business.inviteBusinessStaff);
+  const inviteStaffByScanToken = useMutation(
+    api.business.inviteBusinessStaffByScanToken
+  );
   const cancelInvite = useMutation(api.business.cancelStaffInvite);
   const updateRole = useMutation(api.business.updateBusinessStaffRole);
   const suspendStaff = useMutation(api.business.suspendBusinessStaff);
@@ -278,6 +283,9 @@ export function BusinessWebTeam() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteMode, setInviteMode] = useState<'choose' | 'qr' | 'email'>('choose');
+  const [scannerResetKey, setScannerResetKey] = useState(0);
+  const inviteInFlight = useRef(false);
   const [inviteRole, setInviteRole] = useState<InviteRole>('staff');
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
@@ -291,7 +299,7 @@ export function BusinessWebTeam() {
   } | null>(null);
 
   useBusinessWebUnsavedChanges(
-    isInviteOpen && (inviteEmail.trim().length > 0 || inviteRole !== 'staff')
+    isInviteOpen && (isInviting || inviteEmail.trim().length > 0 || inviteRole !== 'staff')
   );
 
   useEffect(() => {
@@ -337,6 +345,7 @@ export function BusinessWebTeam() {
       return;
     }
     setIsInviteOpen(false);
+    setInviteMode('choose');
     setInviteEmail('');
     setInviteRole('staff');
     setInviteError('');
@@ -344,7 +353,7 @@ export function BusinessWebTeam() {
   };
 
   const submitInvite = async () => {
-    if (!activeBusinessId || isInviting || seatLimitReached) {
+    if (!activeBusinessId || !canManageTeam || inviteInFlight.current || seatLimitReached) {
       return;
     }
     const email = inviteEmail.trim().toLowerCase();
@@ -358,6 +367,7 @@ export function BusinessWebTeam() {
     }
     setInviteError('');
     setInviteSuccess('');
+    inviteInFlight.current = true;
     setIsInviting(true);
     try {
       await inviteStaff({
@@ -370,6 +380,45 @@ export function BusinessWebTeam() {
     } catch (error) {
       setInviteError(mapTeamActionError(error));
     } finally {
+      inviteInFlight.current = false;
+      setIsInviting(false);
+    }
+  };
+
+  const submitScanInvite = async (raw: string) => {
+    if (
+      !activeBusinessId ||
+      !canManageTeam ||
+      !isInviteOpen ||
+      inviteMode !== 'qr' ||
+      inviteSuccess ||
+      inviteInFlight.current ||
+      seatLimitReached
+    ) {
+      return;
+    }
+    const scanToken = raw.trim();
+    if (!scanToken) {
+      setInviteError('קוד לא תקין. נסו לסרוק שוב.');
+      setScannerResetKey((current) => current + 1);
+      return;
+    }
+    inviteInFlight.current = true;
+    setIsInviting(true);
+    setInviteError('');
+    try {
+      const result = await inviteStaffByScanToken({
+        businessId: activeBusinessId,
+        scanToken,
+        role: actorRole === 'owner' ? inviteRole : 'staff',
+      });
+      setInviteSuccess(`ההזמנה נשלחה ל${result.invitedUser.name}. נדרש אישור העובד.`);
+      setInviteMode('choose');
+    } catch (error) {
+      setInviteError(mapTeamActionError(error));
+      setScannerResetKey((current) => current + 1);
+    } finally {
+      inviteInFlight.current = false;
       setIsInviting(false);
     }
   };
@@ -749,13 +798,74 @@ export function BusinessWebTeam() {
       </View>
 
       <BusinessWebDialog
-        description="הזינו כתובת אימייל ובחרו את התפקיד המתאים."
         dismissDisabled={isInviting}
         onDismiss={closeInvite}
         title="הזמנת עובד"
         visible={isInviteOpen}
       >
-        <View style={styles.modalForm}>
+        <ScrollView
+          style={{ flexShrink: 1 }}
+          contentContainerStyle={styles.modalForm}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.formField}>
+            <Text style={styles.formLabel}>תפקיד</Text>
+            <View style={styles.roleOptions}>
+              <RoleOption
+                disabled={isInviting || Boolean(inviteSuccess) || inviteMode === 'qr'}
+                label="עובד"
+                onPress={() => setInviteRole('staff')}
+                selected={inviteRole === 'staff'}
+              />
+              {actorRole === 'owner' ? (
+                <RoleOption
+                  disabled={isInviting || Boolean(inviteSuccess) || inviteMode === 'qr'}
+                  label="מנהל"
+                  onPress={() => setInviteRole('manager')}
+                  selected={inviteRole === 'manager'}
+                />
+              ) : null}
+            </View>
+          </View>
+          {!inviteSuccess && inviteMode === 'choose' ? (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                disabled={seatLimitReached}
+                onPress={() => {
+                  setInviteError('');
+                  setInviteMode('qr');
+                }}
+                style={styles.primaryButton}
+              >
+                <Text style={styles.primaryButtonText}>סריקת QR של העובד</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  setInviteError('');
+                  setInviteMode('email');
+                }}
+                style={styles.secondaryButton}
+              >
+                <Text style={styles.secondaryButtonText}>הזמנה באימייל</Text>
+              </Pressable>
+            </>
+          ) : null}
+          {!inviteSuccess && inviteMode === 'qr' ? (
+            <>
+              <Text style={styles.inviteMeta}>סרקו את ה־QR האישי של העובד</Text>
+              <QrScanner
+                key={scannerResetKey}
+                resetKey={scannerResetKey}
+                isBusy={isInviting}
+                onScan={submitScanInvite}
+                cameraMinHeight={160}
+              />
+            </>
+          ) : null}
+          {!inviteSuccess && inviteMode === 'email' ? (
+            <>
           <View style={styles.formField}>
             <Text style={styles.formLabel}>אימייל</Text>
             <TextInput
@@ -776,25 +886,16 @@ export function BusinessWebTeam() {
               value={inviteEmail}
             />
           </View>
-          <View style={styles.formField}>
-            <Text style={styles.formLabel}>תפקיד</Text>
-            <View style={styles.roleOptions}>
-              <RoleOption
-                disabled={isInviting || Boolean(inviteSuccess)}
-                label="עובד"
-                onPress={() => setInviteRole('staff')}
-                selected={inviteRole === 'staff'}
-              />
-              {actorRole === 'owner' ? (
-                <RoleOption
-                  disabled={isInviting || Boolean(inviteSuccess)}
-                  label="מנהל"
-                  onPress={() => setInviteRole('manager')}
-                  selected={inviteRole === 'manager'}
-                />
-              ) : null}
-            </View>
-          </View>
+              <Pressable
+                accessibilityRole="button"
+                disabled={isInviting || seatLimitReached}
+                onPress={() => void submitInvite()}
+                style={styles.primaryButton}
+              >
+                <Text style={styles.primaryButtonText}>שליחת הזמנה</Text>
+              </Pressable>
+            </>
+          ) : null}
           {inviteError ? (
             <Text accessibilityLiveRegion="polite" style={styles.formError}>
               {inviteError}
@@ -810,38 +911,23 @@ export function BusinessWebTeam() {
             <Pressable
               accessibilityRole="button"
               disabled={isInviting}
-              onPress={closeInvite}
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                pressed ? styles.pressed : null,
-              ]}
+              onPress={() => {
+                if (inviteSuccess || inviteMode === 'choose') {
+                  closeInvite();
+                } else {
+                  setInviteMode('choose');
+                  setInviteError('');
+                  setInviteEmail('');
+                }
+              }}
+              style={styles.secondaryButton}
             >
               <Text style={styles.secondaryButtonText}>
-                {inviteSuccess ? 'סיום' : 'ביטול'}
+                {inviteSuccess ? 'סיום' : inviteMode === 'choose' ? 'ביטול' : 'חזרה'}
               </Text>
             </Pressable>
-            {!inviteSuccess ? (
-              <Pressable
-                accessibilityLabel="שליחת הזמנה"
-                accessibilityRole="button"
-                accessibilityState={{ busy: isInviting, disabled: isInviting }}
-                disabled={isInviting}
-                onPress={() => void submitInvite()}
-                style={({ pressed }) => [
-                  styles.primaryButton,
-                  pressed ? styles.pressed : null,
-                ]}
-              >
-                {isInviting ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <UserPlus color="#FFFFFF" size={18} />
-                )}
-                <Text style={styles.primaryButtonText}>שליחת הזמנה</Text>
-              </Pressable>
-            ) : null}
           </View>
-        </View>
+        </ScrollView>
       </BusinessWebDialog>
 
       <BusinessWebConfirmDialog
