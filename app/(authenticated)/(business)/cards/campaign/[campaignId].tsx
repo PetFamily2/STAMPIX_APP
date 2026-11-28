@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Text,
   TextInput,
   TouchableOpacity,
   View,
@@ -26,12 +25,19 @@ import {
   ManagementPageHeader,
 } from '@/components/management';
 import { PlanLimitModal } from '@/components/subscription/PlanLimitModal';
+import { AppText as Text } from '@/components/ui/AppText';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { Alert } from '@/lib/alert';
-import { productPrimary, webClassName } from '@/lib/design/webProductChrome';
+import { BUSINESS_WEB_TOKENS as T } from '@/lib/design/businessWebTokens';
+import {
+  productPrimary,
+  webClassName,
+  webInputTypography,
+  webOnly,
+} from '@/lib/design/webProductChrome';
 import { resolveBusinessCapabilities } from '@/lib/domain/businessPermissions';
 import {
   entitlementErrorToHebrewMessage,
@@ -46,6 +52,22 @@ import { businessHref } from '@/lib/navigation/businessHref';
 import { resolveCampaignDetailGuideTarget } from '@/lib/recommendations/guidance';
 import { tw } from '@/lib/rtl';
 import { openSubscriptionComparison } from '@/lib/subscription/upgradeNavigation';
+
+const isWeb = Platform.OS === 'web';
+const compactEditor = isWeb ? { compact: true } : {};
+const campaignFieldStyle = webOnly({
+  ...webInputTypography,
+  ...T.typography.body,
+  fontSize: 16,
+  minHeight: T.control.quietHeight,
+  borderRadius: T.radii.md,
+  paddingHorizontal: T.space.md,
+  paddingVertical: T.space.sm,
+  backgroundColor: T.colors.subtleSurface,
+  borderColor: T.colors.borderStrong,
+  color: T.colors.textPrimary,
+});
+const campaignMessageStyle = [campaignFieldStyle, webOnly({ minHeight: 88 })];
 
 type CampaignType =
   | 'welcome'
@@ -1608,11 +1630,24 @@ export default function CampaignDraftEditorScreen() {
     ]);
   };
 
+  const customerPreview = (
+    <EditorPreviewSurface {...compactEditor}>
+      <CampaignCustomerPreview
+        businessName={selectedBusiness?.name ?? 'העסק שלך'}
+        title={messageTitle}
+        body={messageBody}
+        embedded={isWeb}
+      />
+    </EditorPreviewSurface>
+  );
+
   return (
     <SafeAreaView className={webClassName('flex-1 bg-[#E9F0FF]')} edges={[]}>
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={
+          isWeb ? undefined : Platform.OS === 'ios' ? 'padding' : 'height'
+        }
       >
         <ScrollView
           ref={guideScrollRef}
@@ -1620,8 +1655,8 @@ export default function CampaignDraftEditorScreen() {
           keyboardShouldPersistTaps="handled"
           className="flex-1"
           contentContainerStyle={{
-            paddingHorizontal: 20,
-            paddingBottom: 220,
+            paddingHorizontal: isWeb ? 0 : 20,
+            paddingBottom: isWeb ? T.space.md : 220,
             width: '100%',
             maxWidth: 960,
             alignSelf: 'center',
@@ -1629,6 +1664,8 @@ export default function CampaignDraftEditorScreen() {
         >
           <ManagementPageHeader
             title="עריכת קמפיין"
+            {...compactEditor}
+            backgroundColor={isWeb ? T.colors.pageBackground : undefined}
             fallbackHref="/(authenticated)/(business)/campaigns"
             onBackPress={goBackToCampaignList}
           />
@@ -1680,23 +1717,25 @@ export default function CampaignDraftEditorScreen() {
             </View>
           ) : null}
 
-          <View className="mt-4">
-            <EditorPreviewSurface>
-              <CampaignCustomerPreview
-                businessName={selectedBusiness?.name ?? 'העסק שלך'}
-                title={messageTitle}
-                body={messageBody}
-              />
-            </EditorPreviewSurface>
-          </View>
+          {!isWeb ? <View className="mt-4">{customerPreview}</View> : null}
 
-          <View className="mt-4 gap-4">
+          <View
+            style={webOnly({ marginTop: T.space.sm, gap: T.space.md })}
+            className="mt-4 gap-4"
+          >
             <EditorSection
+              {...compactEditor}
               title="תוכן הקמפיין"
-              subtitle="הכותרת וההודעה שהלקוחות יראו."
+              subtitle={isWeb ? undefined : 'הכותרת וההודעה שהלקוחות יראו.'}
             >
               <View className={`${tw.flexRow} items-center gap-3`}>
                 <View
+                  style={webOnly({
+                    width: 36,
+                    height: 36,
+                    borderRadius: T.radii.md,
+                    flexShrink: 0,
+                  })}
                   className={`h-12 w-12 items-center justify-center rounded-2xl ${campaignIdentity.accentBgClass}`}
                 >
                   <Ionicons
@@ -1707,6 +1746,11 @@ export default function CampaignDraftEditorScreen() {
                 </View>
                 <View className={`flex-1 ${tw.itemsStart}`}>
                   <Text
+                    style={webOnly({
+                      ...T.typography.cardTitle,
+                      color: T.colors.textPrimary,
+                      marginTop: 0,
+                    })}
                     className={`mt-1 text-lg font-black ${campaignIdentity.accentClass} ${tw.textStart}`}
                   >
                     {campaignIdentity.title}
@@ -1720,7 +1764,10 @@ export default function CampaignDraftEditorScreen() {
                 </View>
               </View>
 
-              <View className={`${tw.flexRow} mt-4 flex-wrap gap-2`}>
+              <View
+                style={webOnly({ marginTop: 0, gap: 6 })}
+                className={`${tw.flexRow} mt-4 flex-wrap gap-2`}
+              >
                 <View className="rounded-full bg-[#EEF3FF] px-3 py-1">
                   <Text className="text-xs font-bold text-[#1D4ED8]">
                     קהל יעד: {audience.title}
@@ -1746,13 +1793,18 @@ export default function CampaignDraftEditorScreen() {
                 </View>
               </View>
 
-              <View className="mt-2 gap-3">
+              <View
+                style={webOnly({ marginTop: 0, gap: T.space.sm })}
+                className="mt-2 gap-3"
+              >
                 <Text
                   className={`text-[11px] font-semibold text-[#64748B] ${tw.textStart}`}
                 >
                   תוכן ההודעה
                 </Text>
                 <TextInput
+                  accessibilityLabel={isWeb ? 'כותרת ההודעה' : undefined}
+                  style={campaignFieldStyle}
                   value={messageTitle}
                   onChangeText={setMessageTitle}
                   editable={canEditContent}
@@ -1761,6 +1813,8 @@ export default function CampaignDraftEditorScreen() {
                   className="rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
                 />
                 <TextInput
+                  accessibilityLabel={isWeb ? 'תוכן ההודעה' : undefined}
+                  style={campaignMessageStyle}
                   value={messageBody}
                   onChangeText={setMessageBody}
                   editable={canEditContent}
@@ -1771,9 +1825,11 @@ export default function CampaignDraftEditorScreen() {
                   className="min-h-[120px] rounded-2xl border border-[#E3E9FF] bg-[#F8FAFF] px-4 py-3 text-right text-sm font-semibold text-[#0F172A]"
                 />
               </View>
+              {isWeb ? customerPreview : null}
             </EditorSection>
 
             <EditorSection
+              {...compactEditor}
               title="קהל יעד"
               subtitle="הקהל מחושב מהנתונים האמיתיים של העסק."
             >
@@ -1789,6 +1845,7 @@ export default function CampaignDraftEditorScreen() {
 
                 {audience.daysLabel ? (
                   <TextInput
+                    style={campaignFieldStyle}
                     value={daysInput}
                     onChangeText={setDaysInput}
                     editable={canEditRules}
@@ -1862,6 +1919,7 @@ export default function CampaignDraftEditorScreen() {
             </EditorSection>
 
             <EditorSection
+              {...compactEditor}
               title="ערוצים"
               subtitle="מוצגים רק ערוצי שליחה הנתמכים כעת."
             >
@@ -1892,6 +1950,7 @@ export default function CampaignDraftEditorScreen() {
             </EditorSection>
 
             <EditorSection
+              {...compactEditor}
               title="תזמון"
               subtitle="בחרו מצב פעיל אחד: עכשיו, תזמון חד-פעמי או אוטומציה."
             >
@@ -1977,6 +2036,11 @@ export default function CampaignDraftEditorScreen() {
                         : undefined
                     }
                     collapsable={false}
+                    style={webOnly({
+                      borderWidth: 0,
+                      padding: 0,
+                      backgroundColor: 'transparent',
+                    })}
                     className="gap-2 rounded-2xl border border-[#E5EAF2] bg-[#F8FAFF] p-3"
                   >
                     <Text className={`text-xs text-[#1E293B] ${tw.textStart}`}>
@@ -2025,6 +2089,7 @@ export default function CampaignDraftEditorScreen() {
             </EditorSection>
 
             <EditorSection
+              {...compactEditor}
               title="הגדרות מתקדמות"
               subtitle="אוטומציה מחזורית נשארת סגורה כברירת מחדל."
             >
@@ -2113,6 +2178,7 @@ export default function CampaignDraftEditorScreen() {
             </EditorSection>
 
             <EditorSection
+              {...compactEditor}
               title="ביצועים"
               subtitle="נתוני אמת מצטברים של הקמפיין."
             >
@@ -2122,7 +2188,14 @@ export default function CampaignDraftEditorScreen() {
                 >
                   נתונים ותוצאות
                 </Text>
-                <View className="gap-2 rounded-2xl border border-[#E5EAF2] bg-[#F8FAFF] p-3">
+                <View
+                  style={webOnly({
+                    borderWidth: 0,
+                    padding: 0,
+                    backgroundColor: 'transparent',
+                  })}
+                  className="gap-2 rounded-2xl border border-[#E5EAF2] bg-[#F8FAFF] p-3"
+                >
                   <Text className={`text-xs text-[#475569] ${tw.textStart}`}>
                     קהל זכאי עכשיו: {stats.eligibleAudienceNow ?? '—'}
                   </Text>
@@ -2184,7 +2257,7 @@ export default function CampaignDraftEditorScreen() {
             </Text>
           </View>
         </ScrollView>
-        <EditorStickyFooter>
+        <EditorStickyFooter {...(isWeb ? { dense: true } : {})}>
           <View
             ref={
               campaignGuideTarget === 'publish-action'
@@ -2194,6 +2267,7 @@ export default function CampaignDraftEditorScreen() {
             collapsable={false}
           >
             <EditorPrimaryActions
+              {...compactEditor}
               primaryLabel={
                 isOneTimeMode ? 'שמור והפעל תזמון' : 'שמור ושלח עכשיו'
               }

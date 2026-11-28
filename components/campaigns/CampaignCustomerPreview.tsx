@@ -1,30 +1,37 @@
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { AppText as Text } from '@/components/ui/AppText';
+import { BUSINESS_WEB_TOKENS as T } from '@/lib/design/businessWebTokens';
 import { flexDirection, rtlBaseView } from '@/lib/rtl';
 
 export function CampaignCustomerPreview({
   businessName,
   title,
   body,
+  embedded = false,
 }: {
   businessName: string;
   title: string;
   body: string;
+  embedded?: boolean;
 }) {
   return (
     <View
       accessibilityLabel={`תצוגת הודעה ללקוח מאת ${businessName}`}
-      style={styles.notification}
+      style={[styles.notification, embedded && styles.embedded]}
     >
-      <View style={styles.iconCanvas}>
+      <View style={[styles.iconCanvas, embedded && styles.embeddedIcon]}>
         <Ionicons name="notifications-outline" size={21} color="#1D4ED8" />
       </View>
       <View style={styles.copy}>
         <Text numberOfLines={1} style={styles.businessName}>
           {businessName}
         </Text>
-        <Text numberOfLines={2} style={styles.title}>
+        <Text
+          numberOfLines={2}
+          style={[styles.title, embedded && styles.embeddedTitle]}
+        >
           {title.trim() || 'כותרת ההודעה'}
         </Text>
         <Text numberOfLines={3} style={styles.body}>
@@ -58,6 +65,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  embedded: {
+    borderWidth: 0,
+    backgroundColor: T.colors.subtleSurface,
+    borderRadius: T.radii.md,
+    padding: T.space.sm,
+  },
+  embeddedIcon: {
+    width: T.icons.container,
+    height: T.icons.container,
+    borderRadius: T.radii.sm,
+  },
+  embeddedTitle: { ...T.typography.cardTitle, color: T.colors.textPrimary },
   copy: {
     flex: 1,
     minWidth: 0,

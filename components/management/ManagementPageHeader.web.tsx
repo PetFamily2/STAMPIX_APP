@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { StandaloneBackTitleHeader } from '@/components/StandaloneBackTitleHeader';
 import StickyScrollHeader from '@/components/StickyScrollHeader';
+import { webTitle } from '@/lib/design/webProductChrome';
 import { safeBack } from '@/lib/navigation';
 
 export function ManagementPageHeader({
@@ -37,7 +38,7 @@ export function ManagementPageHeader({
           subtitle={subtitle}
           onBackPress={onBackPress ?? (() => safeBack(fallbackHref))}
           leftAccessory={leftAccessory}
-          titleStyle={styles.title}
+          titleStyle={[styles.title, compact && webTitle]}
           subtitleStyle={styles.subtitle}
         />
       </View>
