@@ -10,6 +10,11 @@ import { hasUnsavedEdits } from '@/lib/network/unsavedEdits';
 const UPDATE_INTERVAL_MS = 15 * 60 * 1000;
 const RELOAD_GUARD_KEY = 'stampaix:pwa-reload-at';
 const RELOAD_GUARD_MS = 8000;
+const UPDATE_RETRY_MS = 1000;
+const UPDATE_RESPONSE_MS = 5000;
+const MAX_UPDATE_ATTEMPTS = 3;
+
+type UpdateHold = 'local' | 'other' | 'timeout';
 
 function uncertainty() {
   try {
@@ -46,11 +51,16 @@ export default function PwaRuntime() {
   serverBusy.current = connection.hasInflightRequests;
   const [waiting, setWaiting] = useState<ServiceWorker | null>(null);
   const [dismissed, setDismissed] = useState<ServiceWorker | null>(null);
-  const [held, setHeld] = useState(false);
+  const [held, setHeld] = useState<UpdateHold | null>(null);
+  const [requested, setRequested] = useState(false);
+  const [reloadPending, setReloadPending] = useState(false);
   const [applying, setApplying] = useState(false);
   const [offline, setOffline] = useState(false);
   const busy = useRef(false);
   const attempt = useRef('');
+  const attempts = useRef(0);
+  const responseTimer = useRef<number | undefined>(undefined);
+  const retryUpdate = useRef<() => void>(() => {});
   const safeNow = useRef<() => boolean>(() => false);
   safeNow.current = () =>
     !busy.current &&
@@ -70,6 +80,7 @@ export default function PwaRuntime() {
     }
     let disposed = false;
     let timer = 0;
+    let reloadTimer = 0;
     let registration: ServiceWorkerRegistration | null = null;
     const network = () => setOffline(navigator.onLine === false);
     const scanner = (event: Event) => {
@@ -148,38 +159,51 @@ export default function PwaRuntime() {
         });
         return;
       }
-      if (event.data?.type === 'UPDATE_BLOCKED') {
-        setHeld(true);
+      if (
+        event.data?.type === 'UPDATE_BLOCKED' &&
+        attempt.current &&
+        event.data.nonce === attempt.current
+      ) {
+        window.clearTimeout(responseTimer.current);
+        attempt.current = '';
+        setApplying(false);
+        setHeld('other');
       }
     };
     const hadController = !!navigator.serviceWorker.controller;
     let reloaded = false;
-    const changed = () => {
-      if (
-        reloaded ||
-        !hadController ||
-        busy.current ||
-        httpBusy.current ||
-        serverBusy.current ||
-        hasUnsavedEdits() ||
-        uncertainty() ||
-        paymentInProgress()
-      ) {
+    const reloadWhenSafe = () => {
+      if (disposed || reloaded || !hadController) {
         return;
       }
+      window.clearTimeout(reloadTimer);
       let last = 0;
       try {
         last = Number(sessionStorage.getItem(RELOAD_GUARD_KEY) ?? 0);
-        if (Date.now() - last < RELOAD_GUARD_MS) {
-          return;
-        }
+      } catch {
+        /* Storage is optional for the reload guard. */
+      }
+      if (!safeNow.current() || Date.now() - last < RELOAD_GUARD_MS) {
+        setReloadPending(true);
+        reloadTimer = window.setTimeout(reloadWhenSafe, UPDATE_RETRY_MS);
+        return;
+      }
+      try {
         sessionStorage.setItem(RELOAD_GUARD_KEY, String(Date.now()));
       } catch {
         /* Reload still proceeds once in this document. */
       }
       reloaded = true;
-      attempt.current = '';
       location.reload();
+    };
+    const changed = () => {
+      window.clearTimeout(responseTimer.current);
+      attempt.current = '';
+      setRequested(false);
+      setApplying(false);
+      setHeld(null);
+      setWaiting(null);
+      reloadWhenSafe();
     };
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', network);
@@ -213,6 +237,9 @@ export default function PwaRuntime() {
     return () => {
       disposed = true;
       window.clearInterval(timer);
+      window.clearTimeout(reloadTimer);
+      window.clearTimeout(responseTimer.current);
+      attempt.current = '';
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', network);
       window.removeEventListener('stampaix:scanner-busy', scanner);
@@ -223,18 +250,23 @@ export default function PwaRuntime() {
       channel?.close();
     };
   }, []);
-  const update = () => {
-    if (!waiting) {
+  const tryUpdate = () => {
+    if (!waiting || waiting.state !== 'installed' || attempt.current) {
       return;
     }
     if (!safeNow.current()) {
       setApplying(false);
-      setHeld(true);
+      setHeld('local');
       return;
     }
+    if (attempts.current >= MAX_UPDATE_ATTEMPTS) {
+      setRequested(false);
+      return;
+    }
+    attempts.current += 1;
     const nonce = crypto.randomUUID();
     attempt.current = nonce;
-    setHeld(false);
+    setHeld(null);
     setApplying(true);
     waiting.postMessage({ type: 'REQUEST_SAFE_ACTIVATION', nonce });
     waiting.postMessage({
@@ -247,13 +279,51 @@ export default function PwaRuntime() {
       channel.postMessage({ type: 'CHECK_UPDATE_SAFE', nonce });
       channel.close();
     }
-    window.setTimeout(() => {
+    responseTimer.current = window.setTimeout(() => {
       if (attempt.current === nonce) {
+        attempt.current = '';
         setApplying(false);
-        setHeld(true);
+        setHeld('timeout');
       }
-    }, 2500);
+    }, UPDATE_RESPONSE_MS);
   };
+  retryUpdate.current = tryUpdate;
+  useEffect(() => {
+    if (!requested) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        retryUpdate.current();
+      }
+    }, UPDATE_RETRY_MS);
+    return () => window.clearInterval(timer);
+  }, [requested]);
+
+  const update = () => {
+    if (attempt.current) {
+      return;
+    }
+    attempts.current = 0;
+    setRequested(true);
+    tryUpdate();
+  };
+  const dismissUpdate = () => {
+    window.clearTimeout(responseTimer.current);
+    attempt.current = '';
+    setRequested(false);
+    setApplying(false);
+    setHeld(null);
+    setDismissed(waiting);
+  };
+  const holdMessage =
+    held === 'local'
+      ? 'העדכון יתאפשר בסיום הפעולה'
+      : held === 'other'
+        ? 'חלון של האפליקציה עדיין אינו מוכן לעדכון'
+        : held === 'timeout'
+          ? 'ממתינים לאישור העדכון. אם העיכוב נמשך, סגרו חלונות נוספים ונסו שוב.'
+          : null;
   const showUpdate = waiting != null && waiting !== dismissed;
   return (
     <>
@@ -261,6 +331,11 @@ export default function PwaRuntime() {
       {offline ? (
         <p dir="rtl" style={offlineStyle}>
           אין חיבור לרשת. פעולות סריקה חסומות.
+        </p>
+      ) : null}
+      {reloadPending ? (
+        <p role="status" dir="rtl" style={offlineStyle}>
+          הגרסה החדשה מותקנת. המסך יתרענן כשניתן לעשות זאת בבטחה.
         </p>
       ) : null}
       {showUpdate ? (
@@ -273,13 +348,13 @@ export default function PwaRuntime() {
             <button
               type="button"
               aria-label="סגירת הודעת העדכון"
-              onClick={() => setDismissed(waiting)}
+              onClick={dismissUpdate}
               style={closeButtonStyle}
             >
               ×
             </button>
           </span>
-          {held ? <p style={heldStyle}>העדכון יתאפשר בסיום הפעולה</p> : null}
+          {holdMessage ? <p style={heldStyle}>{holdMessage}</p> : null}
         </aside>
       ) : null}
     </>
